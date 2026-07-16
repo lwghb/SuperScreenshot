@@ -93,6 +93,7 @@ final class DirectAnnotationController: NSObject {
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.level = .floating
+        window.acceptsMouseMovedEvents = true
 
         let content = NSView(frame: CGRect(origin: .zero, size: contentSize))
         content.autoresizingMask = [.width, .height]
@@ -236,7 +237,7 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func makeToolbarView(frame: CGRect) -> NSView {
-        let content = NSView(frame: frame)
+        let content = InstantTooltipToolbarView(frame: frame)
         content.wantsLayer = true
         content.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         let tools = NSStackView()
@@ -291,6 +292,7 @@ final class DirectAnnotationController: NSObject {
             palette.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             palette.topAnchor.constraint(equalTo: tools.bottomAnchor, constant: 10)
         ])
+        content.activateInstantTooltips()
         return content
     }
 
@@ -525,6 +527,106 @@ private final class DirectPreviewBorderView: NSView {
         let border = NSBezierPath(rect: bounds.insetBy(dx: 1, dy: 1))
         border.lineWidth = 2
         border.stroke()
+    }
+}
+
+private final class InstantTooltipToolbarView: NSView {
+    private var tracking: NSTrackingArea?
+    private var tooltipText: [ObjectIdentifier: String] = [:]
+    private weak var currentTarget: NSView?
+    private let tooltipLabel: NSTextField = {
+        let label = NSTextField(labelWithString: "")
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = .white
+        label.alignment = .center
+        label.wantsLayer = true
+        label.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.82).cgColor
+        label.layer?.cornerRadius = 5
+        label.isHidden = true
+        return label
+    }()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        addSubview(tooltipLabel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func activateInstantTooltips() {
+        collectTooltips(from: self)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .inVisibleRect, .mouseMoved, .mouseEnteredAndExited],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(point), let target = tooltipTarget(at: point) else {
+            hideTooltip()
+            return
+        }
+        showTooltip(for: target)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hideTooltip()
+    }
+
+    private func collectTooltips(from view: NSView) {
+        for subview in view.subviews where subview !== tooltipLabel {
+            if let text = subview.toolTip, !text.isEmpty {
+                tooltipText[ObjectIdentifier(subview)] = text
+                subview.toolTip = nil
+            }
+            collectTooltips(from: subview)
+        }
+    }
+
+    private func tooltipTarget(at point: CGPoint) -> NSView? {
+        var candidate = hitTest(point)
+        while let view = candidate, view !== self {
+            if tooltipText[ObjectIdentifier(view)] != nil { return view }
+            candidate = view.superview
+        }
+        return nil
+    }
+
+    private func showTooltip(for target: NSView) {
+        guard currentTarget !== target, let text = tooltipText[ObjectIdentifier(target)] else { return }
+        currentTarget = target
+        tooltipLabel.stringValue = text
+        tooltipLabel.sizeToFit()
+        var frame = tooltipLabel.frame.insetBy(dx: -8, dy: -4)
+        let targetFrame = target.convert(target.bounds, to: self)
+        frame.origin.x = min(max(targetFrame.midX - frame.width / 2, 4), bounds.maxX - frame.width - 4)
+        frame.origin.y = targetFrame.maxY + 6
+        tooltipLabel.frame = frame
+        tooltipLabel.alphaValue = 0
+        tooltipLabel.isHidden = false
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            tooltipLabel.animator().alphaValue = 1
+        }
+    }
+
+    private func hideTooltip() {
+        currentTarget = nil
+        tooltipLabel.isHidden = true
+        tooltipLabel.alphaValue = 0
     }
 }
 
