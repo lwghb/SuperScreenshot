@@ -267,8 +267,12 @@ final class DirectAnnotationController: NSObject {
         palette.spacing = 8
         palette.alignment = .centerY
         palette.translatesAutoresizingMaskIntoConstraints = false
-        let textColor = button("字色", action: #selector(useTextColor), toolTip: "文字颜色")
-        let textBackground = button("背景", action: #selector(useTextBackground), toolTip: "文字背景色")
+        let textColor = button("字色", action: #selector(useTextColor))
+        let textBackground = button("背景", action: #selector(useTextBackground))
+        textColor.wantsLayer = true
+        textBackground.wantsLayer = true
+        textColor.layer?.cornerRadius = 6
+        textBackground.layer?.cornerRadius = 6
         textColorButton = textColor
         textBackgroundButton = textBackground
         palette.addArrangedSubview(textColor)
@@ -276,7 +280,6 @@ final class DirectAnnotationController: NSObject {
         let colors: [NSColor] = [.systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple, .white, .black]
         for color in colors {
             let swatch = DirectColorButton(color: color, target: self, action: #selector(chooseColor(_:)))
-            swatch.toolTip = "选择颜色"
             paletteButtons.append(swatch)
             palette.addArrangedSubview(swatch)
         }
@@ -474,10 +477,21 @@ final class DirectAnnotationController: NSObject {
         textButton?.configure(top: canvas?.textColor ?? .white, bottom: canvas?.textBackgroundColor ?? .systemRed, selected: mode == .text)
         textColorButton?.isHidden = mode != .text
         textBackgroundButton?.isHidden = mode != .text
-        textColorButton?.contentTintColor = colorTarget == .text ? .systemBlue : .labelColor
-        textBackgroundButton?.contentTintColor = colorTarget == .textBackground ? .systemBlue : .labelColor
+        updateColorTargetButton(textColorButton, selected: colorTarget == .text)
+        updateColorTargetButton(textBackgroundButton, selected: colorTarget == .textBackground)
         let active = currentColor()
         paletteButtons.forEach { $0.isSelectedColor = colorsMatch($0.color, active) }
+    }
+
+    private func updateColorTargetButton(_ button: NSButton?, selected: Bool) {
+        guard let button else { return }
+        button.state = selected ? .on : .off
+        button.contentTintColor = selected ? .systemBlue : .labelColor
+        button.layer?.borderWidth = selected ? 2 : 0
+        button.layer?.borderColor = selected ? NSColor.systemBlue.cgColor : NSColor.clear.cgColor
+        button.layer?.backgroundColor = selected
+            ? NSColor.systemBlue.withAlphaComponent(0.16).cgColor
+            : NSColor.clear.cgColor
     }
 
     private func focusCanvas() {
