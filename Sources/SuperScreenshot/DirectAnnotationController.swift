@@ -248,16 +248,17 @@ final class DirectAnnotationController: NSObject {
         let delete = DeleteDropButton(target: self, action: #selector(deleteSelectedAnnotation))
         deleteDropButton = delete
         tools.addArrangedSubview(delete)
-        tools.addArrangedSubview(button("撤销", action: #selector(undo)))
-        arrowButton = toolButton("arrow.down.right", action: #selector(useArrow))
-        textButton = toolButton("textformat", action: #selector(useText))
-        rectangleButton = toolButton("rectangle", action: #selector(useRectangle))
-        ellipseButton = toolButton("circle", action: #selector(useEllipse))
-        mosaicButton = toolButton("square.grid.3x3.fill", action: #selector(useMosaic))
+        tools.addArrangedSubview(button("撤销", action: #selector(undo), toolTip: "撤销上一步"))
+        arrowButton = toolButton("arrow.down.right", action: #selector(useArrow), toolTip: "箭头标注")
+        textButton = toolButton("textformat", action: #selector(useText), toolTip: "文字标注")
+        rectangleButton = toolButton("rectangle", action: #selector(useRectangle), toolTip: "矩形标注")
+        ellipseButton = toolButton("circle", action: #selector(useEllipse), toolTip: "椭圆标注")
+        mosaicButton = toolButton(image: mosaicToolIcon(), action: #selector(useMosaic), toolTip: "马赛克")
         [arrowButton, textButton, rectangleButton, ellipseButton, mosaicButton].compactMap { $0 }.forEach { tools.addArrangedSubview($0) }
-        tools.addArrangedSubview(button("长截图", action: #selector(longCapture)))
+        tools.addArrangedSubview(button("长截图", action: #selector(longCapture), toolTip: "长截图"))
         let finishButton = ColoredTitleButton(title: "完成", fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
         finishButton.keyEquivalent = "\r"
+        finishButton.toolTip = "完成并复制截图"
         tools.addArrangedSubview(finishButton)
 
         let palette = NSStackView()
@@ -265,8 +266,8 @@ final class DirectAnnotationController: NSObject {
         palette.spacing = 8
         palette.alignment = .centerY
         palette.translatesAutoresizingMaskIntoConstraints = false
-        let textColor = button("字色", action: #selector(useTextColor))
-        let textBackground = button("背景", action: #selector(useTextBackground))
+        let textColor = button("字色", action: #selector(useTextColor), toolTip: "文字颜色")
+        let textBackground = button("背景", action: #selector(useTextBackground), toolTip: "文字背景色")
         textColorButton = textColor
         textBackgroundButton = textBackground
         palette.addArrangedSubview(textColor)
@@ -274,6 +275,7 @@ final class DirectAnnotationController: NSObject {
         let colors: [NSColor] = [.systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple, .white, .black]
         for color in colors {
             let swatch = DirectColorButton(color: color, target: self, action: #selector(chooseColor(_:)))
+            swatch.toolTip = "选择颜色"
             paletteButtons.append(swatch)
             palette.addArrangedSubview(swatch)
         }
@@ -289,8 +291,13 @@ final class DirectAnnotationController: NSObject {
         return content
     }
 
-    private func toolButton(_ symbol: String, action: Selector) -> ToolButton {
-        let button = ToolButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage(), target: self, action: action)
+    private func toolButton(_ symbol: String, action: Selector, toolTip: String) -> ToolButton {
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: toolTip) ?? NSImage()
+        return toolButton(image: image, action: action, toolTip: toolTip)
+    }
+
+    private func toolButton(image: NSImage, action: Selector, toolTip: String) -> ToolButton {
+        let button = ToolButton(image: image, target: self, action: action)
         button.bezelStyle = .texturedRounded
         button.imageScaling = .scaleProportionallyDown
         button.wantsLayer = true
@@ -299,13 +306,44 @@ final class DirectAnnotationController: NSObject {
         button.contentTintColor = .labelColor
         button.widthAnchor.constraint(equalToConstant: 34).isActive = true
         button.heightAnchor.constraint(equalToConstant: 34).isActive = true
+        button.toolTip = toolTip
         return button
     }
 
-    private func button(_ title: String, action: Selector) -> NSButton {
+    private func button(_ title: String, action: Selector, toolTip: String? = nil) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
         button.bezelStyle = .rounded
+        button.toolTip = toolTip
         return button
+    }
+
+    private func mosaicToolIcon() -> NSImage {
+        let image = NSImage(size: CGSize(width: 18, height: 18), flipped: false) { rect in
+            let cells: [(Int, Int, CGFloat)] = [
+                (0, 0, 0.45), (1, 0, 1.0), (2, 0, 0.65),
+                (0, 1, 1.0), (1, 1, 0.55), (2, 1, 1.0),
+                (0, 2, 0.7), (1, 2, 1.0), (2, 2, 0.4)
+            ]
+            let gap: CGFloat = 1.4
+            let cell = (min(rect.width, rect.height) - gap * 2) / 3
+            let origin = CGPoint(
+                x: rect.midX - (cell * 3 + gap * 2) / 2,
+                y: rect.midY - (cell * 3 + gap * 2) / 2
+            )
+            for (column, row, alpha) in cells {
+                NSColor.black.withAlphaComponent(alpha).setFill()
+                NSBezierPath(roundedRect: CGRect(
+                    x: origin.x + CGFloat(column) * (cell + gap),
+                    y: origin.y + CGFloat(row) * (cell + gap),
+                    width: cell,
+                    height: cell
+                ), xRadius: 0.8, yRadius: 0.8).fill()
+            }
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "马赛克"
+        return image
     }
 
     private func updateDeleteDropTarget(at point: CGPoint?) {
