@@ -259,7 +259,7 @@ final class DirectAnnotationController: NSObject {
         let finishButton = ColoredTitleButton(title: "完成", fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
         finishButton.keyEquivalent = "\r"
         finishButton.toolTip = "完成并复制截图"
-        tools.addArrangedSubview(finishButton)
+        finishButton.translatesAutoresizingMaskIntoConstraints = false
 
         let palette = NSStackView()
         palette.orientation = .horizontal
@@ -282,9 +282,12 @@ final class DirectAnnotationController: NSObject {
 
         content.addSubview(tools)
         content.addSubview(palette)
+        content.addSubview(finishButton)
         NSLayoutConstraint.activate([
             tools.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             tools.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+            finishButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
+            finishButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
             palette.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             palette.topAnchor.constraint(equalTo: tools.bottomAnchor, constant: 10)
         ])
