@@ -6,6 +6,7 @@ enum ScreenshotAnnotationMode: Int, CaseIterable {
     case text = 1
     case rectangle = 2
     case ellipse = 3
+    case mosaic = 4
 }
 
 private enum ColorTarget {
@@ -358,6 +359,7 @@ private enum ScreenshotAnnotation {
     case rectangle(CGRect, color: NSColor)
     case ellipse(CGRect, color: NSColor)
     case text(String, origin: CGPoint, textColor: NSColor, backgroundColor: NSColor)
+    case mosaic(points: [CGPoint], brushWidth: CGFloat)
 }
 
 private final class ColorIndicatorButton: NSButton {
@@ -503,6 +505,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     var textColor: NSColor = .white
     var textBackgroundColor: NSColor = .systemBlue
     var onEscape: (() -> Void)?
+    var onAnnotationDragLocation: ((CGPoint?) -> Void)?
+    var onAnnotationDragEnded: ((CGPoint) -> Bool)?
 
     private let image: CGImage
     private let imagePadding: CGFloat
@@ -515,6 +519,9 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     private var activeTextField: NSTextField?
     private var activeTextOrigin: CGPoint?
     private var suppressNextTextMouseDown = false
+    private var activeMosaicPoints: [CGPoint]?
+    private var lastMosaicSampleTime: TimeInterval = 0
+    private lazy var mosaicImage: CGImage? = makeMosaicImage()
 
     init(frame: CGRect, image: CGImage, imagePadding: CGFloat = 20) {
         self.image = image
@@ -565,10 +572,11 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             return
         }
         let point = imagePoint(from: convert(event.locationInWindow, from: nil))
-        if let index = hitAnnotation(point) {
+        if mode != .mosaic, let index = hitAnnotation(point) {
             movingIndex = index
             selectedIndex = index
             lastMovePoint = point
+            onAnnotationDragLocation?(nil)
             window?.makeFirstResponder(self)
             return
         }
@@ -578,6 +586,9 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         case .arrow, .rectangle, .ellipse:
             dragStart = point
             dragEnd = point
+        case .mosaic:
+            activeMosaicPoints = [point]
+            lastMosaicSampleTime = ProcessInfo.processInfo.systemUptime
         }
     }
 
@@ -586,6 +597,15 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         if let index = movingIndex, let last = lastMovePoint {
             moveAnnotation(at: index, by: CGPoint(x: point.x - last.x, y: point.y - last.y))
             lastMovePoint = point
+            onAnnotationDragLocation?(event.locationInWindow)
+            needsDisplay = true
+            return
+        }
+        if activeMosaicPoints != nil {
+            let now = ProcessInfo.processInfo.systemUptime
+            guard now - lastMosaicSampleTime >= 0.05 else { return }
+            activeMosaicPoints?.append(point)
+            lastMosaicSampleTime = now
             needsDisplay = true
             return
         }
@@ -595,9 +615,27 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseUp(with event: NSEvent) {
-        if movingIndex != nil {
+        if let index = movingIndex {
+            let shouldDelete = onAnnotationDragEnded?(event.locationInWindow) ?? false
+            onAnnotationDragLocation?(nil)
+            if shouldDelete {
+                removeAnnotation(at: index)
+            }
             movingIndex = nil
             lastMovePoint = nil
+            return
+        }
+        if var points = activeMosaicPoints {
+            let end = imagePoint(from: convert(event.locationInWindow, from: nil))
+            if points.last.map({ hypot($0.x - end.x, $0.y - end.y) > 1 }) ?? true {
+                points.append(end)
+            }
+            if !points.isEmpty {
+                annotations.append(.mosaic(points: points, brushWidth: mosaicBrushWidth))
+                selectedIndex = annotations.count - 1
+            }
+            activeMosaicPoints = nil
+            needsDisplay = true
             return
         }
         guard let start = dragStart else { return }
@@ -611,6 +649,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             case .ellipse:
                 annotations.append(.ellipse(normalizedRect(start, end), color: strokeColor))
             case .text:
+                break
+            case .mosaic:
                 break
             }
             selectedIndex = annotations.count - 1
@@ -640,12 +680,16 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         applyImageTransform(context)
         context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         for annotation in annotations { draw(annotation, in: context) }
+        if let points = activeMosaicPoints {
+            draw(.mosaic(points: points, brushWidth: mosaicBrushWidth), in: context)
+        }
         if let start = dragStart, let end = dragEnd {
             switch mode {
             case .arrow: draw(.arrow(start: start, end: end, color: strokeColor), in: context)
             case .rectangle: draw(.rectangle(normalizedRect(start, end), color: strokeColor), in: context)
             case .ellipse: draw(.ellipse(normalizedRect(start, end), color: strokeColor), in: context)
             case .text: break
+            case .mosaic: break
             }
         }
         context.restoreGState()
@@ -794,6 +838,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
                 if rect.insetBy(dx: -12, dy: -12).contains(point) { return index }
             case let .text(text, origin, _, _):
                 if textRect(text, at: origin).insetBy(dx: -8, dy: -8).contains(point) { return index }
+            case let .mosaic(points, brushWidth):
+                if polyline(points, contains: point, tolerance: brushWidth / 2 + 8) { return index }
             }
         }
         return nil
@@ -809,12 +855,21 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             annotations[index] = .ellipse(rect.offsetBy(dx: delta.x, dy: delta.y), color: color)
         case let .text(text, origin, textColor, backgroundColor):
             annotations[index] = .text(text, origin: CGPoint(x: origin.x + delta.x, y: origin.y + delta.y), textColor: textColor, backgroundColor: backgroundColor)
+        case let .mosaic(points, brushWidth):
+            annotations[index] = .mosaic(
+                points: points.map { CGPoint(x: $0.x + delta.x, y: $0.y + delta.y) },
+                brushWidth: brushWidth
+            )
         }
     }
 
-    private func deleteSelectedAnnotation() {
+    func deleteSelectedAnnotation() {
         guard !annotations.isEmpty else { return }
         let index = selectedIndex.map { min(max($0, 0), annotations.count - 1) } ?? (annotations.count - 1)
+        removeAnnotation(at: index)
+    }
+
+    private func removeAnnotation(at index: Int) {
         annotations.remove(at: index)
         if annotations.isEmpty {
             selectedIndex = nil
@@ -833,6 +888,57 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         return hypot(point.x - projection.x, point.y - projection.y)
     }
 
+    private var mosaicBrushWidth: CGFloat {
+        min(max(CGFloat(image.width) / 18, 36), 96)
+    }
+
+    private func polyline(_ points: [CGPoint], contains point: CGPoint, tolerance: CGFloat) -> Bool {
+        guard let first = points.first else { return false }
+        if points.count == 1 { return hypot(point.x - first.x, point.y - first.y) <= tolerance }
+        for (start, end) in zip(points, points.dropFirst()) {
+            if distance(point, toSegmentFrom: start, to: end) <= tolerance { return true }
+        }
+        return false
+    }
+
+    private func makeMosaicImage() -> CGImage? {
+        let blockSize = 16
+        let width = max(1, image.width / blockSize)
+        let height = max(1, image.height / blockSize)
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.interpolationQuality = .low
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
+    }
+
+    private func drawMosaic(points: [CGPoint], brushWidth: CGFloat, in context: CGContext) {
+        guard let mosaicImage, let first = points.first else { return }
+        context.saveGState()
+        context.beginPath()
+        context.move(to: first)
+        if points.count == 1 {
+            context.addLine(to: CGPoint(x: first.x + 0.1, y: first.y))
+        } else {
+            points.dropFirst().forEach { context.addLine(to: $0) }
+        }
+        context.setLineWidth(brushWidth)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        context.replacePathWithStrokedPath()
+        context.clip()
+        context.interpolationQuality = .none
+        context.draw(mosaicImage, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        context.restoreGState()
+    }
+
     private func draw(_ annotation: ScreenshotAnnotation, in context: CGContext) {
         switch annotation {
         case let .arrow(start, end, color):
@@ -843,6 +949,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             drawShape(rect, color: color, ellipse: true, in: context)
         case let .text(text, origin, textColor, backgroundColor):
             drawText(text, at: origin, textColor: textColor, backgroundColor: backgroundColor, in: context)
+        case let .mosaic(points, brushWidth):
+            drawMosaic(points: points, brushWidth: brushWidth, in: context)
         }
     }
 

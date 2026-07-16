@@ -20,8 +20,10 @@ final class DirectAnnotationController: NSObject {
     private var textButton: ToolButton?
     private var rectangleButton: ToolButton?
     private var ellipseButton: ToolButton?
+    private var mosaicButton: ToolButton?
     private var textColorButton: NSButton?
     private var textBackgroundButton: NSButton?
+    private var deleteDropButton: DeleteDropButton?
     private var paletteButtons: [DirectColorButton] = []
 
     init(image: CGImage, selection: CGRect, screen: NSScreen) {
@@ -104,6 +106,12 @@ final class DirectAnnotationController: NSObject {
         let toolbar = makeToolbarView(frame: CGRect(x: 0, y: 0, width: contentSize.width, height: toolbarHeight))
         toolbar.autoresizingMask = [.width, .maxYMargin]
         content.addSubview(toolbar)
+        canvasView.onAnnotationDragLocation = { [weak self] point in
+            self?.updateDeleteDropTarget(at: point)
+        }
+        canvasView.onAnnotationDragEnded = { [weak self] point in
+            self?.finishDeleteDrop(at: point) ?? false
+        }
         window.contentView = content
         window.setFrame(targetWindowFrame, display: false)
         self.window = window
@@ -237,12 +245,16 @@ final class DirectAnnotationController: NSObject {
         tools.alignment = .centerY
         tools.translatesAutoresizingMaskIntoConstraints = false
 
+        let delete = DeleteDropButton(target: self, action: #selector(deleteSelectedAnnotation))
+        deleteDropButton = delete
+        tools.addArrangedSubview(delete)
         tools.addArrangedSubview(button("撤销", action: #selector(undo)))
         arrowButton = toolButton("arrow.down.right", action: #selector(useArrow))
         textButton = toolButton("textformat", action: #selector(useText))
         rectangleButton = toolButton("rectangle", action: #selector(useRectangle))
         ellipseButton = toolButton("circle", action: #selector(useEllipse))
-        [arrowButton, textButton, rectangleButton, ellipseButton].compactMap { $0 }.forEach { tools.addArrangedSubview($0) }
+        mosaicButton = toolButton("square.grid.3x3.fill", action: #selector(useMosaic))
+        [arrowButton, textButton, rectangleButton, ellipseButton, mosaicButton].compactMap { $0 }.forEach { tools.addArrangedSubview($0) }
         tools.addArrangedSubview(button("长截图", action: #selector(longCapture)))
         let finishButton = ColoredTitleButton(title: "完成", fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
         finishButton.keyEquivalent = "\r"
@@ -296,6 +308,30 @@ final class DirectAnnotationController: NSObject {
         return button
     }
 
+    private func updateDeleteDropTarget(at point: CGPoint?) {
+        guard let deleteDropButton else { return }
+        guard let point else {
+            deleteDropButton.isDropTarget = false
+            return
+        }
+        let localPoint = deleteDropButton.convert(point, from: nil)
+        deleteDropButton.isDropTarget = deleteDropButton.bounds.contains(localPoint)
+    }
+
+    private func finishDeleteDrop(at point: CGPoint) -> Bool {
+        guard let deleteDropButton else { return false }
+        let localPoint = deleteDropButton.convert(point, from: nil)
+        let shouldDelete = deleteDropButton.bounds.contains(localPoint)
+        deleteDropButton.isDropTarget = false
+        return shouldDelete
+    }
+
+    @objc private func deleteSelectedAnnotation() {
+        canvas?.deleteSelectedAnnotation()
+        deleteDropButton?.isDropTarget = false
+        focusCanvas()
+    }
+
     @objc private func useArrow() {
         mode = .arrow
         colorTarget = .stroke
@@ -344,6 +380,13 @@ final class DirectAnnotationController: NSObject {
         focusCanvas()
     }
 
+    @objc private func useMosaic() {
+        mode = .mosaic
+        canvas?.mode = .mosaic
+        updateToolState()
+        focusCanvas()
+    }
+
     @objc private func chooseColor(_ sender: DirectColorButton) {
         guard let canvas else { return }
         switch colorTarget {
@@ -384,6 +427,7 @@ final class DirectAnnotationController: NSObject {
         arrowButton?.configure(top: nil, bottom: stroke, selected: mode == .arrow)
         rectangleButton?.configure(top: nil, bottom: stroke, selected: mode == .rectangle)
         ellipseButton?.configure(top: nil, bottom: stroke, selected: mode == .ellipse)
+        mosaicButton?.configure(top: nil, bottom: nil, selected: mode == .mosaic)
         textButton?.configure(top: canvas?.textColor ?? .white, bottom: canvas?.textBackgroundColor ?? .systemRed, selected: mode == .text)
         textColorButton?.isHidden = mode != .text
         textBackgroundButton?.isHidden = mode != .text
@@ -440,6 +484,36 @@ private final class DirectPreviewBorderView: NSView {
         let border = NSBezierPath(rect: bounds.insetBy(dx: 1, dy: 1))
         border.lineWidth = 2
         border.stroke()
+    }
+}
+
+private final class DeleteDropButton: NSButton {
+    var isDropTarget = false { didSet { updateAppearance() } }
+
+    init(target: AnyObject?, action: Selector?) {
+        super.init(frame: CGRect(x: 0, y: 0, width: 34, height: 34))
+        self.target = target
+        self.action = action
+        image = NSImage(systemSymbolName: "trash", accessibilityDescription: "删除标注")
+        imageScaling = .scaleProportionallyDown
+        bezelStyle = .texturedRounded
+        wantsLayer = true
+        layer?.cornerRadius = 7
+        widthAnchor.constraint(equalToConstant: 34).isActive = true
+        heightAnchor.constraint(equalToConstant: 34).isActive = true
+        toolTip = "拖动标注到这里删除"
+        updateAppearance()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func updateAppearance() {
+        layer?.backgroundColor = (isDropTarget ? NSColor.systemRed : NSColor.controlColor).cgColor
+        contentTintColor = isDropTarget ? .white : .labelColor
+        layer?.borderWidth = isDropTarget ? 2 : 0
+        layer?.borderColor = isDropTarget ? NSColor.white.withAlphaComponent(0.9).cgColor : NSColor.clear.cgColor
     }
 }
 
