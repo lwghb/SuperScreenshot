@@ -11,6 +11,7 @@ final class DirectAnnotationController: NSObject {
     private let selection: CGRect
     private let screen: NSScreen
     private var window: NSWindow?
+    private var entrancePreviewWindow: NSWindow?
     private var canvas: ScreenshotEditorView?
     private var mode: ScreenshotAnnotationMode = .arrow
     private var colorTarget: DirectColorTarget = .stroke
@@ -31,18 +32,46 @@ final class DirectAnnotationController: NSObject {
     func show() {
         let toolbarHeight: CGFloat = 100
         let visibleFrame = screen.visibleFrame
+        let windowMargin: CGFloat = 20
+        let availableFrame = visibleFrame.insetBy(dx: windowMargin, dy: windowMargin)
+        let styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+        let maxContentSize = NSWindow.contentRect(forFrameRect: availableFrame, styleMask: styleMask).size
         let contentSize = CGSize(
-            width: min(max(selection.width, 640), visibleFrame.width - 40),
-            height: min(max(selection.height, 260) + toolbarHeight, visibleFrame.height - 40)
+            width: min(max(selection.width, 640), maxContentSize.width),
+            height: min(max(selection.height, 260) + toolbarHeight, maxContentSize.height)
         )
-        let origin = CGPoint(
-            x: visibleFrame.midX - contentSize.width / 2,
-            y: visibleFrame.midY - contentSize.height / 2
+        let windowFrameSize = NSWindow.frameRect(
+            forContentRect: CGRect(origin: .zero, size: contentSize),
+            styleMask: styleMask
+        ).size
+        let contentRectInWindowFrame = NSWindow.contentRect(
+            forFrameRect: CGRect(origin: .zero, size: windowFrameSize),
+            styleMask: styleMask
         )
+        let previewCenterInWindowFrame = CGPoint(
+            x: contentRectInWindowFrame.minX + contentSize.width / 2,
+            y: contentRectInWindowFrame.minY + toolbarHeight + (contentSize.height - toolbarHeight) / 2
+        )
+        let windowOrigin = CGPoint(
+            x: min(
+                max(selection.midX - previewCenterInWindowFrame.x, availableFrame.minX),
+                availableFrame.maxX - windowFrameSize.width
+            ),
+            y: min(
+                max(selection.midY - previewCenterInWindowFrame.y, availableFrame.minY),
+                availableFrame.maxY - windowFrameSize.height
+            )
+        )
+        let targetWindowFrame = CGRect(origin: windowOrigin, size: windowFrameSize)
 
-        let canvasView = ScreenshotEditorView(frame: CGRect(x: 0, y: toolbarHeight, width: contentSize.width, height: contentSize.height - toolbarHeight), image: image)
+        let canvasView = ScreenshotEditorView(
+            frame: CGRect(x: 0, y: toolbarHeight, width: contentSize.width, height: contentSize.height - toolbarHeight),
+            image: image,
+            imagePadding: 0
+        )
         canvasView.autoresizingMask = [.width, .height]
         canvasView.mode = .arrow
+        canvasView.showsImageBorder = false
         canvasView.strokeColor = loadColor("annotation.strokeColor", fallback: .systemRed)
         canvasView.textColor = loadColor("annotation.textColor", fallback: .white)
         canvasView.textBackgroundColor = loadColor("annotation.textBackgroundColor", fallback: .systemRed)
@@ -50,10 +79,11 @@ final class DirectAnnotationController: NSObject {
         canvas = canvasView
 
         let window = NSWindow(
-            contentRect: CGRect(origin: origin, size: contentSize),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: CGRect(origin: .zero, size: contentSize),
+            styleMask: styleMask,
             backing: .buffered,
-            defer: false
+            defer: false,
+            screen: screen
         )
         window.title = "编辑截图"
         window.minSize = CGSize(width: 640, height: 380)
@@ -64,19 +94,76 @@ final class DirectAnnotationController: NSObject {
         let content = NSView(frame: CGRect(origin: .zero, size: contentSize))
         content.autoresizingMask = [.width, .height]
         content.addSubview(canvasView)
+        let previewBorder = DirectPreviewBorderView(frame: canvasView.frame)
+        previewBorder.autoresizingMask = canvasView.autoresizingMask
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            previewBorder.alphaValue = 0
+        }
+        content.addSubview(previewBorder, positioned: .above, relativeTo: canvasView)
         let toolbar = makeToolbarView(frame: CGRect(x: 0, y: 0, width: contentSize.width, height: toolbarHeight))
         toolbar.autoresizingMask = [.width, .maxYMargin]
         content.addSubview(toolbar)
         window.contentView = content
+        window.setFrame(targetWindowFrame, display: false)
         self.window = window
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            window.alphaValue = 0
+        }
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         window.makeFirstResponder(canvasView)
         updateToolState()
+        animateEntrance(window: window, canvasFrame: window.convertToScreen(canvasView.frame), border: previewBorder)
+    }
+
+    private func animateEntrance(window: NSWindow, canvasFrame: CGRect, border: NSView) {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+
+        let preview = NSPanel(
+            contentRect: canvasFrame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false,
+            screen: screen
+        )
+        preview.level = NSWindow.Level(rawValue: window.level.rawValue + 1)
+        preview.isOpaque = true
+        preview.backgroundColor = .black
+        preview.hasShadow = false
+        preview.ignoresMouseEvents = true
+        preview.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        let imageView = NSImageView(frame: CGRect(origin: .zero, size: canvasFrame.size))
+        imageView.image = NSImage(cgImage: image, size: canvasFrame.size)
+        imageView.imageScaling = .scaleAxesIndependently
+        preview.contentView = imageView
+        entrancePreviewWindow = preview
+        preview.orderFrontRegardless()
+
+        DispatchQueue.main.async {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.5
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                window.animator().alphaValue = 1
+            } completionHandler: { [weak self, weak preview] in
+                Task { @MainActor in
+                    preview?.orderOut(nil)
+                    if self?.entrancePreviewWindow === preview {
+                        self?.entrancePreviewWindow = nil
+                    }
+                    NSAnimationContext.runAnimationGroup { context in
+                        context.duration = 0.5
+                        context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                        border.animator().alphaValue = 1
+                    }
+                }
+            }
+        }
     }
 
     func close() {
+        entrancePreviewWindow?.orderOut(nil)
+        entrancePreviewWindow = nil
         window?.orderOut(nil)
         window = nil
         canvas = nil
@@ -284,6 +371,17 @@ final class DirectAnnotationController: NSObject {
             && abs(a.greenComponent - b.greenComponent) < 0.01
             && abs(a.blueComponent - b.blueComponent) < 0.01
             && abs(a.alphaComponent - b.alphaComponent) < 0.01
+    }
+}
+
+private final class DirectPreviewBorderView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.withAlphaComponent(0.9).setStroke()
+        let border = NSBezierPath(rect: bounds.insetBy(dx: 1, dy: 1))
+        border.lineWidth = 2
+        border.stroke()
     }
 }
 

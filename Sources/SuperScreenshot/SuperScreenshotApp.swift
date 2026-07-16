@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 
 @main
 @MainActor
@@ -45,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         shortcutItem?.title = "设置快捷键…  \(coordinator.shortcut.title)"
     }
     private func versionTitle() -> String {
-        let info = Bundle.main.infoDictionary
+        let info = Foundation.Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "未知"
         return "版本 \(version)"
     }

@@ -20,10 +20,10 @@ final class SelectionOverlayController {
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             let view = SelectionView(frame: CGRect(origin: .zero, size: screen.frame.size))
             view.onCancel = { [weak self] in self?.onCancel?() }
-            view.onSelection = { [weak self] local in
-                guard let self else { return }
-                let global = local.offsetBy(dx: screen.frame.minX, dy: screen.frame.minY)
-                self.onSelection?(global, screen)
+            view.onSelection = { [weak self, weak window] local in
+                guard let self, let window else { return }
+                let global = window.convertToScreen(local)
+                self.onSelection?(global, window.screen ?? screen)
             }
             window.contentView = view
             windows.append(window)

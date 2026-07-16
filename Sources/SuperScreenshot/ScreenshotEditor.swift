@@ -497,6 +497,7 @@ final class ColoredTitleButton: NSButton {
 
 final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     var mode: ScreenshotAnnotationMode = .arrow
+    var showsImageBorder = true
     var pendingText: String?
     var strokeColor: NSColor = .systemRed
     var textColor: NSColor = .white
@@ -504,6 +505,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     var onEscape: (() -> Void)?
 
     private let image: CGImage
+    private let imagePadding: CGFloat
     private var annotations: [ScreenshotAnnotation] = []
     private var dragStart: CGPoint?
     private var dragEnd: CGPoint?
@@ -514,8 +516,9 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     private var activeTextOrigin: CGPoint?
     private var suppressNextTextMouseDown = false
 
-    init(frame: CGRect, image: CGImage) {
+    init(frame: CGRect, image: CGImage, imagePadding: CGFloat = 20) {
         self.image = image
+        self.imagePadding = imagePadding
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
@@ -646,9 +649,11 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             }
         }
         context.restoreGState()
-        NSColor.white.withAlphaComponent(0.9).setStroke()
-        imageBoundary.lineWidth = 2
-        imageBoundary.stroke()
+        if showsImageBorder {
+            NSColor.white.withAlphaComponent(0.9).setStroke()
+            imageBoundary.lineWidth = 2
+            imageBoundary.stroke()
+        }
     }
 
     func renderedImage() -> CGImage? {
@@ -747,7 +752,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     }
 
     private var imageRect: CGRect {
-        let available = bounds.insetBy(dx: 20, dy: 20)
+        let available = bounds.insetBy(dx: imagePadding, dy: imagePadding)
         let scale = min(available.width / CGFloat(image.width), available.height / CGFloat(image.height))
         let size = CGSize(width: CGFloat(image.width) * scale, height: CGFloat(image.height) * scale)
         return CGRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2, width: size.width, height: size.height)
