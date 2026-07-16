@@ -1,0 +1,95 @@
+import AppKit
+
+@MainActor
+final class SelectionOverlayController {
+    var onSelection: ((CGRect, NSScreen) -> Void)?
+    var onCancel: (() -> Void)?
+    private let screens: [NSScreen]
+    private var windows: [CaptureOverlayWindow] = []
+
+    init(screens: [NSScreen]) { self.screens = screens }
+
+    func show() {
+        for screen in screens {
+            let window = CaptureOverlayWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+            window.level = .screenSaver
+            window.sharingType = .none
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            window.hasShadow = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            let view = SelectionView(frame: CGRect(origin: .zero, size: screen.frame.size))
+            view.onCancel = { [weak self] in self?.onCancel?() }
+            view.onSelection = { [weak self] local in
+                guard let self else { return }
+                let global = local.offsetBy(dx: screen.frame.minX, dy: screen.frame.minY)
+                self.onSelection?(global, screen)
+            }
+            window.contentView = view
+            windows.append(window)
+            window.orderFrontRegardless()
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        let mouse = NSEvent.mouseLocation
+        let activeWindow = windows.first(where: { $0.frame.contains(mouse) }) ?? windows.first
+        activeWindow?.makeKeyAndOrderFront(nil)
+        activeWindow?.makeFirstResponder(activeWindow?.contentView)
+        NSCursor.crosshair.push()
+    }
+
+    func close() {
+        windows.forEach { $0.orderOut(nil) }
+        windows.removeAll()
+        NSCursor.pop()
+    }
+}
+
+private final class CaptureOverlayWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+    override func cancelOperation(_ sender: Any?) {
+        (contentView as? SelectionView)?.onCancel?()
+    }
+}
+
+private final class SelectionView: NSView {
+    var onSelection: ((CGRect) -> Void)?
+    var onCancel: (() -> Void)?
+    private var start: CGPoint?
+    private var selection: CGRect = .zero
+
+    override var acceptsFirstResponder: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { onCancel?() } else { super.keyDown(with: event) }
+    }
+    override func cancelOperation(_ sender: Any?) { onCancel?() }
+    override func mouseDown(with event: NSEvent) {
+        start = convert(event.locationInWindow, from: nil); selection = .zero; needsDisplay = true
+    }
+    override func mouseDragged(with event: NSEvent) {
+        guard let start else { return }
+        let end = convert(event.locationInWindow, from: nil)
+        selection = CGRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x-start.x), height: abs(end.y-start.y))
+        needsDisplay = true
+    }
+    override func mouseUp(with event: NSEvent) {
+        guard selection.width >= 10, selection.height >= 10 else { return }
+        onSelection?(selection)
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.black.withAlphaComponent(0.38).setFill(); bounds.fill()
+        guard !selection.isEmpty else {
+            let text = "拖动鼠标框选截图区域 · Esc 取消"
+            text.draw(at: CGPoint(x: bounds.midX-130, y: bounds.midY), withAttributes: [.foregroundColor: NSColor.white, .font: NSFont.systemFont(ofSize: 16, weight: .medium)])
+            return
+        }
+        NSGraphicsContext.current?.saveGraphicsState()
+        NSBezierPath(rect: selection).addClip()
+        NSColor.clear.setFill(); selection.fill(using: .copy)
+        NSGraphicsContext.current?.restoreGraphicsState()
+        NSColor.systemBlue.setStroke(); let border = NSBezierPath(rect: selection); border.lineWidth = 2; border.stroke()
+        let size = "\(Int(selection.width)) × \(Int(selection.height))"
+        size.draw(at: CGPoint(x: selection.minX, y: selection.maxY+6), withAttributes: [.foregroundColor: NSColor.white, .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)])
+    }
+}

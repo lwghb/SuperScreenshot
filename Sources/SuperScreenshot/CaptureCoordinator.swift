@@ -1,0 +1,380 @@
+import AppKit
+import ApplicationServices
+import CoreGraphics
+
+struct CaptureShortcut: Equatable {
+    let keyCode: UInt16
+    let modifiersRaw: UInt
+    let keyLabel: String
+
+    static let defaultShortcut = CaptureShortcut(
+        keyCode: 19,
+        modifiersRaw: NSEvent.ModifierFlags([.command, .shift]).rawValue,
+        keyLabel: "2"
+    )
+
+    var title: String {
+        let flags = NSEvent.ModifierFlags(rawValue: modifiersRaw)
+        var result = ""
+        if flags.contains(.control) { result += "⌃" }
+        if flags.contains(.option) { result += "⌥" }
+        if flags.contains(.shift) { result += "⇧" }
+        if flags.contains(.command) { result += "⌘" }
+        return result + keyLabel
+    }
+
+    func matches(_ event: NSEvent) -> Bool {
+        let allowed: NSEvent.ModifierFlags = [.command, .control, .option, .shift]
+        let flags = event.modifierFlags.intersection(allowed)
+        let expected = NSEvent.ModifierFlags(rawValue: modifiersRaw).intersection(allowed)
+        return event.keyCode == keyCode && flags == expected
+    }
+}
+
+@MainActor
+final class CaptureCoordinator: ObservableObject {
+    @Published var shortcut: CaptureShortcut {
+        didSet {
+            UserDefaults.standard.set(Int(shortcut.keyCode), forKey: "shortcutKeyCode")
+            UserDefaults.standard.set(Int(shortcut.modifiersRaw), forKey: "shortcutModifiers")
+            UserDefaults.standard.set(shortcut.keyLabel, forKey: "shortcutKeyLabel")
+            hotKeyManager.register(shortcut)
+        }
+    }
+
+    private lazy var hotKeyManager = GlobalHotKeyManager()
+    private var selectionController: SelectionOverlayController?
+    private var actionController: ActionBarController?
+    private var directAnnotationController: DirectAnnotationController?
+    private var longStatusController: LongCaptureStatusController?
+    private var longCaptureControl: LongCaptureControl?
+    private var longSelectionBorder: SelectionBorderController?
+    private var shortcutRecorder: ShortcutRecorderController?
+    private var editorController: ScreenshotEditorController?
+    private var isCheckingCaptureAccess = false
+    private var autoScrollTask: Task<Void, Never>?
+    private var autoScrollOriginalMouseLocation: CGPoint?
+    private let longCapture = LongCaptureEngine()
+
+    init() {
+        if let label = UserDefaults.standard.string(forKey: "shortcutKeyLabel") {
+            shortcut = CaptureShortcut(
+                keyCode: UInt16(UserDefaults.standard.integer(forKey: "shortcutKeyCode")),
+                modifiersRaw: UInt(UserDefaults.standard.integer(forKey: "shortcutModifiers")),
+                keyLabel: label
+            )
+        } else {
+            shortcut = .defaultShortcut
+        }
+    }
+
+    func showShortcutSettings() {
+        shortcutRecorder?.close()
+        let recorder = ShortcutRecorderController(current: shortcut)
+        shortcutRecorder = recorder
+        recorder.onSave = { [weak self] newShortcut in
+            self?.shortcut = newShortcut
+            self?.shortcutRecorder?.close()
+            self?.shortcutRecorder = nil
+        }
+        recorder.onCancel = { [weak self] in
+            self?.shortcutRecorder?.close()
+            self?.shortcutRecorder = nil
+        }
+        recorder.show()
+    }
+
+    func installHotKeyMonitor() {
+        hotKeyManager.onPressed = { [weak self] in self?.beginSelection() }
+        hotKeyManager.register(shortcut)
+    }
+
+    func requestPermissions() {
+        if CGPreflightScreenCaptureAccess() {
+            let alert = NSAlert()
+            alert.messageText = "屏幕录制权限有效"
+            alert.informativeText = "超强截图已经可以读取屏幕内容。"
+            alert.addButton(withTitle: "好")
+            alert.runModal()
+        } else {
+            let granted = CGRequestScreenCaptureAccess()
+            let alert = NSAlert()
+            if granted {
+                alert.messageText = "屏幕录制权限已授予"
+                alert.informativeText = "请彻底退出并重新打开“超强截图”，让系统权限生效。"
+                alert.addButton(withTitle: "退出应用")
+                alert.runModal()
+                NSApp.terminate(nil)
+            } else {
+                alert.messageText = "需要屏幕录制权限"
+                alert.informativeText = "请在系统设置的“隐私与安全性 → 录屏与系统录音”中允许“超强截图”。"
+                alert.addButton(withTitle: "打开系统设置")
+                alert.addButton(withTitle: "关闭")
+                if alert.runModal() == .alertFirstButtonReturn,
+                   let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
+    func beginSelection() {
+        guard selectionController == nil, !isCheckingCaptureAccess else { return }
+        isCheckingCaptureAccess = true
+        Task {
+            defer { isCheckingCaptureAccess = false }
+            do {
+                try await ScreenCapture.verifyAccess()
+                showSelectionOverlay()
+            } catch {
+                showPermissionError(error)
+            }
+        }
+    }
+
+    private func showSelectionOverlay() {
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return }
+
+        let controller = SelectionOverlayController(screens: screens)
+        selectionController = controller
+        controller.onCancel = { [weak self] in self?.closeOverlays() }
+        controller.onSelection = { [weak self] rect, screen in self?.showActions(for: rect, on: screen) }
+        controller.show()
+    }
+
+    private func showActions(for rect: CGRect, on screen: NSScreen) {
+        Task {
+            guard let image = await capture(rect: rect, screen: screen) else { return }
+            await MainActor.run {
+                self.presentDirectAnnotation(image: image, rect: rect, screen: screen)
+            }
+        }
+    }
+
+    private func presentDirectAnnotation(image: CGImage, rect: CGRect, screen: NSScreen) {
+        directAnnotationController?.close()
+        let controller = DirectAnnotationController(image: image, selection: rect, screen: screen)
+        directAnnotationController = controller
+        controller.onFinish = { [weak self] edited in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects([NSImage(cgImage: edited, size: .zero)])
+            self?.directAnnotationController?.close()
+            self?.directAnnotationController = nil
+        }
+        controller.onLongCapture = { [weak self] in
+            self?.directAnnotationController?.close()
+            self?.directAnnotationController = nil
+            self?.startLongCapture(rect: rect, screen: screen)
+        }
+        controller.onCancel = { [weak self] in
+            self?.directAnnotationController?.close()
+            self?.directAnnotationController = nil
+        }
+        controller.show()
+    }
+
+    private func capture(rect: CGRect, screen: NSScreen) async -> CGImage? {
+        guard let displayID = ScreenCapture.displayID(for: screen) else { return nil }
+        let sourceRect = ScreenCapture.displayRect(for: rect, on: screen)
+        let scale = screen.backingScaleFactor
+        closeOverlays()
+        try? await Task.sleep(nanoseconds: 220_000_000)
+        do {
+            let session = try await ScreenCapture.makeSession(
+                displayID: displayID,
+                sourceRect: sourceRect,
+                scale: scale
+            )
+            return try await session.capture()
+        } catch {
+            showPermissionError(error)
+            return nil
+        }
+    }
+
+    private func edit(rect: CGRect, screen: NSScreen) {
+        Task {
+            guard let image = await capture(rect: rect, screen: screen) else { return }
+            await MainActor.run {
+                self.presentEditor(image, on: screen)
+            }
+        }
+    }
+
+    private func copy(rect: CGRect, screen: NSScreen) {
+        Task {
+            guard let image = await capture(rect: rect, screen: screen) else { return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects([NSImage(cgImage: image, size: .zero)])
+        }
+    }
+
+    private func presentEditor(_ image: CGImage, on screen: NSScreen) {
+        editorController?.close()
+        let editor = ScreenshotEditorController(image: image, initialMode: .arrow, screen: screen)
+        editorController = editor
+        editor.onFinish = { [weak self] edited in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects([NSImage(cgImage: edited, size: .zero)])
+            self?.editorController?.close()
+            self?.editorController = nil
+        }
+        editor.onCancel = { [weak self] in
+            self?.editorController?.close()
+            self?.editorController = nil
+        }
+        editor.show()
+    }
+
+    private func startLongCapture(rect: CGRect, screen: NSScreen) {
+        guard let displayID = ScreenCapture.displayID(for: screen) else { return }
+        let displayRect = ScreenCapture.displayRect(for: rect, on: screen)
+        let scale = screen.backingScaleFactor
+        closeOverlays()
+        let border = SelectionBorderController(selection: rect)
+        longSelectionBorder = border
+        border.show()
+        let control = LongCaptureControl()
+        longCaptureControl = control
+        let status = LongCaptureStatusController(selection: rect, screen: screen)
+        longStatusController = status
+        status.onFinish = { [weak self] in
+            self?.stopAutoScroll()
+            Task { await control.finish() }
+        }
+        status.onCancel = { [weak self] in
+            self?.stopAutoScroll()
+            Task { await control.cancel() }
+        }
+        status.onAutoScrollToggle = { [weak self] in
+            self?.toggleAutoScroll(displayID: displayID, displayRect: displayRect)
+        }
+        status.show()
+        Task {
+            do {
+                let session = try await ScreenCapture.makeSession(
+                    displayID: displayID,
+                    sourceRect: displayRect,
+                    scale: scale
+                )
+                let image = try await longCapture.capture(session: session, control: control) { preview in
+                    Task { @MainActor in status.update(preview: preview) }
+                }
+                await MainActor.run {
+                    self.closeLongCaptureStatus()
+                    self.presentLongCaptureResult(image)
+                }
+            } catch is CancellationError {
+                await MainActor.run { self.closeLongCaptureStatus() }
+            } catch {
+                await MainActor.run {
+                    self.closeLongCaptureStatus()
+                    self.showError(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func presentLongCaptureResult(_ image: CGImage) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([NSImage(cgImage: image, size: .zero)])
+    }
+
+    private func closeLongCaptureStatus() {
+        stopAutoScroll()
+        longStatusController?.close(); longStatusController = nil
+        longSelectionBorder?.close(); longSelectionBorder = nil
+        longCaptureControl = nil
+    }
+
+    private func toggleAutoScroll(
+        displayID: CGDirectDisplayID,
+        displayRect: CGRect
+    ) {
+        if autoScrollTask != nil {
+            stopAutoScroll()
+            return
+        }
+
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        guard AXIsProcessTrustedWithOptions(options) else {
+            let alert = NSAlert()
+            alert.messageText = "自动滚动需要辅助功能权限"
+            alert.informativeText = "请在系统设置的“隐私与安全性 → 辅助功能”中允许“超强截图”，然后再次点击自动滚动。手动长截图不受影响。"
+            alert.addButton(withTitle: "打开系统设置")
+            alert.addButton(withTitle: "关闭")
+            if alert.runModal() == .alertFirstButtonReturn,
+               let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+            return
+        }
+
+        autoScrollOriginalMouseLocation = CGEvent(source: nil)?.location
+        let displayBounds = CGDisplayBounds(displayID)
+        let target = CGPoint(
+            x: displayBounds.minX + displayRect.midX,
+            y: displayBounds.minY + displayRect.midY
+        )
+        CGWarpMouseCursorPosition(target)
+        longStatusController?.setAutoScrolling(true)
+
+        autoScrollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                if let event = CGEvent(
+                    scrollWheelEvent2Source: nil,
+                    units: .pixel,
+                    wheelCount: 1,
+                    wheel1: -20,
+                    wheel2: 0,
+                    wheel3: 0
+                ) {
+                    event.post(tap: .cghidEventTap)
+                }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            self?.longStatusController?.setAutoScrolling(false)
+        }
+    }
+
+    private func stopAutoScroll() {
+        autoScrollTask?.cancel()
+        autoScrollTask = nil
+        if let original = autoScrollOriginalMouseLocation {
+            CGWarpMouseCursorPosition(original)
+        }
+        autoScrollOriginalMouseLocation = nil
+        longStatusController?.setAutoScrolling(false)
+    }
+
+    private func closeOverlays() {
+        selectionController?.close(); selectionController = nil
+        actionController?.close(); actionController = nil
+        directAnnotationController?.close(); directAnnotationController = nil
+    }
+
+    private func showError(_ message: String) {
+        let alert = NSAlert(); alert.messageText = "操作失败"; alert.informativeText = message; alert.runModal()
+    }
+
+    private func showPermissionError(_ error: Error) {
+        let alert = NSAlert()
+        if CGPreflightScreenCaptureAccess() {
+            alert.messageText = "无法读取屏幕内容"
+            alert.informativeText = "系统已经显示“超强截图”有录屏权限，但本次截图仍然失败：\(error.localizedDescription)\n\n请彻底退出并重新打开“超强截图”。如果仍然失败，把系统设置里的“超强截图”关闭再打开一次。"
+            alert.addButton(withTitle: "好")
+            alert.runModal()
+        } else {
+            alert.messageText = "需要屏幕录制权限"
+            alert.informativeText = "请在系统设置的“隐私与安全性 → 录屏与系统录音”中允许“超强截图”。\n\n系统返回：\(error.localizedDescription)"
+            alert.addButton(withTitle: "打开系统设置")
+            alert.addButton(withTitle: "关闭")
+            if alert.runModal() == .alertFirstButtonReturn,
+               let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
+
+}

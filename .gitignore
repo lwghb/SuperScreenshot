@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+work/
+outputs/
+*.app/
+*.zip
+*.dmg
+*.pkg
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.log
+*.tmp
