@@ -13,6 +13,7 @@ final class DirectAnnotationController: NSObject {
     private var window: NSWindow?
     private var entrancePreviewWindow: NSWindow?
     private var entranceToolbarWindow: NSWindow?
+    private var entranceFinishWindow: NSWindow?
     private var canvas: ScreenshotEditorView?
     private var mode: ScreenshotAnnotationMode = .arrow
     private var colorTarget: DirectColorTarget = .stroke
@@ -24,6 +25,7 @@ final class DirectAnnotationController: NSObject {
     private var textColorButton: NSButton?
     private var textBackgroundButton: NSButton?
     private var deleteDropButton: DeleteDropButton?
+    private var finishButton: NSButton?
     private var paletteButtons: [DirectColorButton] = []
 
     init(image: CGImage, selection: CGRect, screen: NSScreen) {
@@ -125,11 +127,14 @@ final class DirectAnnotationController: NSObject {
         window.makeFirstResponder(canvasView)
         updateToolState()
         toolbar.layoutSubtreeIfNeeded()
+        let finishFrame = finishButton.map { window.convertToScreen($0.convert($0.bounds, to: nil)) }
         animateEntrance(
             window: window,
             canvasFrame: window.convertToScreen(canvasView.frame),
             toolbar: toolbar,
             toolbarFrame: window.convertToScreen(toolbar.frame),
+            finishButton: finishButton,
+            finishFrame: finishFrame,
             border: previewBorder
         )
     }
@@ -139,6 +144,8 @@ final class DirectAnnotationController: NSObject {
         canvasFrame: CGRect,
         toolbar: NSView,
         toolbarFrame: CGRect,
+        finishButton: NSButton?,
+        finishFrame: CGRect?,
         border: NSView
     ) {
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
@@ -163,7 +170,25 @@ final class DirectAnnotationController: NSObject {
         entrancePreviewWindow = preview
         preview.orderFrontRegardless()
 
-        let toolbarPreview = makeToolbarPreview(from: toolbar, frame: toolbarFrame, above: window.level)
+        var finishPreview: NSWindow?
+        if let finishButton, let finishFrame {
+            finishPreview = makeViewPreview(
+                from: finishButton,
+                frame: finishFrame,
+                above: NSWindow.Level(rawValue: window.level.rawValue + 2),
+                opaque: false
+            )
+            entranceFinishWindow = finishPreview
+            finishPreview?.orderFrontRegardless()
+            finishButton.alphaValue = 0
+        }
+        let toolbarPreview = makeViewPreview(
+            from: toolbar,
+            frame: toolbarFrame,
+            above: window.level,
+            opaque: true
+        )
+        finishButton?.alphaValue = 1
         entranceToolbarWindow = toolbarPreview
         toolbarPreview?.alphaValue = 0
         toolbarPreview?.orderFrontRegardless()
@@ -180,15 +205,19 @@ final class DirectAnnotationController: NSObject {
                 context.duration = 0.5
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 window.animator().alphaValue = 1
-            } completionHandler: { [weak self, weak preview, weak toolbarPreview] in
+            } completionHandler: { [weak self, weak preview, weak toolbarPreview, weak finishPreview] in
                 Task { @MainActor in
                     preview?.orderOut(nil)
                     toolbarPreview?.orderOut(nil)
+                    finishPreview?.orderOut(nil)
                     if self?.entrancePreviewWindow === preview {
                         self?.entrancePreviewWindow = nil
                     }
                     if self?.entranceToolbarWindow === toolbarPreview {
                         self?.entranceToolbarWindow = nil
+                    }
+                    if self?.entranceFinishWindow === finishPreview {
+                        self?.entranceFinishWindow = nil
                     }
                     NSAnimationContext.runAnimationGroup { context in
                         context.duration = 0.5
@@ -200,10 +229,15 @@ final class DirectAnnotationController: NSObject {
         }
     }
 
-    private func makeToolbarPreview(from toolbar: NSView, frame: CGRect, above level: NSWindow.Level) -> NSWindow? {
-        guard let representation = toolbar.bitmapImageRepForCachingDisplay(in: toolbar.bounds) else { return nil }
-        toolbar.cacheDisplay(in: toolbar.bounds, to: representation)
-        let snapshot = NSImage(size: toolbar.bounds.size)
+    private func makeViewPreview(
+        from view: NSView,
+        frame: CGRect,
+        above level: NSWindow.Level,
+        opaque: Bool
+    ) -> NSWindow? {
+        guard let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        view.cacheDisplay(in: view.bounds, to: representation)
+        let snapshot = NSImage(size: view.bounds.size)
         snapshot.addRepresentation(representation)
 
         let preview = NSPanel(
@@ -214,8 +248,8 @@ final class DirectAnnotationController: NSObject {
             screen: screen
         )
         preview.level = NSWindow.Level(rawValue: level.rawValue + 2)
-        preview.isOpaque = true
-        preview.backgroundColor = .windowBackgroundColor
+        preview.isOpaque = opaque
+        preview.backgroundColor = opaque ? .windowBackgroundColor : .clear
         preview.hasShadow = false
         preview.ignoresMouseEvents = true
         preview.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -231,6 +265,8 @@ final class DirectAnnotationController: NSObject {
         entrancePreviewWindow = nil
         entranceToolbarWindow?.orderOut(nil)
         entranceToolbarWindow = nil
+        entranceFinishWindow?.orderOut(nil)
+        entranceFinishWindow = nil
         window?.orderOut(nil)
         window = nil
         canvas = nil
@@ -258,6 +294,7 @@ final class DirectAnnotationController: NSObject {
         [arrowButton, textButton, rectangleButton, ellipseButton, mosaicButton].compactMap { $0 }.forEach { tools.addArrangedSubview($0) }
         tools.addArrangedSubview(button("长截图", action: #selector(longCapture), toolTip: "长截图"))
         let finishButton = ColoredTitleButton(title: "完成", fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
+        self.finishButton = finishButton
         finishButton.keyEquivalent = "\r"
         finishButton.toolTip = "完成并复制截图"
         finishButton.translatesAutoresizingMaskIntoConstraints = false
