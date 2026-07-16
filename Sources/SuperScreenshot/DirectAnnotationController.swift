@@ -12,6 +12,7 @@ final class DirectAnnotationController: NSObject {
     private let screen: NSScreen
     private var window: NSWindow?
     private var entrancePreviewWindow: NSWindow?
+    private var entranceToolbarWindow: NSWindow?
     private var canvas: ScreenshotEditorView?
     private var mode: ScreenshotAnnotationMode = .arrow
     private var colorTarget: DirectColorTarget = .stroke
@@ -114,10 +115,23 @@ final class DirectAnnotationController: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         window.makeFirstResponder(canvasView)
         updateToolState()
-        animateEntrance(window: window, canvasFrame: window.convertToScreen(canvasView.frame), border: previewBorder)
+        toolbar.layoutSubtreeIfNeeded()
+        animateEntrance(
+            window: window,
+            canvasFrame: window.convertToScreen(canvasView.frame),
+            toolbar: toolbar,
+            toolbarFrame: window.convertToScreen(toolbar.frame),
+            border: previewBorder
+        )
     }
 
-    private func animateEntrance(window: NSWindow, canvasFrame: CGRect, border: NSView) {
+    private func animateEntrance(
+        window: NSWindow,
+        canvasFrame: CGRect,
+        toolbar: NSView,
+        toolbarFrame: CGRect,
+        border: NSView
+    ) {
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
 
         let preview = NSPanel(
@@ -140,16 +154,32 @@ final class DirectAnnotationController: NSObject {
         entrancePreviewWindow = preview
         preview.orderFrontRegardless()
 
+        let toolbarPreview = makeToolbarPreview(from: toolbar, frame: toolbarFrame, above: window.level)
+        entranceToolbarWindow = toolbarPreview
+        toolbarPreview?.alphaValue = 0
+        toolbarPreview?.orderFrontRegardless()
+
         DispatchQueue.main.async {
+            if let toolbarPreview {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.2
+                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    toolbarPreview.animator().alphaValue = 1
+                }
+            }
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.5
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 window.animator().alphaValue = 1
-            } completionHandler: { [weak self, weak preview] in
+            } completionHandler: { [weak self, weak preview, weak toolbarPreview] in
                 Task { @MainActor in
                     preview?.orderOut(nil)
+                    toolbarPreview?.orderOut(nil)
                     if self?.entrancePreviewWindow === preview {
                         self?.entrancePreviewWindow = nil
+                    }
+                    if self?.entranceToolbarWindow === toolbarPreview {
+                        self?.entranceToolbarWindow = nil
                     }
                     NSAnimationContext.runAnimationGroup { context in
                         context.duration = 0.5
@@ -161,9 +191,37 @@ final class DirectAnnotationController: NSObject {
         }
     }
 
+    private func makeToolbarPreview(from toolbar: NSView, frame: CGRect, above level: NSWindow.Level) -> NSWindow? {
+        guard let representation = toolbar.bitmapImageRepForCachingDisplay(in: toolbar.bounds) else { return nil }
+        toolbar.cacheDisplay(in: toolbar.bounds, to: representation)
+        let snapshot = NSImage(size: toolbar.bounds.size)
+        snapshot.addRepresentation(representation)
+
+        let preview = NSPanel(
+            contentRect: frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false,
+            screen: screen
+        )
+        preview.level = NSWindow.Level(rawValue: level.rawValue + 2)
+        preview.isOpaque = true
+        preview.backgroundColor = .windowBackgroundColor
+        preview.hasShadow = false
+        preview.ignoresMouseEvents = true
+        preview.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        let imageView = NSImageView(frame: CGRect(origin: .zero, size: frame.size))
+        imageView.image = snapshot
+        imageView.imageScaling = .scaleAxesIndependently
+        preview.contentView = imageView
+        return preview
+    }
+
     func close() {
         entrancePreviewWindow?.orderOut(nil)
         entrancePreviewWindow = nil
+        entranceToolbarWindow?.orderOut(nil)
+        entranceToolbarWindow = nil
         window?.orderOut(nil)
         window = nil
         canvas = nil
