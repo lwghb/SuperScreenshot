@@ -4,11 +4,13 @@ import CoreGraphics
 @MainActor
 final class DirectAnnotationController: NSObject {
     var onFinish: ((CGImage) -> Void)?
-    var onLongCapture: (() -> Void)?
+    var onLongCapture: ((CGRect) -> Void)?
     var onCancel: (() -> Void)?
+    var onSelectionChanged: ((CGRect) -> Void)?
 
-    private let image: CGImage
-    private let selection: CGRect
+    private let initialImage: CGImage
+    private let fullScreenImage: CGImage?
+    private var selection: CGRect
     private let screen: NSScreen
     private var window: NSWindow?
     private var toolbarWindow: NSWindow?
@@ -30,18 +32,21 @@ final class DirectAnnotationController: NSObject {
     private var customColorButton: DirectCustomColorButton?
     private weak var activeColorPanel: NSColorPanel?
     private var colorPanelClickMonitor: Any?
+    private var resizeWindows: [SelectionResizeHandle: NSPanel] = [:]
+    private var resizeStartSelection: CGRect?
 
-    init(image: CGImage, selection: CGRect, screen: NSScreen) {
-        self.image = image
+    init(image: CGImage, selection: CGRect, screen: NSScreen, fullScreenImage: CGImage? = nil) {
+        self.fullScreenImage = fullScreenImage
         self.selection = selection
         self.screen = screen
+        self.initialImage = image
     }
 
     func show() {
         let toolbarHeight: CGFloat = 100
         let canvasView = ScreenshotEditorView(
             frame: CGRect(origin: .zero, size: selection.size),
-            image: image,
+            image: initialImage,
             imagePadding: 0
         )
         canvasView.autoresizingMask = [.width, .height]
@@ -117,6 +122,7 @@ final class DirectAnnotationController: NSObject {
                 toolbarPanel.animator().alphaValue = 1
             }
         }
+        installResizeHandles()
     }
 
     private func resolvedToolbarFrame(size: CGSize) -> CGRect {
@@ -137,7 +143,119 @@ final class DirectAnnotationController: NSObject {
         return CGRect(origin: CGPoint(x: x, y: y), size: size)
     }
 
+    private func installResizeHandles() {
+        guard fullScreenImage != nil else { return }
+        for handle in SelectionResizeHandle.allCases {
+            let panel = NSPanel(
+                contentRect: .zero,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 4)
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = false
+            panel.sharingType = .none
+            let view = SelectionResizeHandleView(handle: handle)
+            view.onDragBegan = { [weak self] in self?.resizeStartSelection = self?.selection }
+            view.onDrag = { [weak self] point in self?.resizeSelection(handle: handle, to: point) }
+            view.onDragEnded = { [weak self] in
+                self?.resizeStartSelection = nil
+                self?.focusCanvas()
+            }
+            panel.contentView = view
+            resizeWindows[handle] = panel
+            panel.orderFrontRegardless()
+        }
+        updateResizeHandleFrames()
+    }
+
+    private func resizeSelection(handle: SelectionResizeHandle, to point: CGPoint) {
+        guard let start = resizeStartSelection else { return }
+        let limits = screen.frame
+        let minimum: CGFloat = 40
+        var next = start
+        if handle.movesLeft {
+            let x = min(max(point.x, limits.minX), start.maxX - minimum)
+            next.origin.x = x
+            next.size.width = start.maxX - x
+        }
+        if handle.movesRight {
+            next.size.width = max(min(point.x, limits.maxX), start.minX + minimum) - start.minX
+        }
+        if handle.movesBottom {
+            let y = min(max(point.y, limits.minY), start.maxY - minimum)
+            next.origin.y = y
+            next.size.height = start.maxY - y
+        }
+        if handle.movesTop {
+            next.size.height = max(min(point.y, limits.maxY), start.minY + minimum) - start.minY
+        }
+        next = ScreenCapture.pixelAligned(next, scale: screen.backingScaleFactor)
+        applySelection(next)
+    }
+
+    private func applySelection(_ next: CGRect) {
+        guard next != selection, let fullScreenImage,
+              let cropped = ScreenCapture.crop(fullScreenImage, to: next, on: screen),
+              let canvas else { return }
+        let old = selection
+        let scaleX = CGFloat(fullScreenImage.width) / screen.frame.width
+        let scaleY = CGFloat(fullScreenImage.height) / screen.frame.height
+        let offset = CGPoint(
+            x: (old.minX - next.minX) * scaleX,
+            y: (old.minY - next.minY) * scaleY
+        )
+        selection = next
+        window?.setFrame(next, display: true)
+        canvas.replaceImage(cropped, annotationOffset: offset)
+        if let toolbarWindow {
+            toolbarWindow.setFrame(resolvedToolbarFrame(size: toolbarWindow.frame.size), display: true)
+        }
+        updateResizeHandleFrames()
+        onSelectionChanged?(next)
+    }
+
+    private func updateResizeHandleFrames() {
+        let edge: CGFloat = 12
+        let corner: CGFloat = 16
+        for (handle, panel) in resizeWindows {
+            let frame: CGRect
+            switch handle {
+            case .left:
+                frame = CGRect(x: selection.minX - edge / 2, y: selection.minY + corner / 2,
+                               width: edge, height: max(edge, selection.height - corner))
+            case .right:
+                frame = CGRect(x: selection.maxX - edge / 2, y: selection.minY + corner / 2,
+                               width: edge, height: max(edge, selection.height - corner))
+            case .bottom:
+                frame = CGRect(x: selection.minX + corner / 2, y: selection.minY - edge / 2,
+                               width: max(edge, selection.width - corner), height: edge)
+            case .top:
+                frame = CGRect(x: selection.minX + corner / 2, y: selection.maxY - edge / 2,
+                               width: max(edge, selection.width - corner), height: edge)
+            case .bottomLeft:
+                frame = CGRect(x: selection.minX - corner / 2, y: selection.minY - corner / 2,
+                               width: corner, height: corner)
+            case .bottomRight:
+                frame = CGRect(x: selection.maxX - corner / 2, y: selection.minY - corner / 2,
+                               width: corner, height: corner)
+            case .topLeft:
+                frame = CGRect(x: selection.minX - corner / 2, y: selection.maxY - corner / 2,
+                               width: corner, height: corner)
+            case .topRight:
+                frame = CGRect(x: selection.maxX - corner / 2, y: selection.maxY - corner / 2,
+                               width: corner, height: corner)
+            }
+            panel.setFrame(frame, display: true)
+        }
+    }
+
     func close() {
+        resizeWindows.values.forEach { $0.orderOut(nil) }
+        resizeWindows.removeAll()
         toolbarWindow?.orderOut(nil)
         toolbarWindow = nil
         window?.orderOut(nil)
@@ -439,7 +557,7 @@ final class DirectAnnotationController: NSObject {
     }
 
     @objc private func longCapture() {
-        onLongCapture?()
+        onLongCapture?(selection)
     }
 
     @objc private func finish() {
@@ -543,6 +661,70 @@ private func positionColorPanel(_ panel: NSColorPanel, beside toolbarFrame: CGRe
         y: min(max(preferredY, visible.minY), max(visible.minY, visible.maxY - size.height))
     )
     panel.setFrameOrigin(origin)
+}
+
+private enum SelectionResizeHandle: CaseIterable {
+    case left, right, bottom, top
+    case bottomLeft, bottomRight, topLeft, topRight
+
+    var movesLeft: Bool { self == .left || self == .bottomLeft || self == .topLeft }
+    var movesRight: Bool { self == .right || self == .bottomRight || self == .topRight }
+    var movesBottom: Bool { self == .bottom || self == .bottomLeft || self == .bottomRight }
+    var movesTop: Bool { self == .top || self == .topLeft || self == .topRight }
+    var isHorizontalEdge: Bool { self == .left || self == .right }
+    var isVerticalEdge: Bool { self == .top || self == .bottom }
+}
+
+private final class SelectionResizeHandleView: NSView {
+    let handle: SelectionResizeHandle
+    var onDragBegan: (() -> Void)?
+    var onDrag: ((CGPoint) -> Void)?
+    var onDragEnded: (() -> Void)?
+
+    init(handle: SelectionResizeHandle) {
+        self.handle = handle
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func resetCursorRects() {
+        let cursor: NSCursor
+        if handle.isHorizontalEdge {
+            cursor = .resizeLeftRight
+        } else if handle.isVerticalEdge {
+            cursor = .resizeUpDown
+        } else {
+            cursor = .crosshair
+        }
+        addCursorRect(bounds, cursor: cursor)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onDragBegan?()
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        onDrag?(NSEvent.mouseLocation)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        onDrag?(NSEvent.mouseLocation)
+        onDragEnded?()
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let size: CGFloat = 8
+        let knob = CGRect(x: bounds.midX - size / 2, y: bounds.midY - size / 2, width: size, height: size)
+        NSColor.white.setFill()
+        NSBezierPath(ovalIn: knob).fill()
+        NSColor.systemBlue.setStroke()
+        let outline = NSBezierPath(ovalIn: knob.insetBy(dx: 0.5, dy: 0.5))
+        outline.lineWidth = 2
+        outline.stroke()
+    }
 }
 
 private final class DirectPreviewBorderView: NSView {

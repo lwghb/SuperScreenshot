@@ -176,8 +176,17 @@ final class CaptureCoordinator: ObservableObject {
 
     private func presentDirectAnnotation(image: CGImage, rect: CGRect, screen: NSScreen) {
         directAnnotationController?.close()
-        let controller = DirectAnnotationController(image: image, selection: rect, screen: screen)
+        let fullScreenImage = ScreenCapture.displayID(for: screen).flatMap { selectionSnapshots[$0] }
+        let controller = DirectAnnotationController(
+            image: image,
+            selection: rect,
+            screen: screen,
+            fullScreenImage: fullScreenImage
+        )
         directAnnotationController = controller
+        controller.onSelectionChanged = { [weak self] selection in
+            self?.selectionController?.updateLockedSelection(selection, on: screen)
+        }
         controller.onFinish = { [weak self] edited in
             NSPasteboard.general.clearContents()
             NSPasteboard.general.writeObjects([NSImage(cgImage: edited, size: .zero)])
@@ -185,11 +194,11 @@ final class CaptureCoordinator: ObservableObject {
             self?.directAnnotationController = nil
             self?.closeOverlays()
         }
-        controller.onLongCapture = { [weak self] in
+        controller.onLongCapture = { [weak self] selection in
             self?.directAnnotationController?.close()
             self?.directAnnotationController = nil
             self?.closeOverlays()
-            self?.startLongCapture(rect: rect, screen: screen)
+            self?.startLongCapture(rect: selection, screen: screen)
         }
         controller.onCancel = { [weak self] in
             self?.directAnnotationController?.close()

@@ -78,6 +78,17 @@ final class SelectionOverlayController {
         }
     }
 
+    func updateLockedSelection(_ selection: CGRect, on screen: NSScreen) {
+        for window in windows {
+            guard let view = window.contentView as? SelectionView else { continue }
+            if window.screen === screen || window.frame.intersects(selection) {
+                view.setLockedSelection(window.convertFromScreen(selection))
+            } else {
+                view.setLockedSelection(nil)
+            }
+        }
+    }
+
     func close() {
         windows.forEach { $0.orderOut(nil) }
         windows.removeAll()
@@ -295,6 +306,12 @@ private final class SelectionView: NSView {
         pointerLocation = point
         pointerColor = colorSampler?.color(at: point)
         updateHoveredWindow(at: point)
+        needsDisplay = true
+    }
+    func setLockedSelection(_ rect: CGRect?) {
+        selection = rect ?? .zero
+        hoveredWindow = nil
+        isLocked = true
         needsDisplay = true
     }
     override func draw(_ dirtyRect: NSRect) {

@@ -40,6 +40,26 @@ struct ImageStitcherTests {
         #expect(ScreenCapture.pixelSize(for: capture, scale: 2).height == Int(aligned.height * 2))
     }
 
+    @Test func cropsAdjustedSelectionAtDisplayPixelScale() throws {
+        let context = try #require(CGContext(
+            data: nil,
+            width: 200,
+            height: 100,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        let snapshot = try #require(context.makeImage())
+        let cropped = try #require(ScreenCapture.crop(
+            snapshot,
+            to: CGRect(x: 10, y: 5, width: 20, height: 15),
+            on: CGRect(x: 0, y: 0, width: 100, height: 50)
+        ))
+        #expect(cropped.width == 40)
+        #expect(cropped.height == 30)
+    }
+
     @Test func detectsEqualImages() throws {
         let ctx = try #require(CGContext(data: nil, width: 100, height: 100, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         ctx.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))

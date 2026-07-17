@@ -59,10 +59,14 @@ enum ScreenCapture {
     }
 
     static func crop(_ snapshot: CGImage, to rect: CGRect, on screen: NSScreen) -> CGImage? {
-        guard screen.frame.width > 0, screen.frame.height > 0 else { return nil }
-        let sourceRect = displayRect(for: rect, on: screen)
-        let scaleX = CGFloat(snapshot.width) / screen.frame.width
-        let scaleY = CGFloat(snapshot.height) / screen.frame.height
+        crop(snapshot, to: rect, on: screen.frame)
+    }
+
+    static func crop(_ snapshot: CGImage, to rect: CGRect, on screenFrame: CGRect) -> CGImage? {
+        guard screenFrame.width > 0, screenFrame.height > 0 else { return nil }
+        let sourceRect = displayRect(for: rect, screenFrame: screenFrame)
+        let scaleX = CGFloat(snapshot.width) / screenFrame.width
+        let scaleY = CGFloat(snapshot.height) / screenFrame.height
         let pixelRect = CGRect(
             x: sourceRect.minX * scaleX,
             y: sourceRect.minY * scaleY,

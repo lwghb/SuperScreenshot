@@ -560,7 +560,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     var onAnnotationDragEnded: ((CGPoint) -> Bool)?
     var onAnnotationAvailabilityChanged: ((Bool) -> Void)?
 
-    private let image: CGImage
+    private var image: CGImage
     private let imagePadding: CGFloat
     private var annotations: [ScreenshotAnnotation] = [] {
         didSet {
@@ -619,6 +619,23 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             annotations.removeLast()
             needsDisplay = true
         }
+    }
+
+    func replaceImage(_ newImage: CGImage, annotationOffset: CGPoint) {
+        commitActiveText()
+        if annotationOffset != .zero {
+            for index in annotations.indices {
+                moveAnnotation(at: index, by: annotationOffset)
+            }
+            dragStart = dragStart.map { CGPoint(x: $0.x + annotationOffset.x, y: $0.y + annotationOffset.y) }
+            dragEnd = dragEnd.map { CGPoint(x: $0.x + annotationOffset.x, y: $0.y + annotationOffset.y) }
+            activeMosaicPoints = activeMosaicPoints?.map {
+                CGPoint(x: $0.x + annotationOffset.x, y: $0.y + annotationOffset.y)
+            }
+        }
+        image = newImage
+        mosaicImage = makeMosaicImage()
+        needsDisplay = true
     }
 
     override func mouseDown(with event: NSEvent) {
