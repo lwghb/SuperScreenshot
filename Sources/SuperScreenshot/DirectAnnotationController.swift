@@ -57,16 +57,21 @@ final class DirectAnnotationController: NSObject {
             x: contentRectInWindowFrame.minX + contentSize.width / 2,
             y: contentRectInWindowFrame.minY + toolbarHeight + (contentSize.height - toolbarHeight) / 2
         )
+        let idealWindowOrigin = CGPoint(
+            x: selection.midX - previewCenterInWindowFrame.x,
+            y: selection.midY - previewCenterInWindowFrame.y
+        )
         let windowOrigin = CGPoint(
             x: min(
-                max(selection.midX - previewCenterInWindowFrame.x, availableFrame.minX),
+                max(idealWindowOrigin.x, availableFrame.minX),
                 availableFrame.maxX - windowFrameSize.width
             ),
             y: min(
-                max(selection.midY - previewCenterInWindowFrame.y, availableFrame.minY),
+                max(idealWindowOrigin.y, availableFrame.minY),
                 availableFrame.maxY - windowFrameSize.height
             )
         )
+        let initialWindowFrame = CGRect(origin: idealWindowOrigin, size: windowFrameSize)
         let targetWindowFrame = CGRect(origin: windowOrigin, size: windowFrameSize)
 
         let canvasView = ScreenshotEditorView(
@@ -116,13 +121,14 @@ final class DirectAnnotationController: NSObject {
             self?.finishDeleteDrop(at: point) ?? false
         }
         window.contentView = content
-        window.setFrame(targetWindowFrame, display: false)
+        window.setFrame(initialWindowFrame, display: false)
         self.window = window
         if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             window.alphaValue = 0
         }
 
         window.makeKeyAndOrderFront(nil)
+        window.setFrame(initialWindowFrame, display: false)
         NSApp.activate(ignoringOtherApps: true)
         window.makeFirstResponder(canvasView)
         updateToolState()
@@ -135,6 +141,7 @@ final class DirectAnnotationController: NSObject {
             toolbarFrame: window.convertToScreen(toolbar.frame),
             finishButton: finishButton,
             finishFrame: finishFrame,
+            targetWindowFrame: targetWindowFrame,
             border: previewBorder
         )
     }
@@ -146,6 +153,7 @@ final class DirectAnnotationController: NSObject {
         toolbarFrame: CGRect,
         finishButton: NSButton?,
         finishFrame: CGRect?,
+        targetWindowFrame: CGRect,
         border: NSView
     ) {
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
@@ -192,6 +200,26 @@ final class DirectAnnotationController: NSObject {
         toolbarPreview?.orderFrontRegardless()
 
         DispatchQueue.main.async {
+            let offset = CGPoint(
+                x: targetWindowFrame.minX - window.frame.minX,
+                y: targetWindowFrame.minY - window.frame.minY
+            )
+            if abs(offset.x) > 0.5 || abs(offset.y) > 0.5 {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.3
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    window.animator().setFrame(targetWindowFrame, display: true)
+                    preview.animator().setFrame(preview.frame.offsetBy(dx: offset.x, dy: offset.y), display: true)
+                    toolbarPreview?.animator().setFrame(
+                        toolbarPreview?.frame.offsetBy(dx: offset.x, dy: offset.y) ?? .zero,
+                        display: true
+                    )
+                    finishPreview?.animator().setFrame(
+                        finishPreview?.frame.offsetBy(dx: offset.x, dy: offset.y) ?? .zero,
+                        display: true
+                    )
+                }
+            }
             if let toolbarPreview {
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.2
