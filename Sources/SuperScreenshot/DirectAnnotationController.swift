@@ -219,8 +219,8 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func updateResizeHandleFrames() {
-        let edge: CGFloat = 12
-        let corner: CGFloat = 16
+        let edge: CGFloat = 20
+        let corner: CGFloat = 24
         for (handle, panel) in resizeWindows {
             let frame: CGRect
             switch handle {
@@ -696,8 +696,10 @@ private final class SelectionResizeHandleView: NSView {
             cursor = .resizeLeftRight
         } else if handle.isVerticalEdge {
             cursor = .resizeUpDown
+        } else if handle == .bottomLeft || handle == .topRight {
+            cursor = SelectionResizeCursor.diagonalRising
         } else {
-            cursor = .crosshair
+            cursor = SelectionResizeCursor.diagonalFalling
         }
         addCursorRect(bounds, cursor: cursor)
     }
@@ -724,6 +726,43 @@ private final class SelectionResizeHandleView: NSView {
         let outline = NSBezierPath(ovalIn: knob.insetBy(dx: 0.5, dy: 0.5))
         outline.lineWidth = 2
         outline.stroke()
+    }
+}
+
+@MainActor
+private enum SelectionResizeCursor {
+    static let diagonalRising = makeCursor(rising: true)
+    static let diagonalFalling = makeCursor(rising: false)
+
+    private static func makeCursor(rising: Bool) -> NSCursor {
+        let image = NSImage(size: CGSize(width: 20, height: 20), flipped: false) { rect in
+            let start = rising ? CGPoint(x: 3, y: 3) : CGPoint(x: 3, y: 17)
+            let end = rising ? CGPoint(x: 17, y: 17) : CGPoint(x: 17, y: 3)
+            let direction = CGPoint(x: end.x - start.x, y: end.y - start.y)
+            let length = hypot(direction.x, direction.y)
+            let unit = CGPoint(x: direction.x / length, y: direction.y / length)
+            let perpendicular = CGPoint(x: -unit.y, y: unit.x)
+            let path = NSBezierPath()
+            path.move(to: start)
+            path.line(to: end)
+            for (tip, sign) in [(start, CGFloat(1)), (end, CGFloat(-1))] {
+                let base = CGPoint(x: tip.x + unit.x * 5 * sign, y: tip.y + unit.y * 5 * sign)
+                path.move(to: tip)
+                path.line(to: CGPoint(x: base.x + perpendicular.x * 3, y: base.y + perpendicular.y * 3))
+                path.move(to: tip)
+                path.line(to: CGPoint(x: base.x - perpendicular.x * 3, y: base.y - perpendicular.y * 3))
+            }
+            path.lineCapStyle = .round
+            path.lineJoinStyle = .round
+            NSColor.white.setStroke()
+            path.lineWidth = 4
+            path.stroke()
+            NSColor.black.setStroke()
+            path.lineWidth = 2
+            path.stroke()
+            return true
+        }
+        return NSCursor(image: image, hotSpot: CGPoint(x: 10, y: 10))
     }
 }
 
