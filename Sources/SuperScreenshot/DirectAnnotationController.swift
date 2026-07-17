@@ -383,7 +383,7 @@ final class DirectAnnotationController: NSObject {
         if let window {
             panel.level = NSWindow.Level(rawValue: window.level.rawValue + 1)
         }
-        positionColorPanel(panel, on: screen)
+        positionColorPanel(panel, beside: toolbarWindow?.frame, on: screen)
         panel.orderFront(nil)
     }
 
@@ -495,13 +495,25 @@ final class DirectAnnotationController: NSObject {
 }
 
 @MainActor
-private func positionColorPanel(_ panel: NSColorPanel, on screen: NSScreen) {
+private func positionColorPanel(_ panel: NSColorPanel, beside toolbarFrame: CGRect?, on screen: NSScreen) {
     let visible = screen.visibleFrame
     let size = panel.frame.size
-    let centered = CGPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2)
+    let spacing: CGFloat = 10
+    let toolbar = toolbarFrame ?? CGRect(x: visible.midX, y: visible.midY, width: 0, height: 0)
+    let rightX = toolbar.maxX + spacing
+    let leftX = toolbar.minX - spacing - size.width
+    let preferredX: CGFloat
+    if rightX + size.width <= visible.maxX {
+        preferredX = rightX
+    } else if leftX >= visible.minX {
+        preferredX = leftX
+    } else {
+        preferredX = rightX
+    }
+    let preferredY = toolbar.midY - size.height / 2
     let origin = CGPoint(
-        x: min(max(centered.x, visible.minX), max(visible.minX, visible.maxX - size.width)),
-        y: min(max(centered.y, visible.minY), max(visible.minY, visible.maxY - size.height))
+        x: min(max(preferredX, visible.minX), max(visible.minX, visible.maxX - size.width)),
+        y: min(max(preferredY, visible.minY), max(visible.minY, visible.maxY - size.height))
     )
     panel.setFrameOrigin(origin)
 }
