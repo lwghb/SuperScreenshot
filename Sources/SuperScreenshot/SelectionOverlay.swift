@@ -29,7 +29,11 @@ final class SelectionOverlayController {
                 guard !clipped.isNull, clipped.width >= 10, clipped.height >= 10 else { return nil }
                 return clipped.offsetBy(dx: -screen.frame.minX, dy: -screen.frame.minY)
             }
-            let view = SelectionView(frame: CGRect(origin: .zero, size: screen.frame.size), windowFrames: candidates)
+            let view = SelectionView(
+                frame: CGRect(origin: .zero, size: screen.frame.size),
+                windowFrames: candidates,
+                colorSampler: ScreenColorSampler(screen: screen)
+            )
             view.onCancel = { [weak self] in self?.onCancel?() }
             view.onSelection = { [weak self, weak window] local in
                 guard let self, let window else { return }
@@ -40,6 +44,10 @@ final class SelectionOverlayController {
             window.contentView = view
             windows.append(window)
             window.orderFrontRegardless()
+            let mouse = window.convertPoint(fromScreen: NSEvent.mouseLocation)
+            if view.bounds.contains(mouse) {
+                view.updatePointer(at: mouse)
+            }
         }
         NSApp.activate(ignoringOtherApps: true)
         let mouse = NSEvent.mouseLocation
@@ -69,6 +77,25 @@ final class SelectionOverlayController {
             NSCursor.pop()
             cursorPushed = false
         }
+    }
+}
+
+private final class ScreenColorSampler {
+    private let bitmap: NSBitmapImageRep
+    private let pointSize: CGSize
+
+    init?(screen: NSScreen) {
+        guard let displayID = ScreenCapture.displayID(for: screen),
+              let image = CGDisplayCreateImage(displayID) else { return nil }
+        bitmap = NSBitmapImageRep(cgImage: image)
+        pointSize = screen.frame.size
+    }
+
+    func color(at point: CGPoint) -> NSColor? {
+        guard pointSize.width > 0, pointSize.height > 0 else { return nil }
+        let x = min(bitmap.pixelsWide - 1, max(0, Int(point.x / pointSize.width * CGFloat(bitmap.pixelsWide))))
+        let y = min(bitmap.pixelsHigh - 1, max(0, Int((pointSize.height - point.y) / pointSize.height * CGFloat(bitmap.pixelsHigh))))
+        return bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB)
     }
 }
 
@@ -122,10 +149,14 @@ private final class SelectionView: NSView {
     private var pressedWindow: CGRect?
     private var isDraggingSelection = false
     private var trackingAreaRef: NSTrackingArea?
+    private let colorSampler: ScreenColorSampler?
+    private var pointerLocation: CGPoint?
+    private var pointerColor: NSColor?
     var isLocked = false { didSet { needsDisplay = true } }
 
-    init(frame frameRect: NSRect, windowFrames: [CGRect]) {
+    init(frame frameRect: NSRect, windowFrames: [CGRect], colorSampler: ScreenColorSampler?) {
         self.windowFrames = windowFrames
+        self.colorSampler = colorSampler
         super.init(frame: frameRect)
     }
 
@@ -157,11 +188,13 @@ private final class SelectionView: NSView {
     }
     override func mouseMoved(with event: NSEvent) {
         guard !isLocked, start == nil else { return }
-        updateHoveredWindow(at: convert(event.locationInWindow, from: nil))
+        updatePointer(at: convert(event.locationInWindow, from: nil))
     }
     override func mouseExited(with event: NSEvent) {
         guard start == nil else { return }
         hoveredWindow = nil
+        pointerLocation = nil
+        pointerColor = nil
         needsDisplay = true
     }
     override func mouseDown(with event: NSEvent) {
@@ -169,6 +202,7 @@ private final class SelectionView: NSView {
         window?.makeKey()
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
+        updatePointer(at: point)
         start = point
         pressedWindow = windowFrames.first(where: { $0.contains(point) })
         hoveredWindow = pressedWindow
@@ -180,6 +214,7 @@ private final class SelectionView: NSView {
         guard !isLocked else { return }
         guard let start else { return }
         let end = convert(event.locationInWindow, from: nil)
+        updatePointer(at: end)
         guard isDraggingSelection || hypot(end.x - start.x, end.y - start.y) >= 3 else { return }
         isDraggingSelection = true
         hoveredWindow = nil
@@ -221,6 +256,12 @@ private final class SelectionView: NSView {
         hoveredWindow = hovered
         needsDisplay = true
     }
+    func updatePointer(at point: CGPoint) {
+        pointerLocation = point
+        pointerColor = colorSampler?.color(at: point)
+        updateHoveredWindow(at: point)
+        needsDisplay = true
+    }
     override func draw(_ dirtyRect: NSRect) {
         NSColor.black.withAlphaComponent(0.55).setFill(); bounds.fill()
         let highlighted = selection.isEmpty ? hoveredWindow : selection
@@ -233,6 +274,7 @@ private final class SelectionView: NSView {
             ]
             let size = text.size(withAttributes: attributes)
             text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY), withAttributes: attributes)
+            drawColorReadout()
             return
         }
         NSGraphicsContext.current?.saveGraphicsState()
@@ -244,5 +286,32 @@ private final class SelectionView: NSView {
         NSColor.systemBlue.setStroke(); let border = NSBezierPath(rect: highlighted); border.lineWidth = 2; border.stroke()
         let size = "\(Int(highlighted.width)) × \(Int(highlighted.height))"
         size.draw(at: CGPoint(x: highlighted.minX, y: highlighted.maxY+6), withAttributes: [.foregroundColor: NSColor.white, .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)])
+        drawColorReadout()
+    }
+
+    private func drawColorReadout() {
+        guard !isLocked, let point = pointerLocation, let color = pointerColor else { return }
+        let red = Int((color.redComponent * 255).rounded())
+        let green = Int((color.greenComponent * 255).rounded())
+        let blue = Int((color.blueComponent * 255).rounded())
+        let value = String(format: "#%02X%02X%02X", red, green, blue)
+        let panelSize = CGSize(width: 104, height: 30)
+        var origin = CGPoint(x: point.x + 14, y: point.y - panelSize.height - 14)
+        if origin.x + panelSize.width > bounds.maxX - 6 { origin.x = point.x - panelSize.width - 14 }
+        if origin.y < bounds.minY + 6 { origin.y = point.y + 14 }
+        origin.x = min(max(origin.x, bounds.minX + 6), bounds.maxX - panelSize.width - 6)
+        origin.y = min(max(origin.y, bounds.minY + 6), bounds.maxY - panelSize.height - 6)
+        let panel = CGRect(origin: origin, size: panelSize)
+        NSColor.black.withAlphaComponent(0.82).setFill()
+        NSBezierPath(roundedRect: panel, xRadius: 7, yRadius: 7).fill()
+        color.setFill()
+        NSBezierPath(roundedRect: CGRect(x: panel.minX + 7, y: panel.minY + 7, width: 16, height: 16), xRadius: 4, yRadius: 4).fill()
+        value.draw(
+            at: CGPoint(x: panel.minX + 30, y: panel.minY + 7),
+            withAttributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
+            ]
+        )
     }
 }
