@@ -1084,8 +1084,8 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         context.setLineCap(.round)
         context.setLineJoin(.round)
 
-        let arrowThreshold = max(44, shaftWidth * 5)
-        guard distance >= arrowThreshold else {
+        let arrowStartDistance = max(20, shaftWidth * 2.5)
+        guard distance > arrowStartDistance else {
             context.move(to: start)
             context.addLine(to: end)
             context.strokePath()
@@ -1093,8 +1093,12 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             return
         }
 
-        let headLength = min(max(distance * 0.22, 22), min(72, distance * 0.45))
-        let headWidth = shaftWidth * 2.8
+        let transitionDistance = max(18, shaftWidth * 2.25)
+        let linearProgress = min(max((distance - arrowStartDistance) / transitionDistance, 0), 1)
+        let progress = linearProgress * linearProgress * (3 - 2 * linearProgress)
+        let fullHeadLength = min(max(distance * 0.24, 18), min(64, distance * 0.45))
+        let headLength = fullHeadLength * progress
+        let headWidth = shaftWidth + (shaftWidth * 2.8 - shaftWidth) * progress
         let headBase = CGPoint(x: end.x - headLength * ux, y: end.y - headLength * uy)
         let shaftEnd = CGPoint(
             x: end.x - headLength * 0.72 * ux,
