@@ -158,6 +158,7 @@ final class DirectAnnotationController: NSObject {
             panel.backgroundColor = .clear
             panel.hasShadow = false
             panel.sharingType = .none
+            panel.acceptsMouseMovedEvents = true
             let view = SelectionResizeHandleView(handle: handle)
             view.onDragBegan = { [weak self] in self?.resizeStartSelection = self?.selection }
             view.onDrag = { [weak self] point in self?.resizeSelection(handle: handle, to: point) }
@@ -250,6 +251,9 @@ final class DirectAnnotationController: NSObject {
                                width: corner, height: corner)
             }
             panel.setFrame(frame, display: true)
+            if let contentView = panel.contentView {
+                panel.invalidateCursorRects(for: contentView)
+            }
         }
     }
 
@@ -680,6 +684,7 @@ private final class SelectionResizeHandleView: NSView {
     var onDragBegan: (() -> Void)?
     var onDrag: ((CGPoint) -> Void)?
     var onDragEnded: (() -> Void)?
+    private var trackingAreaRef: NSTrackingArea?
 
     init(handle: SelectionResizeHandle) {
         self.handle = handle
@@ -690,19 +695,38 @@ private final class SelectionResizeHandleView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func resetCursorRects() {
-        let cursor: NSCursor
-        if handle.isHorizontalEdge {
-            cursor = .resizeLeftRight
-        } else if handle.isVerticalEdge {
-            cursor = .resizeUpDown
-        } else if handle == .bottomLeft || handle == .topRight {
-            cursor = SelectionResizeCursor.diagonalRising
-        } else {
-            cursor = SelectionResizeCursor.diagonalFalling
-        }
-        addCursorRect(bounds, cursor: cursor)
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingAreaRef { removeTrackingArea(trackingAreaRef) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited, .cursorUpdate],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingAreaRef = area
     }
+
+    private var resizeCursor: NSCursor {
+        if handle.isHorizontalEdge {
+            return .resizeLeftRight
+        } else if handle.isVerticalEdge {
+            return .resizeUpDown
+        } else if handle == .bottomLeft || handle == .topRight {
+            return SelectionResizeCursor.diagonalRising
+        } else {
+            return SelectionResizeCursor.diagonalFalling
+        }
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: resizeCursor)
+    }
+
+    override func cursorUpdate(with event: NSEvent) { resizeCursor.set() }
+    override func mouseEntered(with event: NSEvent) { resizeCursor.set() }
+    override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
 
     override func mouseDown(with event: NSEvent) {
         onDragBegan?()
@@ -718,6 +742,10 @@ private final class SelectionResizeHandleView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        // A nearly transparent surface makes the full resize band participate in
+        // mouse and cursor hit testing instead of only the visible center knob.
+        NSColor.black.withAlphaComponent(0.002).setFill()
+        bounds.fill(using: .copy)
         let size: CGFloat = 8
         let knob = CGRect(x: bounds.midX - size / 2, y: bounds.midY - size / 2, width: size, height: size)
         NSColor.white.setFill()
