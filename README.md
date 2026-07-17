@@ -73,3 +73,9 @@ This is an actively developed beta. Please report bugs and feature requests thro
 
 本仓库包含 SuperScreenShot 的完整源代码和版本安装包。
 This repository contains the complete SuperScreenShot source code and release builds.
+
+## 开源许可 / License
+
+本项目基于 [MIT License](LICENSE) 开源。使用、修改或再分发时请保留版权与许可证声明。
+
+This project is open source under the [MIT License](LICENSE). Please retain the copyright and license notice when using, modifying, or redistributing the software.
