@@ -28,6 +28,8 @@ final class DirectAnnotationController: NSObject {
     private var finishButton: NSButton?
     private var paletteButtons: [DirectColorButton] = []
     private var customColorButton: DirectCustomColorButton?
+    private weak var activeColorPanel: NSColorPanel?
+    private var colorPanelClickMonitor: Any?
 
     init(image: CGImage, selection: CGRect, screen: NSScreen) {
         self.image = image
@@ -384,7 +386,9 @@ final class DirectAnnotationController: NSObject {
             panel.level = NSWindow.Level(rawValue: window.level.rawValue + 1)
         }
         positionColorPanel(panel, beside: toolbarWindow?.frame, on: screen)
-        panel.orderFront(nil)
+        activeColorPanel = panel
+        installColorPanelClickMonitor(for: panel)
+        panel.makeKeyAndOrderFront(nil)
     }
 
     @objc private func customColorChanged(_ sender: NSColorPanel) {
@@ -408,6 +412,27 @@ final class DirectAnnotationController: NSObject {
         focusCanvas()
     }
 
+    private func installColorPanelClickMonitor(for panel: NSColorPanel) {
+        if let colorPanelClickMonitor {
+            NSEvent.removeMonitor(colorPanelClickMonitor)
+        }
+        colorPanelClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self, weak panel] event in
+            if event.window !== panel {
+                self?.closeColorPanel()
+            }
+            return event
+        }
+    }
+
+    private func closeColorPanel() {
+        if let colorPanelClickMonitor {
+            NSEvent.removeMonitor(colorPanelClickMonitor)
+            self.colorPanelClickMonitor = nil
+        }
+        activeColorPanel?.orderOut(nil)
+        activeColorPanel = nil
+    }
+
     @objc private func undo() {
         canvas?.undo()
         focusCanvas()
@@ -419,10 +444,12 @@ final class DirectAnnotationController: NSObject {
 
     @objc private func finish() {
         guard let image = canvas?.renderedImage() else { return }
+        closeColorPanel()
         onFinish?(image)
     }
 
     private func cancel() {
+        closeColorPanel()
         onCancel?()
     }
 
@@ -701,6 +728,7 @@ private final class DeleteDropButton: NSButton {
 
 extension DirectAnnotationController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
+        closeColorPanel()
         onCancel?()
     }
 }

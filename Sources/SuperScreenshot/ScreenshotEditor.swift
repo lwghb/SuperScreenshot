@@ -33,6 +33,8 @@ final class ScreenshotEditorController: NSObject {
     private var ellipseButton: NSButton?
     private var textColorButton: NSButton?
     private var backgroundColorButton: NSButton?
+    private weak var activeColorPanel: NSColorPanel?
+    private var colorPanelClickMonitor: Any?
     private let defaults = UserDefaults.standard
 
     init(image: CGImage, initialMode: ScreenshotAnnotationMode, screen: NSScreen? = nil) {
@@ -237,7 +239,9 @@ final class ScreenshotEditorController: NSObject {
         if let screen {
             positionLegacyColorPanel(panel, on: screen)
         }
-        panel.orderFront(nil)
+        activeColorPanel = panel
+        installColorPanelClickMonitor(for: panel)
+        panel.makeKeyAndOrderFront(nil)
     }
 
     private func currentColor(for target: ColorTarget) -> NSColor {
@@ -251,6 +255,27 @@ final class ScreenshotEditorController: NSObject {
 
     @objc private func colorChanged(_ sender: NSColorPanel) {
         apply(color: sender.color)
+    }
+
+    private func installColorPanelClickMonitor(for panel: NSColorPanel) {
+        if let colorPanelClickMonitor {
+            NSEvent.removeMonitor(colorPanelClickMonitor)
+        }
+        colorPanelClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self, weak panel] event in
+            if event.window !== panel {
+                self?.closeColorPanel()
+            }
+            return event
+        }
+    }
+
+    private func closeColorPanel() {
+        if let colorPanelClickMonitor {
+            NSEvent.removeMonitor(colorPanelClickMonitor)
+            self.colorPanelClickMonitor = nil
+        }
+        activeColorPanel?.orderOut(nil)
+        activeColorPanel = nil
     }
 
     private func apply(color: NSColor) {
@@ -338,12 +363,14 @@ final class ScreenshotEditorController: NSObject {
 
     @objc private func finish() {
         guard let rendered = canvas?.renderedImage() else { return }
+        closeColorPanel()
         onFinish?(rendered)
     }
 }
 
 extension ScreenshotEditorController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
+        closeColorPanel()
         onCancel?()
     }
 }
