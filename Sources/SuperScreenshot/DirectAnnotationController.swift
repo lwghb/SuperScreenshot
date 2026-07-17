@@ -459,6 +459,11 @@ private final class InstantTooltipToolbarView: NSView {
     private weak var currentTarget: NSView?
     private let tooltipLabel: NSTextField = {
         let label = NSTextField(labelWithString: "")
+        label.cell = VerticallyCenteredTextFieldCell(textCell: "")
+        label.isEditable = false
+        label.isSelectable = false
+        label.isBordered = false
+        label.drawsBackground = false
         label.font = .systemFont(ofSize: 12, weight: .medium)
         label.textColor = .white
         label.alignment = .center
@@ -554,6 +559,17 @@ private final class InstantTooltipToolbarView: NSView {
         currentTarget = nil
         tooltipLabel.isHidden = true
         tooltipLabel.alphaValue = 0
+    }
+}
+
+private final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        var drawingRect = super.drawingRect(forBounds: rect)
+        let textHeight = ceil(attributedStringValue.size().height)
+        guard textHeight > 0, drawingRect.height > textHeight else { return drawingRect }
+        drawingRect.origin.y += floor((drawingRect.height - textHeight) / 2)
+        drawingRect.size.height = textHeight
+        return drawingRect
     }
 }
 
