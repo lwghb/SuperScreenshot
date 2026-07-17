@@ -3,25 +3,25 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>0.9.82</title>
-            <pubDate>Fri, 17 Jul 2026 22:16:57 +0800</pubDate>
+            <title>0.9.84</title>
+            <pubDate>Fri, 17 Jul 2026 22:27:22 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>134</sparkle:version>
-            <sparkle:shortVersionString>0.9.82</sparkle:shortVersionString>
+            <sparkle:version>136</sparkle:version>
+            <sparkle:shortVersionString>0.9.84</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.82
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.84
 
-- 将截图区域边框的拖动判定范围扩大到约 20px。
-- 四角提供更宽的拖动判定范围。
-- 新增横向、纵向和斜向缩放光标反馈。
+- 修复从截图区域外侧接近边框时缩放光标难以触发。
+- 边框内外各约 20px 均可进行调整。
+- 使用全局坐标主动判定缩放方向，并避免遮挡工具栏。
 
 ---
 
-- Expanded capture-bound resize hit areas to about 20px.
-- Added larger corner drag targets.
-- Added horizontal, vertical, and diagonal resize cursor feedback.
+- Fixed resize cursor detection when approaching from outside the capture area.
+- Supports resizing within about 20px on either side of each border.
+- Uses direction-independent global pointer detection without blocking the toolbar.
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.82/SuperScreenshot-v0.9.82-Universal.zip" length="2773425" type="application/octet-stream" sparkle:edSignature="GjX6XqYNu/cLhj5jZXmhfLoijZu+7r/Sbn3E/I9KgVA5tsohaIGCb0yLvbNzL744+iYyKp2gLjS9q8Mpd1eBDQ=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.84/SuperScreenshot-v0.9.84-Universal.zip" length="2780573" type="application/octet-stream" sparkle:edSignature="iL91x9DnEg2p+po7mbPEvuB7uNGN0SmqApbuh/dEl1WzxuFNBtv5OW4tgXNHIFLBI1WxYONdHFAJjg+iXszJCA=="/>
         </item>
     </channel>
 </rss>
