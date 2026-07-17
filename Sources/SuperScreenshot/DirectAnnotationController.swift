@@ -74,6 +74,9 @@ final class DirectAnnotationController: NSObject {
         canvasView.onAnnotationDragEnded = { [weak self] point in
             self?.finishDeleteDrop(at: point) ?? false
         }
+        canvasView.onAnnotationAvailabilityChanged = { [weak self] hasAnnotations in
+            self?.deleteDropButton?.isHidden = !hasAnnotations
+        }
         self.window = window
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -150,6 +153,7 @@ final class DirectAnnotationController: NSObject {
         tools.translatesAutoresizingMaskIntoConstraints = false
 
         let delete = DeleteDropButton(target: self, action: #selector(deleteSelectedAnnotation))
+        delete.isHidden = true
         deleteDropButton = delete
         tools.addArrangedSubview(delete)
         tools.addArrangedSubview(button("撤销", action: #selector(undo), toolTip: "撤销上一步"))

@@ -509,10 +509,17 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     var onConfirm: (() -> Void)?
     var onAnnotationDragLocation: ((CGPoint?) -> Void)?
     var onAnnotationDragEnded: ((CGPoint) -> Bool)?
+    var onAnnotationAvailabilityChanged: ((Bool) -> Void)?
 
     private let image: CGImage
     private let imagePadding: CGFloat
-    private var annotations: [ScreenshotAnnotation] = []
+    private var annotations: [ScreenshotAnnotation] = [] {
+        didSet {
+            if oldValue.isEmpty != annotations.isEmpty {
+                onAnnotationAvailabilityChanged?(!annotations.isEmpty)
+            }
+        }
+    }
     private var dragStart: CGPoint?
     private var dragEnd: CGPoint?
     private var movingIndex: Int?
