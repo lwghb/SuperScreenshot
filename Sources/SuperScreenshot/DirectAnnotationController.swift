@@ -158,7 +158,7 @@ final class DirectAnnotationController: NSObject {
         let finishButton = ColoredTitleButton(title: "完成", fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
         self.finishButton = finishButton
         finishButton.keyEquivalent = "\r"
-        finishButton.toolTip = "完成并复制截图"
+        finishButton.toolTip = "完成并复制到剪贴板"
         finishButton.translatesAutoresizingMaskIntoConstraints = false
 
         let palette = NSStackView()
