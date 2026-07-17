@@ -162,6 +162,8 @@ private final class SelectionView: NSView {
     }
     override func mouseDown(with event: NSEvent) {
         guard !isLocked else { return }
+        window?.makeKey()
+        window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
         start = point
         pressedWindow = windowFrames.first(where: { $0.contains(point) })
@@ -231,7 +233,9 @@ private final class SelectionView: NSView {
         }
         NSGraphicsContext.current?.saveGraphicsState()
         NSBezierPath(rect: highlighted).addClip()
-        NSColor.clear.setFill(); highlighted.fill(using: .copy)
+        // Keep a minimally non-transparent hit surface. Fully transparent pixels in a
+        // borderless window allow clicks to pass through to the window underneath.
+        NSColor.black.withAlphaComponent(0.002).setFill(); highlighted.fill(using: .copy)
         NSGraphicsContext.current?.restoreGraphicsState()
         NSColor.systemBlue.setStroke(); let border = NSBezierPath(rect: highlighted); border.lineWidth = 2; border.stroke()
         let size = "\(Int(highlighted.width)) × \(Int(highlighted.height))"
