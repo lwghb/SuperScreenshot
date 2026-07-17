@@ -17,6 +17,15 @@ struct ImageStitcherTests {
         #expect(result == CGRect(x: 100, y: 400, width: 240, height: 300))
     }
 
+    @Test func scalesCaptureToRetinaPixels() {
+        let size = ScreenCapture.pixelSize(
+            for: CGRect(x: 20, y: 30, width: 320, height: 180),
+            scale: 2
+        )
+        #expect(size.width == 640)
+        #expect(size.height == 360)
+    }
+
     @Test func detectsEqualImages() throws {
         let ctx = try #require(CGContext(data: nil, width: 100, height: 100, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         ctx.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
