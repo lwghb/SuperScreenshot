@@ -497,20 +497,7 @@ final class ColoredTitleButton: NSButton {
     }
 }
 
-private final class EditorTextFieldCell: NSTextFieldCell {
-    var contentInsets = NSEdgeInsets()
-
-    override func drawingRect(forBounds rect: NSRect) -> NSRect {
-        CGRect(
-            x: rect.minX + contentInsets.left,
-            y: rect.minY + contentInsets.bottom,
-            width: max(1, rect.width - contentInsets.left - contentInsets.right),
-            height: max(1, rect.height - contentInsets.top - contentInsets.bottom)
-        )
-    }
-}
-
-final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
+final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     var mode: ScreenshotAnnotationMode = .arrow
     var showsImageBorder = true
     var pendingText: String?
@@ -530,7 +517,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     private var movingIndex: Int?
     private var selectedIndex: Int?
     private var lastMovePoint: CGPoint?
-    private var activeTextField: NSTextField?
+    private var activeTextView: NSTextView?
     private var activeTextOrigin: CGPoint?
     private var activeTextAnchor: CGPoint?
     private var suppressNextTextMouseDown = false
@@ -576,7 +563,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
-        let wasEditingText = activeTextField != nil
+        let wasEditingText = activeTextView != nil
         commitActiveText()
         window?.makeFirstResponder(self)
         if suppressNextTextMouseDown {
@@ -752,77 +739,82 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     }
 
     private func beginTextInput(at imagePoint: CGPoint, viewPoint: CGPoint) {
-        let field = NSTextField(frame: CGRect(x: viewPoint.x, y: viewPoint.y, width: 20, height: 20))
-        field.cell = EditorTextFieldCell(textCell: "")
-        field.isEditable = true
-        field.isSelectable = true
-        field.isEnabled = true
-        field.focusRingType = .none
-        field.wantsLayer = true
-        field.isBordered = false
-        field.drawsBackground = false
-        field.delegate = self
-        field.target = self
-        field.action = #selector(commitTextField)
-        field.cell?.isScrollable = true
-        field.cell?.wraps = false
-        addSubview(field)
-        activeTextField = field
+        let textView = NSTextView(frame: CGRect(x: viewPoint.x, y: viewPoint.y, width: 20, height: 20))
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.isHorizontallyResizable = false
+        textView.isVerticallyResizable = false
+        textView.drawsBackground = false
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainer?.maximumNumberOfLines = 1
+        textView.textContainer?.lineBreakMode = .byClipping
+        textView.delegate = self
+        textView.wantsLayer = true
+        addSubview(textView)
+        activeTextView = textView
         activeTextOrigin = imagePoint
         activeTextAnchor = viewPoint
         updateActiveTextFieldStyle()
-        window?.makeFirstResponder(field)
+        window?.makeFirstResponder(textView)
     }
 
-    @objc private func commitTextField() {
-        commitActiveText()
-    }
-
-    func controlTextDidEndEditing(_ obj: Notification) {
-        if activeTextField != nil {
+    func textDidEndEditing(_ notification: Notification) {
+        if activeTextView != nil {
             suppressNextTextMouseDown = true
         }
         commitActiveText()
     }
 
-    func controlTextDidChange(_ obj: Notification) {
+    func textDidChange(_ notification: Notification) {
         resizeActiveTextField()
     }
 
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            commitActiveText()
+            window?.makeFirstResponder(self)
+            return true
+        }
+        return false
+    }
+
     private func resizeActiveTextField() {
-        guard let field = activeTextField, let anchor = activeTextAnchor else { return }
+        guard let textView = activeTextView, let anchor = activeTextAnchor else { return }
         let font = NSFont.systemFont(ofSize: textFontSize, weight: .semibold)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font
         ]
-        let textWidth = ceil(NSAttributedString(string: field.stringValue, attributes: attributes).size().width)
-        let textHeight = ceil(font.boundingRectForFont.height)
+        let textWidth = ceil(NSAttributedString(string: textView.string, attributes: attributes).size().width)
+        let textHeight = ceil(NSLayoutManager().defaultLineHeight(for: font))
         let padding = textFontSize * 0.35
         let width = min(max(padding * 2 + 1, textWidth + padding * 2), max(padding * 2 + 1, bounds.width - anchor.x - 12))
         let height = ceil(textHeight + padding * 2)
-        field.frame = CGRect(x: anchor.x, y: anchor.y - height, width: width, height: height)
-        (field.cell as? EditorTextFieldCell)?.contentInsets = NSEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
+        textView.frame = CGRect(x: anchor.x, y: anchor.y - height, width: width, height: height)
+        textView.textContainerInset = CGSize(width: padding, height: padding)
     }
 
     private func updateActiveTextFieldStyle() {
-        guard let field = activeTextField else { return }
-        field.font = .systemFont(ofSize: textFontSize, weight: .semibold)
-        field.textColor = textColor
-        field.layer?.backgroundColor = textBackgroundColor.withAlphaComponent(0.9).cgColor
-        field.layer?.cornerRadius = textFontSize * 0.35
+        guard let textView = activeTextView else { return }
+        textView.font = .systemFont(ofSize: textFontSize, weight: .semibold)
+        textView.textColor = textColor
+        textView.insertionPointColor = textColor
+        textView.layer?.backgroundColor = textBackgroundColor.withAlphaComponent(0.9).cgColor
+        textView.layer?.cornerRadius = textFontSize * 0.35
         resizeActiveTextField()
     }
 
     private func commitActiveText() {
-        guard let field = activeTextField else { return }
-        let text = field.stringValue
+        guard let textView = activeTextView else { return }
+        let text = textView.string
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let origin = activeTextOrigin {
             let imageFontSize = textFontSize * CGFloat(image.width) / imageRect.width
             annotations.append(.text(text, origin: origin, fontSize: imageFontSize, textColor: textColor, backgroundColor: textBackgroundColor))
             selectedIndex = annotations.count - 1
         }
-        field.removeFromSuperview()
-        activeTextField = nil
+        textView.removeFromSuperview()
+        activeTextView = nil
         activeTextOrigin = nil
         activeTextAnchor = nil
         needsDisplay = true
@@ -859,7 +851,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             .font: font
         ]
         let width = NSAttributedString(string: text, attributes: attributes).size().width
-        let height = font.boundingRectForFont.height
+        let height = NSLayoutManager().defaultLineHeight(for: font)
         return CGRect(x: origin.x, y: origin.y - height - padding * 2, width: width + padding * 2, height: height + padding * 2)
     }
 
@@ -1040,7 +1032,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         ]
         let attributed = NSAttributedString(string: text, attributes: attributes)
         let size = attributed.size()
-        let lineHeight = font.boundingRectForFont.height
+        let lineHeight = NSLayoutManager().defaultLineHeight(for: font)
         let rect = CGRect(x: origin.x, y: origin.y - lineHeight - padding * 2, width: size.width + padding * 2, height: lineHeight + padding * 2)
 
         context.saveGState()
