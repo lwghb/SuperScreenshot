@@ -3,29 +3,25 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>0.9.77</title>
-            <pubDate>Fri, 17 Jul 2026 17:13:53 +0800</pubDate>
+            <title>0.9.79</title>
+            <pubDate>Fri, 17 Jul 2026 17:31:50 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>129</sparkle:version>
-            <sparkle:shortVersionString>0.9.77</sparkle:shortVersionString>
+            <sparkle:version>131</sparkle:version>
+            <sparkle:shortVersionString>0.9.79</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.77
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.79
 
-- 新增内置“检查更新”功能，并支持每日自动检查。
-- 使用 Sparkle EdDSA 签名验证更新包。
-- 新增多语言“关于”窗口及反馈、GitHub、许可证入口。
-- 修复 SuperScreenshot 自身窗口无法自动识别和截取的问题。
-- 统一产品、文档、仓库链接及安装包命名。
+- 修复菜单栏展开时截图快捷键不响应。
+- 在“检查更新”上方显示当前版本号。
+- 修复“检查更新”按钮置灰。
 
 ---
 
-- Added built-in update checks with daily automatic checking.
-- Secured update archives with Sparkle EdDSA signatures.
-- Added a localized About window with feedback, GitHub, and license links.
-- Fixed automatic detection and capture of SuperScreenshot's own windows.
-- Unified product, documentation, repository, and package naming.
+- Fixed screenshot shortcuts while the status menu is open.
+- Added the current version above Check for Updates.
+- Fixed the disabled Check for Updates action.
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.77/SuperScreenshot-v0.9.77-Universal.zip" length="2743530" type="application/octet-stream" sparkle:edSignature="4Uq/Fv7sVdHIZycb+hyzYJm/JwCUwIB5eo8XghraHgH8DkhiFj5YXHA3P8kLqiVnggCE8hCHu05pAPXdpcyPDw=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.79/SuperScreenshot-v0.9.79-Universal.zip" length="2744839" type="application/octet-stream" sparkle:edSignature="l/7njV0LyVanf3OprSwJPLYIM0PcW967HLmhPBSDzC+cqXvN3OsBlOS8OLhVqrYkxymHdYR9r5bXEVJtETZzDw=="/>
         </item>
     </channel>
 </rss>
