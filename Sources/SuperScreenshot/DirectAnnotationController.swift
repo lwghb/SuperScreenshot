@@ -48,7 +48,7 @@ final class DirectAnnotationController: NSObject {
         canvasView.onEscape = { [weak self] in self?.cancel() }
         canvas = canvasView
 
-        let window = NSWindow(
+        let window = DirectAnnotationWindow(
             contentRect: CGRect(origin: .zero, size: selection.size),
             styleMask: [.borderless],
             backing: .buffered,
@@ -448,6 +448,11 @@ private final class DirectPreviewBorderView: NSView {
     }
 }
 
+private final class DirectAnnotationWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 private final class InstantTooltipToolbarView: NSView {
     private var tracking: NSTrackingArea?
     private var tooltipText: [ObjectIdentifier: String] = [:]
@@ -530,12 +535,16 @@ private final class InstantTooltipToolbarView: NSView {
         var frame = tooltipLabel.frame.insetBy(dx: -8, dy: -4)
         let targetFrame = target.convert(target.bounds, to: self)
         frame.origin.x = min(max(targetFrame.midX - frame.width / 2, 4), bounds.maxX - frame.width - 4)
-        frame.origin.y = targetFrame.maxY + 6
+        let aboveTarget = targetFrame.maxY + 6
+        frame.origin.y = aboveTarget + frame.height <= bounds.maxY - 4
+            ? aboveTarget
+            : max(4, targetFrame.minY - frame.height - 6)
         tooltipLabel.frame = frame
         tooltipLabel.alphaValue = 0
         tooltipLabel.isHidden = false
+        addSubview(tooltipLabel, positioned: .above, relativeTo: nil)
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
+            context.duration = 0.8
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             tooltipLabel.animator().alphaValue = 1
         }
