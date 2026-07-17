@@ -69,5 +69,7 @@ This is an actively developed beta. Please report bugs and feature requests thro
 
 ---
 
-> This repository distributes release builds only. Source code is not included.  
-> 本仓库仅用于发布安装包，不包含源代码。
+## 源代码 / Source Code
+
+本仓库包含 SuperScreenShot 的完整源代码和版本安装包。
+This repository contains the complete SuperScreenShot source code and release builds.
