@@ -20,7 +20,9 @@ final class GlobalHotKeyManager {
             { _, _, userData in
                 guard let userData else { return OSStatus(eventNotHandledErr) }
                 let manager = Unmanaged<GlobalHotKeyManager>.fromOpaque(userData).takeUnretainedValue()
-                Task { @MainActor in manager.onPressed?() }
+                MainActor.assumeIsolated {
+                    manager.onPressed?()
+                }
                 return noErr
             },
             1,

@@ -24,8 +24,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        coordinator.installHotKeyMonitor()
         installStatusMenu()
+        coordinator.installHotKeyMonitor { [weak self] in
+            self?.statusItem.menu?.cancelTrackingWithoutAnimation()
+            self?.coordinator.beginSelection()
+        }
     }
 
     private func installStatusMenu() {
@@ -37,13 +40,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         shortcutItem = menu.addItem(withTitle: "", action: #selector(showShortcut), keyEquivalent: "")
         menu.addItem(withTitle: L("检查系统权限…"), action: #selector(checkPermissions), keyEquivalent: "")
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let versionItem = menu.addItem(withTitle: LF("版本 %@", version), action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
         let updateItem = menu.addItem(withTitle: L("检查更新…"), action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
-        updateItem.target = updaterController
         menu.addItem(.separator())
         menu.addItem(withTitle: L("关于超强截图…"), action: #selector(showAbout), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: L("退出超强截图"), action: #selector(quit), keyEquivalent: "")
         for item in menu.items { item.target = self }
+        updateItem.target = updaterController
         statusItem.menu = menu
         updateShortcutTitle()
     }

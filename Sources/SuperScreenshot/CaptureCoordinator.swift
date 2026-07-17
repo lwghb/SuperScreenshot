@@ -84,8 +84,15 @@ final class CaptureCoordinator: ObservableObject {
         recorder.show()
     }
 
-    func installHotKeyMonitor() {
-        hotKeyManager.onPressed = { [weak self] in self?.beginSelection() }
+    func installHotKeyMonitor(onPressed: (() -> Void)? = nil) {
+        hotKeyManager.onPressed = { [weak self] in
+            guard let self else { return }
+            if let onPressed {
+                onPressed()
+            } else {
+                self.beginSelection()
+            }
+        }
         hotKeyManager.register(shortcut)
     }
 
