@@ -119,6 +119,7 @@ private final class SelectionView: NSView {
     private var selection: CGRect = .zero
     private let windowFrames: [CGRect]
     private var hoveredWindow: CGRect?
+    private var pressedWindow: CGRect?
     private var isDraggingSelection = false
     private var trackingAreaRef: NSTrackingArea?
     var isLocked = false { didSet { needsDisplay = true } }
@@ -161,7 +162,10 @@ private final class SelectionView: NSView {
     }
     override func mouseDown(with event: NSEvent) {
         guard !isLocked else { return }
-        start = convert(event.locationInWindow, from: nil)
+        let point = convert(event.locationInWindow, from: nil)
+        start = point
+        pressedWindow = windowFrames.first(where: { $0.contains(point) })
+        hoveredWindow = pressedWindow
         selection = .zero
         isDraggingSelection = false
         needsDisplay = true
@@ -178,9 +182,23 @@ private final class SelectionView: NSView {
     }
     override func mouseUp(with event: NSEvent) {
         guard !isLocked else { return }
-        defer { start = nil }
-        if !isDraggingSelection, let hoveredWindow {
-            selection = hoveredWindow
+        guard let start else { return }
+        let end = convert(event.locationInWindow, from: nil)
+        defer {
+            self.start = nil
+            pressedWindow = nil
+        }
+        if hypot(end.x - start.x, end.y - start.y) >= 3 {
+            isDraggingSelection = true
+            hoveredWindow = nil
+            selection = CGRect(
+                x: min(start.x, end.x),
+                y: min(start.y, end.y),
+                width: abs(end.x - start.x),
+                height: abs(end.y - start.y)
+            )
+        } else if let pressedWindow {
+            selection = pressedWindow
         }
         guard selection.width >= 10, selection.height >= 10 else {
             updateHoveredWindow(at: convert(event.locationInWindow, from: nil))
