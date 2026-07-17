@@ -172,11 +172,9 @@ final class DirectAnnotationController: NSObject {
 
         var finishPreview: NSWindow?
         if let finishButton, let finishFrame {
-            finishPreview = makeViewPreview(
-                from: finishButton,
+            finishPreview = makeFinishPreview(
                 frame: finishFrame,
-                above: NSWindow.Level(rawValue: window.level.rawValue + 2),
-                opaque: false
+                above: NSWindow.Level(rawValue: window.level.rawValue + 2)
             )
             entranceFinishWindow = finishPreview
             finishPreview?.orderFrontRegardless()
@@ -227,6 +225,31 @@ final class DirectAnnotationController: NSObject {
                 }
             }
         }
+    }
+
+    private func makeFinishPreview(frame: CGRect, above level: NSWindow.Level) -> NSWindow {
+        let preview = NSPanel(
+            contentRect: frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false,
+            screen: screen
+        )
+        preview.level = NSWindow.Level(rawValue: level.rawValue + 2)
+        preview.isOpaque = false
+        preview.backgroundColor = .clear
+        preview.hasShadow = false
+        preview.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        let button = ColoredTitleButton(
+            title: "完成",
+            fillColor: .systemGreen,
+            textColor: .white,
+            target: self,
+            action: #selector(finish)
+        )
+        button.frame = CGRect(origin: .zero, size: frame.size)
+        preview.contentView = button
+        return preview
     }
 
     private func makeViewPreview(
