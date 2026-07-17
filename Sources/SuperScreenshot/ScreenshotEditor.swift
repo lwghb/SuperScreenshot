@@ -231,6 +231,9 @@ final class ScreenshotEditorController: NSObject {
         panel.setTarget(self)
         panel.setAction(#selector(colorChanged(_:)))
         panel.color = currentColor(for: target)
+        if let screen {
+            positionLegacyColorPanel(panel, on: screen)
+        }
         panel.orderFront(nil)
     }
 
@@ -454,6 +457,18 @@ private final class ColorSwatchButton: NSButton {
             layer.add(animation, forKey: "selectedColorGlow")
         }
     }
+}
+
+@MainActor
+private func positionLegacyColorPanel(_ panel: NSColorPanel, on screen: NSScreen) {
+    let visible = screen.visibleFrame
+    let size = panel.frame.size
+    let centered = CGPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2)
+    let origin = CGPoint(
+        x: min(max(centered.x, visible.minX), max(visible.minX, visible.maxX - size.width)),
+        y: min(max(centered.y, visible.minY), max(visible.minY, visible.maxY - size.height))
+    )
+    panel.setFrameOrigin(origin)
 }
 
 final class ColoredTitleButton: NSButton {

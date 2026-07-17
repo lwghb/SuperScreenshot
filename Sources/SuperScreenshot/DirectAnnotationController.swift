@@ -380,6 +380,7 @@ final class DirectAnnotationController: NSObject {
         panel.setTarget(self)
         panel.setAction(#selector(customColorChanged(_:)))
         panel.color = currentColor()
+        positionColorPanel(panel, on: screen)
         panel.orderFront(nil)
     }
 
@@ -488,6 +489,18 @@ final class DirectAnnotationController: NSObject {
             && abs(a.blueComponent - b.blueComponent) < 0.01
             && abs(a.alphaComponent - b.alphaComponent) < 0.01
     }
+}
+
+@MainActor
+private func positionColorPanel(_ panel: NSColorPanel, on screen: NSScreen) {
+    let visible = screen.visibleFrame
+    let size = panel.frame.size
+    let centered = CGPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2)
+    let origin = CGPoint(
+        x: min(max(centered.x, visible.minX), max(visible.minX, visible.maxX - size.width)),
+        y: min(max(centered.y, visible.minY), max(visible.minY, visible.maxY - size.height))
+    )
+    panel.setFrameOrigin(origin)
 }
 
 private final class DirectPreviewBorderView: NSView {
