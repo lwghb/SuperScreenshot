@@ -501,9 +501,11 @@ private final class EditorTextFieldCell: NSTextFieldCell {
     var contentInsets = NSEdgeInsets()
 
     override func drawingRect(forBounds rect: NSRect) -> NSRect {
-        super.drawingRect(forBounds: rect).insetBy(
-            dx: contentInsets.left,
-            dy: contentInsets.top
+        CGRect(
+            x: rect.minX + contentInsets.left,
+            y: rect.minY + contentInsets.bottom,
+            width: max(1, rect.width - contentInsets.left - contentInsets.right),
+            height: max(1, rect.height - contentInsets.top - contentInsets.bottom)
         )
     }
 }
@@ -755,6 +757,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         field.isEditable = true
         field.isSelectable = true
         field.isEnabled = true
+        field.focusRingType = .none
         field.wantsLayer = true
         field.isBordered = false
         field.drawsBackground = false
@@ -792,10 +795,10 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font
         ]
-        let textWidth = NSAttributedString(string: field.stringValue, attributes: attributes).size().width
-        let textHeight = ceil(max(NSAttributedString(string: field.stringValue, attributes: attributes).size().height, font.boundingRectForFont.height))
+        let textWidth = ceil(NSAttributedString(string: field.stringValue, attributes: attributes).size().width)
+        let textHeight = ceil(font.boundingRectForFont.height)
         let padding = textFontSize * 0.35
-        let width = min(max(padding * 2 + 2, ceil(textWidth) + padding * 2), max(padding * 2 + 2, bounds.width - anchor.x - 12))
+        let width = min(max(padding * 2 + 1, textWidth + padding * 2), max(padding * 2 + 1, bounds.width - anchor.x - 12))
         let height = ceil(textHeight + padding * 2)
         field.frame = CGRect(x: anchor.x, y: anchor.y - height, width: width, height: height)
         (field.cell as? EditorTextFieldCell)?.contentInsets = NSEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
@@ -812,8 +815,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
 
     private func commitActiveText() {
         guard let field = activeTextField else { return }
-        let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !text.isEmpty, let origin = activeTextOrigin {
+        let text = field.stringValue
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let origin = activeTextOrigin {
             let imageFontSize = textFontSize * CGFloat(image.width) / imageRect.width
             annotations.append(.text(text, origin: origin, fontSize: imageFontSize, textColor: textColor, backgroundColor: textBackgroundColor))
             selectedIndex = annotations.count - 1
@@ -851,11 +854,13 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
 
     private func textRect(_ text: String, at origin: CGPoint, fontSize: CGFloat) -> CGRect {
         let padding = fontSize * 0.35
+        let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+            .font: font
         ]
-        let size = NSAttributedString(string: text, attributes: attributes).size()
-        return CGRect(x: origin.x, y: origin.y - size.height - padding * 2, width: size.width + padding * 2, height: size.height + padding * 2)
+        let width = NSAttributedString(string: text, attributes: attributes).size().width
+        let height = font.boundingRectForFont.height
+        return CGRect(x: origin.x, y: origin.y - height - padding * 2, width: width + padding * 2, height: height + padding * 2)
     }
 
     private func hitAnnotation(_ point: CGPoint) -> Int? {
@@ -1028,13 +1033,15 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
 
     private func drawText(_ text: String, at origin: CGPoint, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor, in context: CGContext) {
         let padding = fontSize * 0.35
+        let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),
+            .font: font,
             .foregroundColor: textColor
         ]
         let attributed = NSAttributedString(string: text, attributes: attributes)
         let size = attributed.size()
-        let rect = CGRect(x: origin.x, y: origin.y - size.height - padding * 2, width: size.width + padding * 2, height: size.height + padding * 2)
+        let lineHeight = font.boundingRectForFont.height
+        let rect = CGRect(x: origin.x, y: origin.y - lineHeight - padding * 2, width: size.width + padding * 2, height: lineHeight + padding * 2)
 
         context.saveGState()
         context.setFillColor(backgroundColor.withAlphaComponent(0.9).cgColor)
@@ -1042,7 +1049,10 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         context.fillPath()
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
-        attributed.draw(at: CGPoint(x: rect.minX + padding, y: rect.minY + padding))
+        attributed.draw(at: CGPoint(
+            x: rect.minX + padding,
+            y: rect.minY + padding + (lineHeight - size.height) / 2
+        ))
         NSGraphicsContext.restoreGraphicsState()
         context.restoreGState()
     }
