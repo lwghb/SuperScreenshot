@@ -3,25 +3,25 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>0.9.79</title>
-            <pubDate>Fri, 17 Jul 2026 17:31:50 +0800</pubDate>
+            <title>0.9.80</title>
+            <pubDate>Fri, 17 Jul 2026 17:59:21 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>131</sparkle:version>
-            <sparkle:shortVersionString>0.9.79</sparkle:shortVersionString>
+            <sparkle:version>132</sparkle:version>
+            <sparkle:shortVersionString>0.9.80</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.79
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.80
 
-- 修复菜单栏展开时截图快捷键不响应。
-- 在“检查更新”上方显示当前版本号。
-- 修复“检查更新”按钮置灰。
+- 支持截取其他应用和本应用已展开的菜单。
+- 快捷键按下时冻结多屏幕画面，避免菜单在框选前收起。
+- 统一冻结画面的框选、取色和截图结果。
 
 ---
 
-- Fixed screenshot shortcuts while the status menu is open.
-- Added the current version above Check for Updates.
-- Fixed the disabled Check for Updates action.
+- Added capture support for open menus in any app.
+- Freezes all displays when the shortcut is pressed so menus remain visible.
+- Uses the same frozen frame for selection, color sampling, and output.
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.79/SuperScreenshot-v0.9.79-Universal.zip" length="2744839" type="application/octet-stream" sparkle:edSignature="l/7njV0LyVanf3OprSwJPLYIM0PcW967HLmhPBSDzC+cqXvN3OsBlOS8OLhVqrYkxymHdYR9r5bXEVJtETZzDw=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.80/SuperScreenshot-v0.9.80-Universal.zip" length="2754738" type="application/octet-stream" sparkle:edSignature="+ib7jaCeY6y2NwXh7XBWwWb4XfYhivNni4wLGhMI63HrRex7AVsXPrI/vAjUFoWJKHMBbhChggLGh1F9eDkrAg=="/>
         </item>
     </channel>
 </rss>
