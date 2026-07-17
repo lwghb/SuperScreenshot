@@ -3,25 +3,25 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>0.9.84</title>
-            <pubDate>Fri, 17 Jul 2026 22:27:22 +0800</pubDate>
+            <title>0.9.86</title>
+            <pubDate>Fri, 17 Jul 2026 22:40:40 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>136</sparkle:version>
-            <sparkle:shortVersionString>0.9.84</sparkle:shortVersionString>
+            <sparkle:version>138</sparkle:version>
+            <sparkle:shortVersionString>0.9.86</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.84
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.86
 
-- 修复从截图区域外侧接近边框时缩放光标难以触发。
-- 边框内外各约 20px 均可进行调整。
-- 使用全局坐标主动判定缩放方向，并避免遮挡工具栏。
+- 短箭头先显示为圆头线段。
+- 箭头头部从约 20px 开始平滑出现，并逐渐增长到完整形态。
+- 优化箭身、圆角尾部与箭头头部的衔接。
 
 ---
 
-- Fixed resize cursor detection when approaching from outside the capture area.
-- Supports resizing within about 20px on either side of each border.
-- Uses direction-independent global pointer detection without blocking the toolbar.
+- Renders very short arrows as rounded line segments.
+- Smoothly grows the arrowhead from about 20px to its full shape.
+- Refined the connection between the rounded shaft and arrowhead.
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.84/SuperScreenshot-v0.9.84-Universal.zip" length="2780573" type="application/octet-stream" sparkle:edSignature="iL91x9DnEg2p+po7mbPEvuB7uNGN0SmqApbuh/dEl1WzxuFNBtv5OW4tgXNHIFLBI1WxYONdHFAJjg+iXszJCA=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.86/SuperScreenshot-v0.9.86-Universal.zip" length="2781288" type="application/octet-stream" sparkle:edSignature="uyh0k0Bqt/gaXVcXYP8A1SykVhcQu1iwy7kEeU6IG5vfaAkVU6lfmUyR0OHFjPOOTEaPK7Z/GXrkGU/soT6tBA=="/>
         </item>
     </channel>
 </rss>
