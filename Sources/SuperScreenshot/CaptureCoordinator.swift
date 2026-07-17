@@ -145,7 +145,10 @@ final class CaptureCoordinator: ObservableObject {
 
     private func showActions(for rect: CGRect, on screen: NSScreen) {
         Task {
-            guard let image = await capture(rect: rect, screen: screen) else { return }
+            guard let image = await capture(rect: rect, screen: screen, preserveSelectionOverlay: true) else {
+                closeOverlays()
+                return
+            }
             await MainActor.run {
                 self.presentDirectAnnotation(image: image, rect: rect, screen: screen)
             }
@@ -161,25 +164,30 @@ final class CaptureCoordinator: ObservableObject {
             NSPasteboard.general.writeObjects([NSImage(cgImage: edited, size: .zero)])
             self?.directAnnotationController?.close()
             self?.directAnnotationController = nil
+            self?.closeOverlays()
         }
         controller.onLongCapture = { [weak self] in
             self?.directAnnotationController?.close()
             self?.directAnnotationController = nil
+            self?.closeOverlays()
             self?.startLongCapture(rect: rect, screen: screen)
         }
         controller.onCancel = { [weak self] in
             self?.directAnnotationController?.close()
             self?.directAnnotationController = nil
+            self?.closeOverlays()
         }
         controller.show()
     }
 
-    private func capture(rect: CGRect, screen: NSScreen) async -> CGImage? {
+    private func capture(rect: CGRect, screen: NSScreen, preserveSelectionOverlay: Bool = false) async -> CGImage? {
         guard let displayID = ScreenCapture.displayID(for: screen) else { return nil }
         let sourceRect = ScreenCapture.displayRect(for: rect, on: screen)
         let scale = screen.backingScaleFactor
-        closeOverlays()
-        try? await Task.sleep(nanoseconds: 220_000_000)
+        if !preserveSelectionOverlay {
+            closeOverlays()
+            try? await Task.sleep(nanoseconds: 220_000_000)
+        }
         do {
             let session = try await ScreenCapture.makeSession(
                 displayID: displayID,

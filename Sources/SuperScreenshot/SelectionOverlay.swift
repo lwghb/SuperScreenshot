@@ -6,6 +6,7 @@ final class SelectionOverlayController {
     var onCancel: (() -> Void)?
     private let screens: [NSScreen]
     private var windows: [CaptureOverlayWindow] = []
+    private var cursorPushed = false
 
     init(screens: [NSScreen]) { self.screens = screens }
 
@@ -23,6 +24,7 @@ final class SelectionOverlayController {
             view.onSelection = { [weak self, weak window] local in
                 guard let self, let window else { return }
                 let global = window.convertToScreen(local)
+                self.lockSelection()
                 self.onSelection?(global, window.screen ?? screen)
             }
             window.contentView = view
@@ -35,12 +37,28 @@ final class SelectionOverlayController {
         activeWindow?.makeKeyAndOrderFront(nil)
         activeWindow?.makeFirstResponder(activeWindow?.contentView)
         NSCursor.crosshair.push()
+        cursorPushed = true
+    }
+
+    private func lockSelection() {
+        windows.forEach {
+            ($0.contentView as? SelectionView)?.isLocked = true
+            $0.ignoresMouseEvents = true
+            $0.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 2)
+        }
+        if cursorPushed {
+            NSCursor.pop()
+            cursorPushed = false
+        }
     }
 
     func close() {
         windows.forEach { $0.orderOut(nil) }
         windows.removeAll()
-        NSCursor.pop()
+        if cursorPushed {
+            NSCursor.pop()
+            cursorPushed = false
+        }
     }
 }
 
@@ -57,6 +75,7 @@ private final class SelectionView: NSView {
     var onCancel: (() -> Void)?
     private var start: CGPoint?
     private var selection: CGRect = .zero
+    var isLocked = false { didSet { needsDisplay = true } }
 
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -65,21 +84,26 @@ private final class SelectionView: NSView {
     }
     override func cancelOperation(_ sender: Any?) { onCancel?() }
     override func mouseDown(with event: NSEvent) {
+        guard !isLocked else { return }
         start = convert(event.locationInWindow, from: nil); selection = .zero; needsDisplay = true
     }
     override func mouseDragged(with event: NSEvent) {
+        guard !isLocked else { return }
         guard let start else { return }
         let end = convert(event.locationInWindow, from: nil)
         selection = CGRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x-start.x), height: abs(end.y-start.y))
         needsDisplay = true
     }
     override func mouseUp(with event: NSEvent) {
+        guard !isLocked else { return }
         guard selection.width >= 10, selection.height >= 10 else { return }
+        isLocked = true
         onSelection?(selection)
     }
     override func draw(_ dirtyRect: NSRect) {
         NSColor.black.withAlphaComponent(0.38).setFill(); bounds.fill()
         guard !selection.isEmpty else {
+            guard !isLocked else { return }
             let text = "拖动鼠标框选截图区域 · Esc 取消"
             text.draw(at: CGPoint(x: bounds.midX-130, y: bounds.midY), withAttributes: [.foregroundColor: NSColor.white, .font: NSFont.systemFont(ofSize: 16, weight: .medium)])
             return

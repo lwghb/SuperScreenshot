@@ -11,9 +11,7 @@ final class DirectAnnotationController: NSObject {
     private let selection: CGRect
     private let screen: NSScreen
     private var window: NSWindow?
-    private var entrancePreviewWindow: NSWindow?
-    private var entranceToolbarWindow: NSWindow?
-    private var entranceFinishWindow: NSWindow?
+    private var toolbarWindow: NSWindow?
     private var canvas: ScreenshotEditorView?
     private var mode: ScreenshotAnnotationMode = .arrow
     private var colorTarget: DirectColorTarget = .stroke
@@ -36,46 +34,8 @@ final class DirectAnnotationController: NSObject {
 
     func show() {
         let toolbarHeight: CGFloat = 100
-        let visibleFrame = screen.visibleFrame
-        let windowMargin: CGFloat = 20
-        let availableFrame = visibleFrame.insetBy(dx: windowMargin, dy: windowMargin)
-        let styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
-        let maxContentSize = NSWindow.contentRect(forFrameRect: availableFrame, styleMask: styleMask).size
-        let contentSize = CGSize(
-            width: min(max(selection.width, 640), maxContentSize.width),
-            height: min(max(selection.height, 260) + toolbarHeight, maxContentSize.height)
-        )
-        let windowFrameSize = NSWindow.frameRect(
-            forContentRect: CGRect(origin: .zero, size: contentSize),
-            styleMask: styleMask
-        ).size
-        let contentRectInWindowFrame = NSWindow.contentRect(
-            forFrameRect: CGRect(origin: .zero, size: windowFrameSize),
-            styleMask: styleMask
-        )
-        let previewCenterInWindowFrame = CGPoint(
-            x: contentRectInWindowFrame.minX + contentSize.width / 2,
-            y: contentRectInWindowFrame.minY + toolbarHeight + (contentSize.height - toolbarHeight) / 2
-        )
-        let idealWindowOrigin = CGPoint(
-            x: selection.midX - previewCenterInWindowFrame.x,
-            y: selection.midY - previewCenterInWindowFrame.y
-        )
-        let windowOrigin = CGPoint(
-            x: min(
-                max(idealWindowOrigin.x, availableFrame.minX),
-                availableFrame.maxX - windowFrameSize.width
-            ),
-            y: min(
-                max(idealWindowOrigin.y, availableFrame.minY),
-                availableFrame.maxY - windowFrameSize.height
-            )
-        )
-        let initialWindowFrame = CGRect(origin: idealWindowOrigin, size: windowFrameSize)
-        let targetWindowFrame = CGRect(origin: windowOrigin, size: windowFrameSize)
-
         let canvasView = ScreenshotEditorView(
-            frame: CGRect(x: 0, y: toolbarHeight, width: contentSize.width, height: contentSize.height - toolbarHeight),
+            frame: CGRect(origin: .zero, size: selection.size),
             image: image,
             imagePadding: 0
         )
@@ -89,235 +49,86 @@ final class DirectAnnotationController: NSObject {
         canvas = canvasView
 
         let window = NSWindow(
-            contentRect: CGRect(origin: .zero, size: contentSize),
-            styleMask: styleMask,
+            contentRect: selection,
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false,
             screen: screen
         )
-        window.title = "编辑截图"
-        window.minSize = CGSize(width: 640, height: 380)
         window.isReleasedWhenClosed = false
-        window.delegate = self
-        window.level = .floating
+        window.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.hasShadow = false
+        window.backgroundColor = .black
+        window.isOpaque = true
         window.acceptsMouseMovedEvents = true
-
-        let content = NSView(frame: CGRect(origin: .zero, size: contentSize))
-        content.autoresizingMask = [.width, .height]
-        content.addSubview(canvasView)
-        let previewBorder = DirectPreviewBorderView(frame: canvasView.frame)
-        previewBorder.autoresizingMask = canvasView.autoresizingMask
-        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            previewBorder.alphaValue = 0
-        }
-        content.addSubview(previewBorder, positioned: .above, relativeTo: canvasView)
-        let toolbar = makeToolbarView(frame: CGRect(x: 0, y: 0, width: contentSize.width, height: toolbarHeight))
-        toolbar.autoresizingMask = [.width, .maxYMargin]
-        content.addSubview(toolbar)
+        window.contentView = canvasView
         canvasView.onAnnotationDragLocation = { [weak self] point in
             self?.updateDeleteDropTarget(at: point)
         }
         canvasView.onAnnotationDragEnded = { [weak self] point in
             self?.finishDeleteDrop(at: point) ?? false
         }
-        window.contentView = content
-        window.setFrame(initialWindowFrame, display: false)
         self.window = window
-        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            window.alphaValue = 0
-        }
-
         window.makeKeyAndOrderFront(nil)
-        window.setFrame(initialWindowFrame, display: false)
         NSApp.activate(ignoringOtherApps: true)
         window.makeFirstResponder(canvasView)
+
+        let toolbarWidth = min(CGFloat(680), max(CGFloat(320), screen.visibleFrame.width - 24))
+        let toolbarFrame = resolvedToolbarFrame(size: CGSize(width: toolbarWidth, height: toolbarHeight))
+        let toolbarPanel = NSPanel(
+            contentRect: toolbarFrame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false,
+            screen: screen
+        )
+        toolbarPanel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 3)
+        toolbarPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        toolbarPanel.isOpaque = false
+        toolbarPanel.backgroundColor = .clear
+        toolbarPanel.hasShadow = true
+        toolbarPanel.acceptsMouseMovedEvents = true
+        let toolbar = makeToolbarView(frame: CGRect(origin: .zero, size: toolbarFrame.size))
+        toolbar.wantsLayer = true
+        toolbar.layer?.cornerRadius = 12
+        toolbar.layer?.masksToBounds = true
+        toolbarPanel.contentView = toolbar
+        toolbarPanel.alphaValue = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 1 : 0
+        toolbarWindow = toolbarPanel
         updateToolState()
         toolbar.layoutSubtreeIfNeeded()
-        let finishFrame = finishButton.map { window.convertToScreen($0.convert($0.bounds, to: nil)) }
-        animateEntrance(
-            window: window,
-            canvasFrame: window.convertToScreen(canvasView.frame),
-            toolbar: toolbar,
-            toolbarFrame: window.convertToScreen(toolbar.frame),
-            finishButton: finishButton,
-            finishFrame: finishFrame,
-            targetWindowFrame: targetWindowFrame,
-            border: previewBorder
-        )
-    }
-
-    private func animateEntrance(
-        window: NSWindow,
-        canvasFrame: CGRect,
-        toolbar: NSView,
-        toolbarFrame: CGRect,
-        finishButton: NSButton?,
-        finishFrame: CGRect?,
-        targetWindowFrame: CGRect,
-        border: NSView
-    ) {
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
-
-        let preview = NSPanel(
-            contentRect: canvasFrame,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false,
-            screen: screen
-        )
-        preview.level = NSWindow.Level(rawValue: window.level.rawValue + 1)
-        preview.isOpaque = true
-        preview.backgroundColor = .black
-        preview.hasShadow = false
-        preview.ignoresMouseEvents = true
-        preview.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        let imageView = NSImageView(frame: CGRect(origin: .zero, size: canvasFrame.size))
-        imageView.image = NSImage(cgImage: image, size: canvasFrame.size)
-        imageView.imageScaling = .scaleAxesIndependently
-        preview.contentView = imageView
-        entrancePreviewWindow = preview
-        preview.orderFrontRegardless()
-
-        var finishPreview: NSWindow?
-        if let finishButton, let finishFrame {
-            finishPreview = makeFinishPreview(
-                frame: finishFrame,
-                above: NSWindow.Level(rawValue: window.level.rawValue + 2)
-            )
-            entranceFinishWindow = finishPreview
-            finishPreview?.orderFrontRegardless()
-            finishButton.alphaValue = 0
-        }
-        let toolbarPreview = makeViewPreview(
-            from: toolbar,
-            frame: toolbarFrame,
-            above: window.level,
-            opaque: true
-        )
-        finishButton?.alphaValue = 1
-        entranceToolbarWindow = toolbarPreview
-        toolbarPreview?.alphaValue = 0
-        toolbarPreview?.orderFrontRegardless()
-
-        DispatchQueue.main.async {
-            let offset = CGPoint(
-                x: targetWindowFrame.minX - window.frame.minX,
-                y: targetWindowFrame.minY - window.frame.minY
-            )
-            if abs(offset.x) > 0.5 || abs(offset.y) > 0.5 {
-                NSAnimationContext.runAnimationGroup { context in
-                    context.duration = 0.3
-                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                    window.animator().setFrame(targetWindowFrame, display: true)
-                    preview.animator().setFrame(preview.frame.offsetBy(dx: offset.x, dy: offset.y), display: true)
-                    toolbarPreview?.animator().setFrame(
-                        toolbarPreview?.frame.offsetBy(dx: offset.x, dy: offset.y) ?? .zero,
-                        display: true
-                    )
-                    finishPreview?.animator().setFrame(
-                        finishPreview?.frame.offsetBy(dx: offset.x, dy: offset.y) ?? .zero,
-                        display: true
-                    )
-                }
-            }
-            if let toolbarPreview {
-                NSAnimationContext.runAnimationGroup { context in
-                    context.duration = 0.2
-                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                    toolbarPreview.animator().alphaValue = 1
-                }
-            }
+        toolbarPanel.orderFrontRegardless()
+        if toolbarPanel.alphaValue == 0 {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.5
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                window.animator().alphaValue = 1
-            } completionHandler: { [weak self, weak preview, weak toolbarPreview, weak finishPreview] in
-                Task { @MainActor in
-                    preview?.orderOut(nil)
-                    toolbarPreview?.orderOut(nil)
-                    finishPreview?.orderOut(nil)
-                    if self?.entrancePreviewWindow === preview {
-                        self?.entrancePreviewWindow = nil
-                    }
-                    if self?.entranceToolbarWindow === toolbarPreview {
-                        self?.entranceToolbarWindow = nil
-                    }
-                    if self?.entranceFinishWindow === finishPreview {
-                        self?.entranceFinishWindow = nil
-                    }
-                    NSAnimationContext.runAnimationGroup { context in
-                        context.duration = 0.5
-                        context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                        border.animator().alphaValue = 1
-                    }
-                }
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                toolbarPanel.animator().alphaValue = 1
             }
         }
     }
 
-    private func makeFinishPreview(frame: CGRect, above level: NSWindow.Level) -> NSWindow {
-        let preview = NSPanel(
-            contentRect: frame,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false,
-            screen: screen
-        )
-        preview.level = NSWindow.Level(rawValue: level.rawValue + 2)
-        preview.isOpaque = false
-        preview.backgroundColor = .clear
-        preview.hasShadow = false
-        preview.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        let button = ColoredTitleButton(
-            title: "完成",
-            fillColor: .systemGreen,
-            textColor: .white,
-            target: self,
-            action: #selector(finish)
-        )
-        button.frame = CGRect(origin: .zero, size: frame.size)
-        preview.contentView = button
-        return preview
-    }
+    private func resolvedToolbarFrame(size: CGSize) -> CGRect {
+        let visible = screen.visibleFrame.insetBy(dx: 12, dy: 12)
+        var x = selection.midX - size.width / 2
+        if x < visible.minX {
+            x = selection.minX
+        } else if x + size.width > visible.maxX {
+            x = selection.maxX - size.width
+        }
+        x = min(max(x, visible.minX), visible.maxX - size.width)
 
-    private func makeViewPreview(
-        from view: NSView,
-        frame: CGRect,
-        above level: NSWindow.Level,
-        opaque: Bool
-    ) -> NSWindow? {
-        guard let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
-        view.cacheDisplay(in: view.bounds, to: representation)
-        let snapshot = NSImage(size: view.bounds.size)
-        snapshot.addRepresentation(representation)
-
-        let preview = NSPanel(
-            contentRect: frame,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false,
-            screen: screen
-        )
-        preview.level = NSWindow.Level(rawValue: level.rawValue + 2)
-        preview.isOpaque = opaque
-        preview.backgroundColor = opaque ? .windowBackgroundColor : .clear
-        preview.hasShadow = false
-        preview.ignoresMouseEvents = true
-        preview.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        let imageView = NSImageView(frame: CGRect(origin: .zero, size: frame.size))
-        imageView.image = snapshot
-        imageView.imageScaling = .scaleAxesIndependently
-        preview.contentView = imageView
-        return preview
+        var y = selection.minY - size.height - 8
+        if y < visible.minY {
+            y = selection.maxY + 8
+        }
+        y = min(max(y, visible.minY), visible.maxY - size.height)
+        return CGRect(origin: CGPoint(x: x, y: y), size: size)
     }
 
     func close() {
-        entrancePreviewWindow?.orderOut(nil)
-        entrancePreviewWindow = nil
-        entranceToolbarWindow?.orderOut(nil)
-        entranceToolbarWindow = nil
-        entranceFinishWindow?.orderOut(nil)
-        entranceFinishWindow = nil
+        toolbarWindow?.orderOut(nil)
+        toolbarWindow = nil
         window?.orderOut(nil)
         window = nil
         canvas = nil
@@ -444,7 +255,7 @@ final class DirectAnnotationController: NSObject {
 
     private func updateDeleteDropTarget(at point: CGPoint?) {
         guard let deleteDropButton else { return }
-        guard let point else {
+        guard let point, let point = toolbarPoint(fromCanvasWindowPoint: point) else {
             deleteDropButton.isDropTarget = false
             return
         }
@@ -453,11 +264,16 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func finishDeleteDrop(at point: CGPoint) -> Bool {
-        guard let deleteDropButton else { return false }
+        guard let deleteDropButton, let point = toolbarPoint(fromCanvasWindowPoint: point) else { return false }
         let localPoint = deleteDropButton.convert(point, from: nil)
         let shouldDelete = deleteDropButton.bounds.contains(localPoint)
         deleteDropButton.isDropTarget = false
         return shouldDelete
+    }
+
+    private func toolbarPoint(fromCanvasWindowPoint point: CGPoint) -> CGPoint? {
+        guard let window, let toolbarWindow else { return nil }
+        return toolbarWindow.convertPoint(fromScreen: window.convertPoint(toScreen: point))
     }
 
     @objc private func deleteSelectedAnnotation() {
