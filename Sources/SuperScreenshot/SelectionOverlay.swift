@@ -167,7 +167,18 @@ private final class SelectionView: NSView {
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { onCancel?() } else { super.keyDown(with: event) }
+        let blockedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+        if event.keyCode == 53 {
+            onCancel?()
+        } else if event.charactersIgnoringModifiers?.lowercased() == "c",
+                  event.modifierFlags.intersection(blockedModifiers).isEmpty,
+                  let value = currentColorValue() {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(value, forType: .string)
+            onCancel?()
+        } else {
+            super.keyDown(with: event)
+        }
     }
     override func cancelOperation(_ sender: Any?) { onCancel?() }
     override func rightMouseDown(with event: NSEvent) {
@@ -188,6 +199,8 @@ private final class SelectionView: NSView {
     }
     override func mouseMoved(with event: NSEvent) {
         guard !isLocked, start == nil else { return }
+        window?.makeKey()
+        window?.makeFirstResponder(self)
         updatePointer(at: convert(event.locationInWindow, from: nil))
     }
     override func mouseExited(with event: NSEvent) {
@@ -291,11 +304,14 @@ private final class SelectionView: NSView {
 
     private func drawColorReadout() {
         guard !isLocked, let point = pointerLocation, let color = pointerColor else { return }
-        let red = Int((color.redComponent * 255).rounded())
-        let green = Int((color.greenComponent * 255).rounded())
-        let blue = Int((color.blueComponent * 255).rounded())
-        let value = String(format: "#%02X%02X%02X", red, green, blue)
-        let panelSize = CGSize(width: 104, height: 30)
+        guard let value = currentColorValue() else { return }
+        let hint = L("按 C 复制当前色值")
+        let hintAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: NSColor.white.withAlphaComponent(0.72),
+            .font: NSFont.systemFont(ofSize: 10)
+        ]
+        let hintWidth = ceil(hint.size(withAttributes: hintAttributes).width)
+        let panelSize = CGSize(width: max(112, hintWidth + 14), height: 50)
         var origin = CGPoint(x: point.x + 14, y: point.y - panelSize.height - 14)
         if origin.x + panelSize.width > bounds.maxX - 6 { origin.x = point.x - panelSize.width - 14 }
         if origin.y < bounds.minY + 6 { origin.y = point.y + 14 }
@@ -305,13 +321,22 @@ private final class SelectionView: NSView {
         NSColor.black.withAlphaComponent(0.82).setFill()
         NSBezierPath(roundedRect: panel, xRadius: 7, yRadius: 7).fill()
         color.setFill()
-        NSBezierPath(roundedRect: CGRect(x: panel.minX + 7, y: panel.minY + 7, width: 16, height: 16), xRadius: 4, yRadius: 4).fill()
+        NSBezierPath(roundedRect: CGRect(x: panel.minX + 7, y: panel.minY + 27, width: 16, height: 16), xRadius: 4, yRadius: 4).fill()
         value.draw(
-            at: CGPoint(x: panel.minX + 30, y: panel.minY + 7),
+            at: CGPoint(x: panel.minX + 30, y: panel.minY + 27),
             withAttributes: [
                 .foregroundColor: NSColor.white,
                 .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
             ]
         )
+        hint.draw(at: CGPoint(x: panel.minX + 7, y: panel.minY + 7), withAttributes: hintAttributes)
+    }
+
+    private func currentColorValue() -> String? {
+        guard let color = pointerColor else { return nil }
+        let red = Int((color.redComponent * 255).rounded())
+        let green = Int((color.greenComponent * 255).rounded())
+        let blue = Int((color.blueComponent * 255).rounded())
+        return String(format: "#%02X%02X%02X", red, green, blue)
     }
 }
