@@ -3,25 +3,25 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>0.9.81</title>
-            <pubDate>Fri, 17 Jul 2026 22:10:25 +0800</pubDate>
+            <title>0.9.82</title>
+            <pubDate>Fri, 17 Jul 2026 22:16:57 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>133</sparkle:version>
-            <sparkle:shortVersionString>0.9.81</sparkle:shortVersionString>
+            <sparkle:version>134</sparkle:version>
+            <sparkle:shortVersionString>0.9.82</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.81
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.82
 
-- 支持在编辑过程中拖动截图区域的四边和四角。
-- 选区最大可扩展到当前屏幕边界。
-- 调整时同步更新遮罩、工具栏、标注位置及最终输出范围。
+- 将截图区域边框的拖动判定范围扩大到约 20px。
+- 四角提供更宽的拖动判定范围。
+- 新增横向、纵向和斜向缩放光标反馈。
 
 ---
 
-- Added resizable capture bounds during editing.
-- Drag any edge or corner up to the current display boundary.
-- Keeps the mask, toolbar, annotations, and final output synchronized.
+- Expanded capture-bound resize hit areas to about 20px.
+- Added larger corner drag targets.
+- Added horizontal, vertical, and diagonal resize cursor feedback.
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.81/SuperScreenshot-v0.9.81-Universal.zip" length="2770790" type="application/octet-stream" sparkle:edSignature="XBGNLWaKTHSj6Jr9RLOheeSx96jWM5Rf/d3yzKWXdrkph7Ss7Ef+Oae1UnrZ5s1v3gBiyDzk8gp5tQrC2hwOCw=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.82/SuperScreenshot-v0.9.82-Universal.zip" length="2773425" type="application/octet-stream" sparkle:edSignature="GjX6XqYNu/cLhj5jZXmhfLoijZu+7r/Sbn3E/I9KgVA5tsohaIGCb0yLvbNzL744+iYyKp2gLjS9q8Mpd1eBDQ=="/>
         </item>
     </channel>
 </rss>
