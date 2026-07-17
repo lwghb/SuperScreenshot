@@ -158,7 +158,7 @@ final class DirectAnnotationController: NSObject {
         tools.addArrangedSubview(delete)
         tools.addArrangedSubview(button(L("撤销"), action: #selector(undo), toolTip: L("撤销上一步")))
         arrowButton = toolButton("arrow.down.right", action: #selector(useArrow), toolTip: L("箭头标注"))
-        textButton = toolButton("textformat", action: #selector(useText), toolTip: L("文字标注"))
+        textButton = toolButton(image: textAnnotationIcon(), action: #selector(useText), toolTip: L("文字标注"))
         rectangleButton = toolButton("rectangle", action: #selector(useRectangle), toolTip: L("矩形标注"))
         ellipseButton = toolButton("circle", action: #selector(useEllipse), toolTip: L("椭圆标注"))
         mosaicButton = toolButton(image: mosaicToolIcon(), action: #selector(useMosaic), toolTip: L("马赛克"))

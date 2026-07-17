@@ -87,7 +87,7 @@ final class ScreenshotEditorController: NSObject {
         canvas = editor
 
         let arrow = iconButton("arrow.down.right", action: #selector(useArrow(_:)))
-        let textTool = iconButton("textformat", action: #selector(useText(_:)))
+        let textTool = iconButton(image: textAnnotationIcon(), action: #selector(useText(_:)))
         let rectangle = iconButton("rectangle", action: #selector(useRectangle(_:)))
         let ellipse = iconButton("circle", action: #selector(useEllipse(_:)))
         arrowButton = arrow
@@ -138,7 +138,11 @@ final class ScreenshotEditorController: NSObject {
     }
 
     private func iconButton(_ symbol: String, action: Selector) -> NSButton {
-        let button = ColorIndicatorButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage(), target: self, action: action)
+        iconButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage(), action: action)
+    }
+
+    private func iconButton(image: NSImage, action: Selector) -> NSButton {
+        let button = ColorIndicatorButton(image: image, target: self, action: action)
         button.bezelStyle = .texturedRounded
         button.imageScaling = .scaleProportionallyDown
         button.wantsLayer = true
