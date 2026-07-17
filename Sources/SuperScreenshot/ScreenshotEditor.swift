@@ -497,6 +497,17 @@ final class ColoredTitleButton: NSButton {
     }
 }
 
+private final class EditorTextFieldCell: NSTextFieldCell {
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        var drawingRect = super.drawingRect(forBounds: rect)
+        let textHeight = ceil(max(attributedStringValue.size().height, font?.boundingRectForFont.height ?? 0))
+        guard textHeight > 0, drawingRect.height > textHeight else { return drawingRect }
+        drawingRect.origin.y += floor((drawingRect.height - textHeight) / 2)
+        drawingRect.size.height = textHeight
+        return drawingRect
+    }
+}
+
 final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     var mode: ScreenshotAnnotationMode = .arrow
     var showsImageBorder = true
@@ -737,8 +748,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     }
 
     private func beginTextInput(at imagePoint: CGPoint, viewPoint: CGPoint) {
-        let field = NSTextField(frame: CGRect(x: viewPoint.x, y: viewPoint.y - 32, width: 72, height: 32))
-        field.placeholderString = "输入文字"
+        let field = NSTextField(frame: CGRect(x: viewPoint.x, y: viewPoint.y - 32, width: 20, height: 32))
+        field.cell = EditorTextFieldCell(textCell: "")
         field.font = .systemFont(ofSize: 18, weight: .semibold)
         field.textColor = textColor
         field.backgroundColor = textBackgroundColor.withAlphaComponent(0.9)
@@ -773,12 +784,11 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
 
     private func resizeActiveTextField() {
         guard let field = activeTextField else { return }
-        let displayText = field.stringValue.isEmpty ? (field.placeholderString ?? "") : field.stringValue
         let attributes: [NSAttributedString.Key: Any] = [
             .font: field.font ?? NSFont.systemFont(ofSize: 18, weight: .semibold)
         ]
-        let textWidth = NSAttributedString(string: displayText, attributes: attributes).size().width
-        let width = min(max(56, ceil(textWidth) + 18), max(56, bounds.width - field.frame.minX - 12))
+        let textWidth = NSAttributedString(string: field.stringValue, attributes: attributes).size().width
+        let width = min(max(20, ceil(textWidth) + 12), max(20, bounds.width - field.frame.minX - 12))
         field.setFrameSize(CGSize(width: width, height: 32))
     }
 

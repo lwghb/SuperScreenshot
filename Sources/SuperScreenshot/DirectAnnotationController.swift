@@ -457,6 +457,8 @@ private final class InstantTooltipToolbarView: NSView {
     private var tracking: NSTrackingArea?
     private var tooltipText: [ObjectIdentifier: String] = [:]
     private weak var currentTarget: NSView?
+    private weak var pendingTarget: NSView?
+    private var tooltipWorkItem: DispatchWorkItem?
     private let tooltipLabel: NSTextField = {
         let label = NSTextField(labelWithString: "")
         label.cell = VerticallyCenteredTextFieldCell(textCell: "")
@@ -506,7 +508,7 @@ private final class InstantTooltipToolbarView: NSView {
             hideTooltip()
             return
         }
-        showTooltip(for: target)
+        scheduleTooltip(for: target)
     }
 
     override func mouseExited(with event: NSEvent) {
@@ -545,17 +547,30 @@ private final class InstantTooltipToolbarView: NSView {
             ? aboveTarget
             : max(4, targetFrame.minY - frame.height - 6)
         tooltipLabel.frame = frame
-        tooltipLabel.alphaValue = 0
+        tooltipLabel.alphaValue = 1
         tooltipLabel.isHidden = false
         addSubview(tooltipLabel, positioned: .above, relativeTo: nil)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.8
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            tooltipLabel.animator().alphaValue = 1
+    }
+
+    private func scheduleTooltip(for target: NSView) {
+        guard currentTarget !== target, pendingTarget !== target else { return }
+        tooltipWorkItem?.cancel()
+        tooltipLabel.isHidden = true
+        currentTarget = nil
+        pendingTarget = target
+        let workItem = DispatchWorkItem { [weak self, weak target] in
+            guard let self, let target, self.pendingTarget === target else { return }
+            self.pendingTarget = nil
+            self.showTooltip(for: target)
         }
+        tooltipWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
     }
 
     private func hideTooltip() {
+        tooltipWorkItem?.cancel()
+        tooltipWorkItem = nil
+        pendingTarget = nil
         currentTarget = nil
         tooltipLabel.isHidden = true
         tooltipLabel.alphaValue = 0
@@ -565,7 +580,7 @@ private final class InstantTooltipToolbarView: NSView {
 private final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
     override func drawingRect(forBounds rect: NSRect) -> NSRect {
         var drawingRect = super.drawingRect(forBounds: rect)
-        let textHeight = ceil(attributedStringValue.size().height)
+        let textHeight = ceil(max(attributedStringValue.size().height, font?.boundingRectForFont.height ?? 0))
         guard textHeight > 0, drawingRect.height > textHeight else { return drawingRect }
         drawingRect.origin.y += floor((drawingRect.height - textHeight) / 2)
         drawingRect.size.height = textHeight
