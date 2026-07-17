@@ -3,25 +3,25 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>0.9.80</title>
-            <pubDate>Fri, 17 Jul 2026 17:59:21 +0800</pubDate>
+            <title>0.9.81</title>
+            <pubDate>Fri, 17 Jul 2026 22:10:25 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>132</sparkle:version>
-            <sparkle:shortVersionString>0.9.80</sparkle:shortVersionString>
+            <sparkle:version>133</sparkle:version>
+            <sparkle:shortVersionString>0.9.81</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.80
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.81
 
-- 支持截取其他应用和本应用已展开的菜单。
-- 快捷键按下时冻结多屏幕画面，避免菜单在框选前收起。
-- 统一冻结画面的框选、取色和截图结果。
+- 支持在编辑过程中拖动截图区域的四边和四角。
+- 选区最大可扩展到当前屏幕边界。
+- 调整时同步更新遮罩、工具栏、标注位置及最终输出范围。
 
 ---
 
-- Added capture support for open menus in any app.
-- Freezes all displays when the shortcut is pressed so menus remain visible.
-- Uses the same frozen frame for selection, color sampling, and output.
+- Added resizable capture bounds during editing.
+- Drag any edge or corner up to the current display boundary.
+- Keeps the mask, toolbar, annotations, and final output synchronized.
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.80/SuperScreenshot-v0.9.80-Universal.zip" length="2754738" type="application/octet-stream" sparkle:edSignature="+ib7jaCeY6y2NwXh7XBWwWb4XfYhivNni4wLGhMI63HrRex7AVsXPrI/vAjUFoWJKHMBbhChggLGh1F9eDkrAg=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.81/SuperScreenshot-v0.9.81-Universal.zip" length="2770790" type="application/octet-stream" sparkle:edSignature="XBGNLWaKTHSj6Jr9RLOheeSx96jWM5Rf/d3yzKWXdrkph7Ss7Ef+Oae1UnrZ5s1v3gBiyDzk8gp5tQrC2hwOCw=="/>
         </item>
     </channel>
 </rss>
