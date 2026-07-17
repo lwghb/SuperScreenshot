@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import Sparkle
 
 @main
 @MainActor
@@ -8,6 +9,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var shortcutItem: NSMenuItem!
     private var aboutWindowController: AboutWindowController?
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     static func main() {
         let app = NSApplication.shared
@@ -31,6 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         shortcutItem = menu.addItem(withTitle: "", action: #selector(showShortcut), keyEquivalent: "")
         menu.addItem(withTitle: L("检查系统权限…"), action: #selector(checkPermissions), keyEquivalent: "")
+        let updateItem = menu.addItem(withTitle: L("检查更新…"), action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        updateItem.target = updaterController
         menu.addItem(.separator())
         menu.addItem(withTitle: L("关于超强截图…"), action: #selector(showAbout), keyEquivalent: "")
         menu.addItem(.separator())

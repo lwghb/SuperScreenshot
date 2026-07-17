@@ -6,7 +6,7 @@ ARM="$ROOT/work/arm"
 INTEL="$ROOT/work/intel"
 APP="$ROOT/outputs/SuperScreenshot.app"
 PLIST="$ROOT/AppBundle/Info.plist"
-mkdir -p "$CACHE/home" "$CACHE/clang" "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$CACHE/home" "$CACHE/clang" "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 export HOME="$CACHE/home" CLANG_MODULE_CACHE_PATH="$CACHE/clang" SWIFTPM_MODULECACHE_OVERRIDE="$CACHE/clang"
 cd "$ROOT"
 
@@ -22,6 +22,8 @@ NEXT_BUILD_NUMBER="$((BUILD_NUMBER + 1))"
 swift build -c release --disable-sandbox --scratch-path "$ARM"
 swift build -c release --disable-sandbox --scratch-path "$INTEL" --triple x86_64-apple-macosx12.0
 lipo -create "$ARM/arm64-apple-macosx/release/SuperScreenshot" "$INTEL/x86_64-apple-macosx/release/SuperScreenshot" -output "$APP/Contents/MacOS/SuperScreenshot"
+rm -rf "$APP/Contents/Frameworks/Sparkle.framework"
+ditto "$ARM/arm64-apple-macosx/release/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$PLIST" "$APP/Contents/Info.plist"
 if [ -f "$ROOT/AppBundle/Assets/SuperScreenshot.icns" ]; then
     cp "$ROOT/AppBundle/Assets/SuperScreenshot.icns" "$APP/Contents/Resources/SuperScreenshot.icns"
@@ -31,7 +33,13 @@ for LPROJ in "$ROOT"/AppBundle/Localizations/*.lproj; do
     rm -rf "$APP/Contents/Resources/$(basename "$LPROJ")"
     cp -R "$LPROJ" "$APP/Contents/Resources/"
 done
-codesign --force --deep --sign - \
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+codesign --force --sign - --options runtime "$SPARKLE/XPCServices/Installer.xpc"
+codesign --force --sign - --options runtime --preserve-metadata=entitlements "$SPARKLE/XPCServices/Downloader.xpc"
+codesign --force --sign - --options runtime "$SPARKLE/Autoupdate"
+codesign --force --sign - --options runtime "$SPARKLE/Updater.app"
+codesign --force --sign - --options runtime "$APP/Contents/Frameworks/Sparkle.framework"
+codesign --force --sign - \
     --requirements '=designated => identifier "com.lion.superscreenshot.screenkit"' \
     "$APP"
 ZIP="$ROOT/outputs/SuperScreenshot-v${NEXT_VERSION}-Universal.zip"

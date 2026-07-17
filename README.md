@@ -18,6 +18,7 @@ A lightweight, native, and local-first screenshot and annotation tool for macOS.
 - 长截图
 - 鼠标取色，按 `C` 复制当前色值
 - 完成后自动复制到剪贴板
+- 内置安全的自动更新检查
 - 截图内容完全在本机处理
 
 ### 系统要求
@@ -49,6 +50,7 @@ A lightweight, native, and local-first screenshot and annotation tool for macOS.
 - Scrolling capture
 - On-screen color picker — press `C` to copy the current color
 - Automatically copies the finished capture to the clipboard
+- Built-in secure update checks
 - All screenshots are processed locally on your Mac
 
 ### Requirements

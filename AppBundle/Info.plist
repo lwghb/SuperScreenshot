@@ -27,14 +27,22 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.9.76</string>
+	<string>0.9.77</string>
 	<key>CFBundleVersion</key>
-	<string>128</string>
+	<string>129</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>超强截图需要读取屏幕内容以完成区域截图和长截图。</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/lwghb/SuperScreenshot/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>SuaYnOZwQUQGUJm4ejqhc+TBhACZqgjEHcZWBcXBSb0=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>
