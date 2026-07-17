@@ -777,7 +777,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
             commitActiveText()
-            onConfirm?()
+            window?.makeFirstResponder(self)
             return true
         }
         if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
