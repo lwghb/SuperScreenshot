@@ -506,6 +506,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     var textBackgroundColor: NSColor = .systemBlue { didSet { updateActiveTextFieldStyle() } }
     var textFontSize: CGFloat = 18 { didSet { updateActiveTextFieldStyle() } }
     var onEscape: (() -> Void)?
+    var onConfirm: (() -> Void)?
     var onAnnotationDragLocation: ((CGPoint?) -> Void)?
     var onAnnotationDragEnded: ((CGPoint) -> Bool)?
 
@@ -547,6 +548,8 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
             onEscape?()
+        } else if event.keyCode == 36 || event.keyCode == 76 {
+            onConfirm?()
         } else if event.keyCode == 51 || event.keyCode == 117 {
             deleteSelectedAnnotation()
         } else {
@@ -774,6 +777,11 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
             commitActiveText()
+            onConfirm?()
+            return true
+        }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            discardActiveText()
             window?.makeFirstResponder(self)
             return true
         }
@@ -817,6 +825,15 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         activeTextView = nil
         activeTextOrigin = nil
         activeTextAnchor = nil
+        needsDisplay = true
+    }
+
+    private func discardActiveText() {
+        activeTextView?.removeFromSuperview()
+        activeTextView = nil
+        activeTextOrigin = nil
+        activeTextAnchor = nil
+        suppressNextTextMouseDown = false
         needsDisplay = true
     }
 

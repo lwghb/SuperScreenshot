@@ -50,6 +50,7 @@ final class DirectAnnotationController: NSObject {
         let savedFontSize = UserDefaults.standard.double(forKey: "annotation.textFontSize")
         canvasView.textFontSize = savedFontSize > 0 ? CGFloat(savedFontSize) : 18
         canvasView.onEscape = { [weak self] in self?.cancel() }
+        canvasView.onConfirm = { [weak self] in self?.finish() }
         canvas = canvasView
 
         let window = DirectAnnotationWindow(
