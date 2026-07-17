@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>超强截图</string>
 	<key>CFBundleExecutable</key>
@@ -10,14 +12,24 @@
 	<string>SuperScreenshot</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.lion.superscreenshot.screenkit</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>de</string>
+		<string>zh-Hans</string>
+		<string>zh-Hant</string>
+		<string>ja</string>
+		<string>ko</string>
+		<string>ar</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>超强截图</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.9.56</string>
+	<string>0.9.57</string>
 	<key>CFBundleVersion</key>
-	<string>108</string>
+	<string>109</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
 	<key>LSUIElement</key>

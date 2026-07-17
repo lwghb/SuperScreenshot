@@ -92,24 +92,24 @@ final class CaptureCoordinator: ObservableObject {
     func requestPermissions() {
         if CGPreflightScreenCaptureAccess() {
             let alert = NSAlert()
-            alert.messageText = "屏幕录制权限有效"
-            alert.informativeText = "超强截图已经可以读取屏幕内容。"
-            alert.addButton(withTitle: "好")
+            alert.messageText = L("屏幕录制权限有效")
+            alert.informativeText = L("超强截图已经可以读取屏幕内容。")
+            alert.addButton(withTitle: L("好"))
             alert.runModal()
         } else {
             let granted = CGRequestScreenCaptureAccess()
             let alert = NSAlert()
             if granted {
-                alert.messageText = "屏幕录制权限已授予"
-                alert.informativeText = "请彻底退出并重新打开“超强截图”，让系统权限生效。"
-                alert.addButton(withTitle: "退出应用")
+                alert.messageText = L("屏幕录制权限已授予")
+                alert.informativeText = L("请彻底退出并重新打开“超强截图”，让系统权限生效。")
+                alert.addButton(withTitle: L("退出应用"))
                 alert.runModal()
                 NSApp.terminate(nil)
             } else {
-                alert.messageText = "需要屏幕录制权限"
-                alert.informativeText = "请在系统设置的“隐私与安全性 → 录屏与系统录音”中允许“超强截图”。"
-                alert.addButton(withTitle: "打开系统设置")
-                alert.addButton(withTitle: "关闭")
+                alert.messageText = L("需要屏幕录制权限")
+                alert.informativeText = L("请在系统设置的“隐私与安全性 → 录屏与系统录音”中允许“超强截图”。")
+                alert.addButton(withTitle: L("打开系统设置"))
+                alert.addButton(withTitle: L("关闭"))
                 if alert.runModal() == .alertFirstButtonReturn,
                    let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
                     NSWorkspace.shared.open(url)
@@ -308,10 +308,10 @@ final class CaptureCoordinator: ObservableObject {
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         guard AXIsProcessTrustedWithOptions(options) else {
             let alert = NSAlert()
-            alert.messageText = "自动滚动需要辅助功能权限"
-            alert.informativeText = "请在系统设置的“隐私与安全性 → 辅助功能”中允许“超强截图”，然后再次点击自动滚动。手动长截图不受影响。"
-            alert.addButton(withTitle: "打开系统设置")
-            alert.addButton(withTitle: "关闭")
+            alert.messageText = L("自动滚动需要辅助功能权限")
+            alert.informativeText = L("请在系统设置的“隐私与安全性 → 辅助功能”中允许“超强截图”，然后再次点击自动滚动。手动长截图不受影响。")
+            alert.addButton(withTitle: L("打开系统设置"))
+            alert.addButton(withTitle: L("关闭"))
             if alert.runModal() == .alertFirstButtonReturn,
                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                 NSWorkspace.shared.open(url)
@@ -363,21 +363,21 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     private func showError(_ message: String) {
-        let alert = NSAlert(); alert.messageText = "操作失败"; alert.informativeText = message; alert.runModal()
+        let alert = NSAlert(); alert.messageText = L("操作失败"); alert.informativeText = message; alert.runModal()
     }
 
     private func showPermissionError(_ error: Error) {
         let alert = NSAlert()
         if CGPreflightScreenCaptureAccess() {
-            alert.messageText = "无法读取屏幕内容"
-            alert.informativeText = "系统已经显示“超强截图”有录屏权限，但本次截图仍然失败：\(error.localizedDescription)\n\n请彻底退出并重新打开“超强截图”。如果仍然失败，把系统设置里的“超强截图”关闭再打开一次。"
-            alert.addButton(withTitle: "好")
+            alert.messageText = L("无法读取屏幕内容")
+            alert.informativeText = LF("系统已经显示“超强截图”有录屏权限，但本次截图仍然失败：%@\n\n请彻底退出并重新打开“超强截图”。如果仍然失败，把系统设置里的“超强截图”关闭再打开一次。", error.localizedDescription)
+            alert.addButton(withTitle: L("好"))
             alert.runModal()
         } else {
-            alert.messageText = "需要屏幕录制权限"
-            alert.informativeText = "请在系统设置的“隐私与安全性 → 录屏与系统录音”中允许“超强截图”。\n\n系统返回：\(error.localizedDescription)"
-            alert.addButton(withTitle: "打开系统设置")
-            alert.addButton(withTitle: "关闭")
+            alert.messageText = L("需要屏幕录制权限")
+            alert.informativeText = LF("请在系统设置的“隐私与安全性 → 录屏与系统录音”中允许“超强截图”。\n\n系统返回：%@", error.localizedDescription)
+            alert.addButton(withTitle: L("打开系统设置"))
+            alert.addButton(withTitle: L("关闭"))
             if alert.runModal() == .alertFirstButtonReturn,
                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
                 NSWorkspace.shared.open(url)

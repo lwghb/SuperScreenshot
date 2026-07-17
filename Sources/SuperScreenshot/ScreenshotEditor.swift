@@ -57,7 +57,7 @@ final class ScreenshotEditorController: NSObject {
             backing: .buffered,
             defer: false
         )
-        window.title = "编辑截图"
+        window.title = L("编辑截图")
         window.minSize = CGSize(width: 560, height: 380)
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -98,15 +98,15 @@ final class ScreenshotEditorController: NSObject {
         toolbar.addArrangedSubview(textTool)
         toolbar.addArrangedSubview(rectangle)
         toolbar.addArrangedSubview(ellipse)
-        let text = toolbarButton("字色", action: #selector(pickTextColor(_:)))
-        let background = toolbarButton("背景色", action: #selector(pickTextBackgroundColor(_:)))
+        let text = toolbarButton(L("字色"), action: #selector(pickTextColor(_:)))
+        let background = toolbarButton(L("背景色"), action: #selector(pickTextBackgroundColor(_:)))
         textColorButton = text
         backgroundColorButton = background
         toolbar.addArrangedSubview(text)
         toolbar.addArrangedSubview(background)
-        toolbar.addArrangedSubview(toolbarButton("撤销", action: #selector(undo)))
+        toolbar.addArrangedSubview(toolbarButton(L("撤销"), action: #selector(undo)))
         toolbar.addArrangedSubview(NSView())
-        let finish = ColoredTitleButton(title: "完成", fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
+        let finish = ColoredTitleButton(title: L("完成"), fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
         finish.keyEquivalent = "\r"
         toolbar.addArrangedSubview(finish)
         toolbar.setHuggingPriority(.defaultLow, for: .horizontal)
@@ -208,7 +208,7 @@ final class ScreenshotEditorController: NSObject {
             button.isSelectedColor = colorsMatch(color, selectedColor)
             paletteStack.addArrangedSubview(button)
         }
-        let more = NSButton(title: "更多", target: self, action: #selector(showMoreColors))
+        let more = NSButton(title: L("更多"), target: self, action: #selector(showMoreColors))
         more.bezelStyle = .rounded
         paletteStack.addArrangedSubview(more)
     }

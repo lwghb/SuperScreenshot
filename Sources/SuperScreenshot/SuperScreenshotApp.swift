@@ -23,19 +23,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func installStatusMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: "超强截图")
+        statusItem.button?.image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: L("超强截图"))
         let menu = NSMenu()
         menu.delegate = self
-        menu.addItem(withTitle: "开始截图", action: #selector(beginCapture), keyEquivalent: "")
+        menu.addItem(withTitle: L("开始截图"), action: #selector(beginCapture), keyEquivalent: "")
         menu.addItem(.separator())
         shortcutItem = menu.addItem(withTitle: "", action: #selector(showShortcut), keyEquivalent: "")
-        menu.addItem(withTitle: "检查系统权限…", action: #selector(checkPermissions), keyEquivalent: "")
+        menu.addItem(withTitle: L("检查系统权限…"), action: #selector(checkPermissions), keyEquivalent: "")
         menu.addItem(.separator())
         let version = NSMenuItem(title: versionTitle(), action: nil, keyEquivalent: "")
         version.isEnabled = false
         menu.addItem(version)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "退出超强截图", action: #selector(quit), keyEquivalent: "")
+        menu.addItem(withTitle: L("退出超强截图"), action: #selector(quit), keyEquivalent: "")
         for item in menu.items { item.target = self }
         statusItem.menu = menu
         updateShortcutTitle()
@@ -43,12 +43,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) { updateShortcutTitle() }
     private func updateShortcutTitle() {
-        shortcutItem?.title = "设置快捷键…  \(coordinator.shortcut.title)"
+        shortcutItem?.title = LF("设置快捷键…  %@", coordinator.shortcut.title)
     }
     private func versionTitle() -> String {
         let info = Foundation.Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "未知"
-        return "版本 \(version)"
+        let version = info?["CFBundleShortVersionString"] as? String ?? L("未知")
+        return LF("版本 %@", version)
     }
     @objc private func beginCapture() { coordinator.beginSelection() }
     @objc private func showShortcut() { coordinator.showShortcutSettings() }

@@ -106,8 +106,13 @@ private final class SelectionView: NSView {
         NSColor.black.withAlphaComponent(0.55).setFill(); bounds.fill()
         guard !selection.isEmpty else {
             guard !isLocked else { return }
-            let text = "拖动鼠标框选截图区域 · Esc 取消"
-            text.draw(at: CGPoint(x: bounds.midX-130, y: bounds.midY), withAttributes: [.foregroundColor: NSColor.white, .font: NSFont.systemFont(ofSize: 16, weight: .medium)])
+            let text = L("拖动鼠标框选截图区域 · Esc 取消")
+            let attributes: [NSAttributedString.Key: Any] = [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 16, weight: .medium)
+            ]
+            let size = text.size(withAttributes: attributes)
+            text.draw(at: CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY), withAttributes: attributes)
             return
         }
         NSGraphicsContext.current?.saveGraphicsState()

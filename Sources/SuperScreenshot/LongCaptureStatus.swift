@@ -10,7 +10,7 @@ final class LongCaptureStatusController: NSObject {
     private var window: NSPanel?
     private let imageView = NSImageView()
     private let escapeHotKey = GlobalHotKeyManager(identifier: 2)
-    private lazy var autoScrollButton = button("自动滚动", action: #selector(toggleAutoScroll))
+    private lazy var autoScrollButton = button(L("自动滚动"), action: #selector(toggleAutoScroll))
 
     init(selection: CGRect, screen: NSScreen) {
         self.selection = selection
@@ -39,7 +39,7 @@ final class LongCaptureStatusController: NSObject {
             backing: .buffered,
             defer: false
         )
-        panel.title = "长截图实时预览"
+        panel.title = L("长截图实时预览")
         panel.level = .screenSaver
         panel.sharingType = .none
         panel.hasShadow = true
@@ -50,7 +50,7 @@ final class LongCaptureStatusController: NSObject {
         imageView.imageFrameStyle = .grayBezel
         imageView.translatesAutoresizingMaskIntoConstraints = false
 
-        let finishButton = button("完成", action: #selector(finish))
+        let finishButton = button(L("完成"), action: #selector(finish))
         finishButton.keyEquivalent = "\r"
         let buttons = NSStackView(views: [autoScrollButton, finishButton])
         buttons.orientation = .horizontal
@@ -81,7 +81,7 @@ final class LongCaptureStatusController: NSObject {
     }
 
     func setAutoScrolling(_ isScrolling: Bool) {
-        autoScrollButton.title = isScrolling ? "停止滚动" : "自动滚动"
+        autoScrollButton.title = isScrolling ? L("停止滚动") : L("自动滚动")
     }
 
     private func button(_ title: String, action: Selector) -> NSButton {

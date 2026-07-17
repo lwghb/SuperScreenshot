@@ -156,18 +156,18 @@ final class DirectAnnotationController: NSObject {
         delete.isHidden = true
         deleteDropButton = delete
         tools.addArrangedSubview(delete)
-        tools.addArrangedSubview(button("撤销", action: #selector(undo), toolTip: "撤销上一步"))
-        arrowButton = toolButton("arrow.down.right", action: #selector(useArrow), toolTip: "箭头标注")
-        textButton = toolButton("textformat", action: #selector(useText), toolTip: "文字标注")
-        rectangleButton = toolButton("rectangle", action: #selector(useRectangle), toolTip: "矩形标注")
-        ellipseButton = toolButton("circle", action: #selector(useEllipse), toolTip: "椭圆标注")
-        mosaicButton = toolButton(image: mosaicToolIcon(), action: #selector(useMosaic), toolTip: "马赛克")
+        tools.addArrangedSubview(button(L("撤销"), action: #selector(undo), toolTip: L("撤销上一步")))
+        arrowButton = toolButton("arrow.down.right", action: #selector(useArrow), toolTip: L("箭头标注"))
+        textButton = toolButton("textformat", action: #selector(useText), toolTip: L("文字标注"))
+        rectangleButton = toolButton("rectangle", action: #selector(useRectangle), toolTip: L("矩形标注"))
+        ellipseButton = toolButton("circle", action: #selector(useEllipse), toolTip: L("椭圆标注"))
+        mosaicButton = toolButton(image: mosaicToolIcon(), action: #selector(useMosaic), toolTip: L("马赛克"))
         [arrowButton, textButton, rectangleButton, ellipseButton, mosaicButton].compactMap { $0 }.forEach { tools.addArrangedSubview($0) }
-        tools.addArrangedSubview(button("长截图", action: #selector(longCapture), toolTip: "长截图"))
-        let finishButton = ColoredTitleButton(title: "完成", fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
+        tools.addArrangedSubview(button(L("长截图"), action: #selector(longCapture), toolTip: L("长截图")))
+        let finishButton = ColoredTitleButton(title: L("完成"), fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
         self.finishButton = finishButton
         finishButton.keyEquivalent = "\r"
-        finishButton.toolTip = "完成并复制到剪贴板"
+        finishButton.toolTip = L("完成并复制到剪贴板")
         finishButton.translatesAutoresizingMaskIntoConstraints = false
 
         let palette = NSStackView()
@@ -175,9 +175,9 @@ final class DirectAnnotationController: NSObject {
         palette.spacing = 8
         palette.alignment = .centerY
         palette.translatesAutoresizingMaskIntoConstraints = false
-        let textColor = button("字色", action: #selector(useTextColor))
-        let textBackground = button("背景", action: #selector(useTextBackground))
-        let sizeLabel = NSTextField(labelWithString: "字号")
+        let textColor = button(L("字色"), action: #selector(useTextColor))
+        let textBackground = button(L("背景"), action: #selector(useTextBackground))
+        let sizeLabel = NSTextField(labelWithString: L("字号"))
         let sizeSlider = NSSlider(
             value: Double(canvas?.textFontSize ?? 18),
             minValue: 12,
@@ -272,7 +272,7 @@ final class DirectAnnotationController: NSObject {
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "马赛克"
+        image.accessibilityDescription = L("马赛克")
         return image
     }
 
@@ -627,14 +627,14 @@ private final class DeleteDropButton: NSButton {
         super.init(frame: CGRect(x: 0, y: 0, width: 34, height: 34))
         self.target = target
         self.action = action
-        image = NSImage(systemSymbolName: "trash", accessibilityDescription: "删除标注")
+        image = NSImage(systemSymbolName: "trash", accessibilityDescription: L("删除标注"))
         imageScaling = .scaleProportionallyDown
         bezelStyle = .texturedRounded
         wantsLayer = true
         layer?.cornerRadius = 7
         widthAnchor.constraint(equalToConstant: 34).isActive = true
         heightAnchor.constraint(equalToConstant: 34).isActive = true
-        toolTip = "拖动标注到这里删除"
+        toolTip = L("拖动标注到这里删除")
         updateAppearance()
     }
 

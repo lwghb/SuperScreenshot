@@ -38,9 +38,9 @@ final class ActionBarController: NSObject {
         stack.spacing = 8
         stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(button("编辑", action: #selector(edit)))
-        stack.addArrangedSubview(button("长截图", action: #selector(longShot)))
-        stack.addArrangedSubview(button("完成", action: #selector(copyImage)))
+        stack.addArrangedSubview(button(L("编辑"), action: #selector(edit)))
+        stack.addArrangedSubview(button(L("长截图"), action: #selector(longShot)))
+        stack.addArrangedSubview(button(L("完成"), action: #selector(copyImage)))
         let content = NSView(frame: CGRect(origin: .zero, size: size))
         content.addSubview(stack)
         panel.contentView = content

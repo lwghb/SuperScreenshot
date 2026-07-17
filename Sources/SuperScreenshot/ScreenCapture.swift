@@ -7,8 +7,8 @@ enum ScreenCaptureError: LocalizedError {
     case captureFailed
     var errorDescription: String? {
         switch self {
-        case .displayNotFound: return "没有找到要截图的显示器。"
-        case .captureFailed: return "系统未能读取屏幕内容，请检查屏幕录制权限。"
+        case .displayNotFound: return L("没有找到要截图的显示器。")
+        case .captureFailed: return L("系统未能读取屏幕内容，请检查屏幕录制权限。")
         }
     }
 }

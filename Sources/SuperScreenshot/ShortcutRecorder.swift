@@ -8,7 +8,7 @@ final class ShortcutRecorderController: NSObject {
     private var panel: NSPanel?
     private var monitor: Any?
     private let shortcutLabel = NSTextField(labelWithString: "")
-    private let hintLabel = NSTextField(labelWithString: "请按下新的快捷键组合")
+    private let hintLabel = NSTextField(labelWithString: L("请按下新的快捷键组合"))
 
     init(current: CaptureShortcut) {
         self.current = current
@@ -21,7 +21,7 @@ final class ShortcutRecorderController: NSObject {
             backing: .buffered,
             defer: false
         )
-        panel.title = "设置截图快捷键"
+        panel.title = L("设置截图快捷键")
         panel.isReleasedWhenClosed = false
 
         shortcutLabel.stringValue = current.title
@@ -30,7 +30,7 @@ final class ShortcutRecorderController: NSObject {
         hintLabel.alignment = .center
         hintLabel.textColor = .secondaryLabelColor
 
-        let cancel = NSButton(title: "取消", target: self, action: #selector(cancelRecording))
+        let cancel = NSButton(title: L("取消"), target: self, action: #selector(cancelRecording))
         cancel.bezelStyle = .rounded
         let buttons = NSStackView(views: [cancel])
         buttons.orientation = .horizontal
@@ -56,7 +56,7 @@ final class ShortcutRecorderController: NSObject {
             let allowed: NSEvent.ModifierFlags = [.command, .control, .option, .shift]
             let modifiers = flags.intersection(allowed)
             guard !modifiers.isEmpty else {
-                self.hintLabel.stringValue = "快捷键至少需要一个修饰键（⌘、⌃、⌥ 或 ⇧）"
+                self.hintLabel.stringValue = L("快捷键至少需要一个修饰键（⌘、⌃、⌥ 或 ⇧）")
                 NSSound.beep()
                 return nil
             }
@@ -84,7 +84,7 @@ final class ShortcutRecorderController: NSObject {
         switch event.keyCode {
         case 36: return "↩"
         case 48: return "⇥"
-        case 49: return "空格"
+        case 49: return L("空格")
         case 51: return "⌫"
         case 115: return "↖"
         case 116: return "⇞"

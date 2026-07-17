@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "超强截图";
+"CFBundleName" = "超强截图";
+"NSScreenCaptureUsageDescription" = "超强截图需要读取屏幕内容以完成区域截图和长截图。";

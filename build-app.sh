@@ -26,6 +26,11 @@ cp "$PLIST" "$APP/Contents/Info.plist"
 if [ -f "$ROOT/AppBundle/Assets/SuperScreenshot.icns" ]; then
     cp "$ROOT/AppBundle/Assets/SuperScreenshot.icns" "$APP/Contents/Resources/SuperScreenshot.icns"
 fi
+for LPROJ in "$ROOT"/AppBundle/Localizations/*.lproj; do
+    [ -d "$LPROJ" ] || continue
+    rm -rf "$APP/Contents/Resources/$(basename "$LPROJ")"
+    cp -R "$LPROJ" "$APP/Contents/Resources/"
+done
 codesign --force --deep --sign - \
     --requirements '=designated => identifier "com.lion.superscreenshot.screenkit"' \
     "$APP"

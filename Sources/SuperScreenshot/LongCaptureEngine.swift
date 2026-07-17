@@ -5,9 +5,9 @@ enum LongCaptureError: LocalizedError {
     case captureFailed, notEnoughFrames, stitchFailed
     var errorDescription: String? {
         switch self {
-        case .captureFailed: return "无法读取屏幕内容。"
-        case .notEnoughFrames: return "没有检测到可滚动内容。"
-        case .stitchFailed: return "长截图拼接失败。"
+        case .captureFailed: return L("无法读取屏幕内容。")
+        case .notEnoughFrames: return L("没有检测到可滚动内容。")
+        case .stitchFailed: return L("长截图拼接失败。")
         }
     }
 }

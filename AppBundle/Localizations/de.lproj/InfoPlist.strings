@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "Super Screenshot";
+"CFBundleName" = "Super Screenshot";
+"NSScreenCaptureUsageDescription" = "Super Screenshot benötigt Bildschirmzugriff für Bereichs- und Scrollaufnahmen.";
