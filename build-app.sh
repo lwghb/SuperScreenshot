@@ -4,7 +4,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 CACHE="$ROOT/work/cache"
 ARM="$ROOT/work/arm"
 INTEL="$ROOT/work/intel"
-APP="$ROOT/outputs/超强截图.app"
+APP="$ROOT/outputs/SuperScreenshot.app"
 PLIST="$ROOT/AppBundle/Info.plist"
 mkdir -p "$CACHE/home" "$CACHE/clang" "$APP/Contents/MacOS" "$APP/Contents/Resources"
 export HOME="$CACHE/home" CLANG_MODULE_CACHE_PATH="$CACHE/clang" SWIFTPM_MODULECACHE_OVERRIDE="$CACHE/clang"
@@ -34,7 +34,7 @@ done
 codesign --force --deep --sign - \
     --requirements '=designated => identifier "com.lion.superscreenshot.screenkit"' \
     "$APP"
-ZIP="$ROOT/outputs/超强截图-v${NEXT_VERSION}-通用版.zip"
+ZIP="$ROOT/outputs/SuperScreenshot-v${NEXT_VERSION}-Universal.zip"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 echo "已生成：$APP"
 echo "版本：$NEXT_VERSION ($NEXT_BUILD_NUMBER)"
