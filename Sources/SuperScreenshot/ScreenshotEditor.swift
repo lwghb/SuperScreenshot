@@ -1074,28 +1074,42 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         let distance = hypot(end.x - start.x, end.y - start.y)
         guard distance > 1 else { return }
         let shaftWidth = min(max(distance * 0.075, 8), 28)
-        let headLength = min(max(distance * 0.28, 28), 88)
-        let headWidth = shaftWidth * 3.1
         let angle = atan2(end.y - start.y, end.x - start.x)
         let ux = cos(angle), uy = sin(angle)
         let px = -uy, py = ux
-        let shaftEnd = CGPoint(x: end.x - headLength * ux, y: end.y - headLength * uy)
-        let tailL = CGPoint(x: start.x + px * shaftWidth / 2, y: start.y + py * shaftWidth / 2)
-        let tailR = CGPoint(x: start.x - px * shaftWidth / 2, y: start.y - py * shaftWidth / 2)
-        let neckL = CGPoint(x: shaftEnd.x + px * shaftWidth / 2, y: shaftEnd.y + py * shaftWidth / 2)
-        let neckR = CGPoint(x: shaftEnd.x - px * shaftWidth / 2, y: shaftEnd.y - py * shaftWidth / 2)
-        let headL = CGPoint(x: shaftEnd.x + px * headWidth / 2, y: shaftEnd.y + py * headWidth / 2)
-        let headR = CGPoint(x: shaftEnd.x - px * headWidth / 2, y: shaftEnd.y - py * headWidth / 2)
 
         context.saveGState()
+        context.setStrokeColor(color.cgColor)
+        context.setLineWidth(shaftWidth)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+
+        let arrowThreshold = max(44, shaftWidth * 5)
+        guard distance >= arrowThreshold else {
+            context.move(to: start)
+            context.addLine(to: end)
+            context.strokePath()
+            context.restoreGState()
+            return
+        }
+
+        let headLength = min(max(distance * 0.22, 22), min(72, distance * 0.45))
+        let headWidth = shaftWidth * 2.8
+        let headBase = CGPoint(x: end.x - headLength * ux, y: end.y - headLength * uy)
+        let shaftEnd = CGPoint(
+            x: end.x - headLength * 0.72 * ux,
+            y: end.y - headLength * 0.72 * uy
+        )
+        context.move(to: start)
+        context.addLine(to: shaftEnd)
+        context.strokePath()
+
+        let headL = CGPoint(x: headBase.x + px * headWidth / 2, y: headBase.y + py * headWidth / 2)
+        let headR = CGPoint(x: headBase.x - px * headWidth / 2, y: headBase.y - py * headWidth / 2)
         context.setFillColor(color.cgColor)
-        context.move(to: tailL)
-        context.addLine(to: neckL)
+        context.move(to: end)
         context.addLine(to: headL)
-        context.addLine(to: end)
-        context.addLine(to: headR)
-        context.addLine(to: neckR)
-        context.addLine(to: tailR)
+        context.addQuadCurve(to: headR, control: headBase)
         context.closePath()
         context.fillPath()
         context.restoreGState()
