@@ -9,8 +9,11 @@ final class SelectionOverlayController {
     private var cursorPushed = false
     private let windowCandidates: [WindowCandidate]
 
-    init(screens: [NSScreen]) {
+    private let snapshots: [CGDirectDisplayID: CGImage]
+
+    init(screens: [NSScreen], snapshots: [CGDirectDisplayID: CGImage] = [:]) {
         self.screens = screens
+        self.snapshots = snapshots
         self.windowCandidates = WindowCandidate.discover(on: screens)
     }
 
@@ -32,7 +35,8 @@ final class SelectionOverlayController {
             let view = SelectionView(
                 frame: CGRect(origin: .zero, size: screen.frame.size),
                 windowFrames: candidates,
-                colorSampler: ScreenColorSampler(screen: screen)
+                colorSampler: ScreenColorSampler(screen: screen, snapshot: snapshot(for: screen)),
+                backgroundSnapshot: snapshot(for: screen)
             )
             view.onCancel = { [weak self] in self?.onCancel?() }
             view.onSelection = { [weak self, weak window] local in
@@ -56,6 +60,10 @@ final class SelectionOverlayController {
         activeWindow?.makeFirstResponder(activeWindow?.contentView)
         NSCursor.crosshair.push()
         cursorPushed = true
+    }
+
+    private func snapshot(for screen: NSScreen) -> CGImage? {
+        ScreenCapture.displayID(for: screen).flatMap { snapshots[$0] }
     }
 
     private func lockSelection() {
@@ -84,9 +92,8 @@ private final class ScreenColorSampler {
     private let bitmap: NSBitmapImageRep
     private let pointSize: CGSize
 
-    init?(screen: NSScreen) {
-        guard let displayID = ScreenCapture.displayID(for: screen),
-              let image = CGDisplayCreateImage(displayID) else { return nil }
+    init?(screen: NSScreen, snapshot: CGImage? = nil) {
+        guard let image = snapshot ?? ScreenCapture.displaySnapshot(for: screen) else { return nil }
         bitmap = NSBitmapImageRep(cgImage: image)
         pointSize = screen.frame.size
     }
@@ -163,13 +170,15 @@ private final class SelectionView: NSView {
     private var isDraggingSelection = false
     private var trackingAreaRef: NSTrackingArea?
     private let colorSampler: ScreenColorSampler?
+    private let backgroundSnapshot: CGImage?
     private var pointerLocation: CGPoint?
     private var pointerColor: NSColor?
     var isLocked = false { didSet { needsDisplay = true } }
 
-    init(frame frameRect: NSRect, windowFrames: [CGRect], colorSampler: ScreenColorSampler?) {
+    init(frame frameRect: NSRect, windowFrames: [CGRect], colorSampler: ScreenColorSampler?, backgroundSnapshot: CGImage?) {
         self.windowFrames = windowFrames
         self.colorSampler = colorSampler
+        self.backgroundSnapshot = backgroundSnapshot
         super.init(frame: frameRect)
     }
 
@@ -289,6 +298,9 @@ private final class SelectionView: NSView {
         needsDisplay = true
     }
     override func draw(_ dirtyRect: NSRect) {
+        if let backgroundSnapshot {
+            NSImage(cgImage: backgroundSnapshot, size: bounds.size).draw(in: bounds, from: .zero, operation: .copy, fraction: 1)
+        }
         NSColor.black.withAlphaComponent(0.55).setFill(); bounds.fill()
         let highlighted = selection.isEmpty ? hoveredWindow : selection
         guard let highlighted, !highlighted.isEmpty else {

@@ -44,6 +44,7 @@ final class CaptureCoordinator: ObservableObject {
 
     private lazy var hotKeyManager = GlobalHotKeyManager()
     private var selectionController: SelectionOverlayController?
+    private var selectionSnapshots: [CGDirectDisplayID: CGImage] = [:]
     private var actionController: ActionBarController?
     private var directAnnotationController: DirectAnnotationController?
     private var longStatusController: LongCaptureStatusController?
@@ -127,6 +128,11 @@ final class CaptureCoordinator: ObservableObject {
 
     func beginSelection() {
         guard selectionController == nil, !isCheckingCaptureAccess else { return }
+        selectionSnapshots = Dictionary(uniqueKeysWithValues: NSScreen.screens.compactMap { screen in
+            guard let displayID = ScreenCapture.displayID(for: screen),
+                  let image = ScreenCapture.displaySnapshot(for: screen) else { return nil }
+            return (displayID, image)
+        })
         isCheckingCaptureAccess = true
         Task {
             defer { isCheckingCaptureAccess = false }
@@ -143,7 +149,7 @@ final class CaptureCoordinator: ObservableObject {
         let screens = NSScreen.screens
         guard !screens.isEmpty else { return }
 
-        let controller = SelectionOverlayController(screens: screens)
+        let controller = SelectionOverlayController(screens: screens, snapshots: selectionSnapshots)
         selectionController = controller
         controller.onCancel = { [weak self] in self?.closeOverlays() }
         controller.onSelection = { [weak self] rect, screen in self?.showActions(for: rect, on: screen) }
@@ -151,6 +157,12 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     private func showActions(for rect: CGRect, on screen: NSScreen) {
+        if let displayID = ScreenCapture.displayID(for: screen),
+           let snapshot = selectionSnapshots[displayID],
+           let image = ScreenCapture.crop(snapshot, to: rect, on: screen) {
+            presentDirectAnnotation(image: image, rect: rect, screen: screen)
+            return
+        }
         Task {
             guard let image = await capture(rect: rect, screen: screen, preserveSelectionOverlay: true) else {
                 closeOverlays()
@@ -367,6 +379,7 @@ final class CaptureCoordinator: ObservableObject {
         selectionController?.close(); selectionController = nil
         actionController?.close(); actionController = nil
         directAnnotationController?.close(); directAnnotationController = nil
+        selectionSnapshots.removeAll()
     }
 
     private func showError(_ message: String) {

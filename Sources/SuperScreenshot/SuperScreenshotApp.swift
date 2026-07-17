@@ -26,8 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
         installStatusMenu()
         coordinator.installHotKeyMonitor { [weak self] in
-            self?.statusItem.menu?.cancelTrackingWithoutAnimation()
             self?.coordinator.beginSelection()
+            self?.statusItem.menu?.cancelTrackingWithoutAnimation()
         }
     }
 

@@ -53,6 +53,26 @@ struct ScreenCaptureSession: @unchecked Sendable {
 }
 
 enum ScreenCapture {
+    static func displaySnapshot(for screen: NSScreen) -> CGImage? {
+        guard CGPreflightScreenCaptureAccess(), let displayID = displayID(for: screen) else { return nil }
+        return CGDisplayCreateImage(displayID)
+    }
+
+    static func crop(_ snapshot: CGImage, to rect: CGRect, on screen: NSScreen) -> CGImage? {
+        guard screen.frame.width > 0, screen.frame.height > 0 else { return nil }
+        let sourceRect = displayRect(for: rect, on: screen)
+        let scaleX = CGFloat(snapshot.width) / screen.frame.width
+        let scaleY = CGFloat(snapshot.height) / screen.frame.height
+        let pixelRect = CGRect(
+            x: sourceRect.minX * scaleX,
+            y: sourceRect.minY * scaleY,
+            width: sourceRect.width * scaleX,
+            height: sourceRect.height * scaleY
+        ).integral.intersection(CGRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height))
+        guard !pixelRect.isNull, pixelRect.width > 0, pixelRect.height > 0 else { return nil }
+        return snapshot.cropping(to: pixelRect)
+    }
+
     static func displayID(for screen: NSScreen) -> CGDirectDisplayID? {
         (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)
             .map { CGDirectDisplayID($0.uint32Value) }
