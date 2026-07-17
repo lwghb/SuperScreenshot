@@ -57,3 +57,13 @@
 "系统未能读取屏幕内容，请检查屏幕录制权限。" = "The system could not capture the screen. Check Screen Recording access.";
 "系统已经显示“超强截图”有录屏权限，但本次截图仍然失败：%@\n\n请彻底退出并重新打开“超强截图”。如果仍然失败，把系统设置里的“超强截图”关闭再打开一次。" = "Screen Recording access is enabled, but this capture failed: %@\n\nQuit and reopen Super Screenshot. If it still fails, disable and re-enable Super Screenshot in System Settings.";
 "请在系统设置的“隐私与安全性 → 录屏与系统录音”中允许“超强截图”。\n\n系统返回：%@" = "Allow Super Screenshot in System Settings → Privacy & Security → Screen & System Audio Recording.\n\nSystem response: %@";
+"关于超强截图…" = "About Super Screenshot…";
+"关于超强截图" = "About Super Screenshot";
+"轻量、原生、完全本地运行的 macOS 截图与标注工具" = "A lightweight, native, and local-first screenshot and annotation tool for macOS";
+"版本 %@（%@）" = "Version %@ (%@)";
+"提交错误报告" = "Report a Bug";
+"在 GitHub 查看" = "View on GitHub";
+"提出功能建议" = "Request a Feature";
+"发送电子邮件" = "Send an Email";
+"版权与许可证" = "Copyright & License";
+"截图内容仅在本机处理，不会上传到服务器。" = "Screenshots are processed only on your Mac and are never uploaded.";

@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let coordinator = CaptureCoordinator()
     private var statusItem: NSStatusItem!
     private var shortcutItem: NSMenuItem!
+    private var aboutWindowController: AboutWindowController?
 
     static func main() {
         let app = NSApplication.shared
@@ -31,9 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         shortcutItem = menu.addItem(withTitle: "", action: #selector(showShortcut), keyEquivalent: "")
         menu.addItem(withTitle: L("检查系统权限…"), action: #selector(checkPermissions), keyEquivalent: "")
         menu.addItem(.separator())
-        let version = NSMenuItem(title: versionTitle(), action: nil, keyEquivalent: "")
-        version.isEnabled = false
-        menu.addItem(version)
+        menu.addItem(withTitle: L("关于超强截图…"), action: #selector(showAbout), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: L("退出超强截图"), action: #selector(quit), keyEquivalent: "")
         for item in menu.items { item.target = self }
@@ -45,13 +44,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateShortcutTitle() {
         shortcutItem?.title = LF("设置快捷键…  %@", coordinator.shortcut.title)
     }
-    private func versionTitle() -> String {
-        let info = Foundation.Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? L("未知")
-        return LF("版本 %@", version)
-    }
     @objc private func beginCapture() { coordinator.beginSelection() }
     @objc private func showShortcut() { coordinator.showShortcutSettings() }
     @objc private func checkPermissions() { coordinator.requestPermissions() }
+    @objc private func showAbout() {
+        if aboutWindowController == nil { aboutWindowController = AboutWindowController() }
+        NSApp.activate(ignoringOtherApps: true)
+        aboutWindowController?.showWindow(nil)
+        aboutWindowController?.window?.makeKeyAndOrderFront(nil)
+    }
     @objc private func quit() { NSApp.terminate(nil) }
 }
