@@ -49,11 +49,10 @@ final class DirectAnnotationController: NSObject {
         canvas = canvasView
 
         let window = NSWindow(
-            contentRect: selection,
+            contentRect: CGRect(origin: .zero, size: selection.size),
             styleMask: [.borderless],
             backing: .buffered,
-            defer: false,
-            screen: screen
+            defer: false
         )
         window.isReleasedWhenClosed = false
         window.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
@@ -63,6 +62,7 @@ final class DirectAnnotationController: NSObject {
         window.isOpaque = true
         window.acceptsMouseMovedEvents = true
         window.contentView = canvasView
+        window.setFrame(selection, display: false)
         canvasView.onAnnotationDragLocation = { [weak self] point in
             self?.updateDeleteDropTarget(at: point)
         }
@@ -77,11 +77,10 @@ final class DirectAnnotationController: NSObject {
         let toolbarWidth = min(CGFloat(680), max(CGFloat(320), screen.visibleFrame.width - 24))
         let toolbarFrame = resolvedToolbarFrame(size: CGSize(width: toolbarWidth, height: toolbarHeight))
         let toolbarPanel = NSPanel(
-            contentRect: toolbarFrame,
+            contentRect: CGRect(origin: .zero, size: toolbarFrame.size),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
-            defer: false,
-            screen: screen
+            defer: false
         )
         toolbarPanel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 3)
         toolbarPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -89,6 +88,7 @@ final class DirectAnnotationController: NSObject {
         toolbarPanel.backgroundColor = .clear
         toolbarPanel.hasShadow = true
         toolbarPanel.acceptsMouseMovedEvents = true
+        toolbarPanel.setFrame(toolbarFrame, display: false)
         let toolbar = makeToolbarView(frame: CGRect(origin: .zero, size: toolbarFrame.size))
         toolbar.wantsLayer = true
         toolbar.layer?.cornerRadius = 12

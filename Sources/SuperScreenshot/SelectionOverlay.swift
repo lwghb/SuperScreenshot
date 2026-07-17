@@ -101,7 +101,7 @@ private final class SelectionView: NSView {
         onSelection?(selection)
     }
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.withAlphaComponent(0.38).setFill(); bounds.fill()
+        NSColor.black.withAlphaComponent(0.55).setFill(); bounds.fill()
         guard !selection.isEmpty else {
             guard !isLocked else { return }
             let text = "拖动鼠标框选截图区域 · Esc 取消"
