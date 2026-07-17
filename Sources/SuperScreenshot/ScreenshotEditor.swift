@@ -212,7 +212,7 @@ final class ScreenshotEditorController: NSObject {
             button.isSelectedColor = colorsMatch(color, selectedColor)
             paletteStack.addArrangedSubview(button)
         }
-        let more = NSButton(title: L("更多"), target: self, action: #selector(showMoreColors))
+        let more = NSButton(title: L("自定义颜色"), target: self, action: #selector(showMoreColors))
         more.bezelStyle = .rounded
         paletteStack.addArrangedSubview(more)
     }

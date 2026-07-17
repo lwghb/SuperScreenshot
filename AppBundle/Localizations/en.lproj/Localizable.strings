@@ -25,6 +25,7 @@
 "拖动鼠标框选截图区域 · Esc 取消" = "Drag to select an area · Esc to cancel";
 "编辑截图" = "Edit Screenshot";
 "更多" = "More";
+"自定义颜色" = "Custom Color";
 "自动滚动" = "Auto Scroll";
 "停止滚动" = "Stop Scrolling";
 "长截图实时预览" = "Scrolling Capture Preview";

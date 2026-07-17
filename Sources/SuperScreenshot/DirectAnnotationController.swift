@@ -27,6 +27,7 @@ final class DirectAnnotationController: NSObject {
     private var deleteDropButton: DeleteDropButton?
     private var finishButton: NSButton?
     private var paletteButtons: [DirectColorButton] = []
+    private var customColorButton: DirectCustomColorButton?
 
     init(image: CGImage, selection: CGRect, screen: NSScreen) {
         self.image = image
@@ -205,6 +206,9 @@ final class DirectAnnotationController: NSObject {
             paletteButtons.append(swatch)
             palette.addArrangedSubview(swatch)
         }
+        let customColor = DirectCustomColorButton(target: self, action: #selector(showCustomColorPanel))
+        customColorButton = customColor
+        palette.addArrangedSubview(customColor)
 
         content.addSubview(tools)
         content.addSubview(palette)
@@ -368,17 +372,33 @@ final class DirectAnnotationController: NSObject {
     }
 
     @objc private func chooseColor(_ sender: DirectColorButton) {
+        applyColor(sender.color)
+    }
+
+    @objc private func showCustomColorPanel() {
+        let panel = NSColorPanel.shared
+        panel.setTarget(self)
+        panel.setAction(#selector(customColorChanged(_:)))
+        panel.color = currentColor()
+        panel.orderFront(nil)
+    }
+
+    @objc private func customColorChanged(_ sender: NSColorPanel) {
+        applyColor(sender.color)
+    }
+
+    private func applyColor(_ color: NSColor) {
         guard let canvas else { return }
         switch colorTarget {
         case .stroke:
-            canvas.strokeColor = sender.color
-            saveColor(sender.color, key: "annotation.strokeColor")
+            canvas.strokeColor = color
+            saveColor(color, key: "annotation.strokeColor")
         case .text:
-            canvas.textColor = sender.color
-            saveColor(sender.color, key: "annotation.textColor")
+            canvas.textColor = color
+            saveColor(color, key: "annotation.textColor")
         case .textBackground:
-            canvas.textBackgroundColor = sender.color
-            saveColor(sender.color, key: "annotation.textBackgroundColor")
+            canvas.textBackgroundColor = color
+            saveColor(color, key: "annotation.textBackgroundColor")
         }
         updateToolState()
         focusCanvas()
@@ -417,6 +437,7 @@ final class DirectAnnotationController: NSObject {
         updateColorTargetButton(textBackgroundButton, selected: colorTarget == .textBackground)
         let active = currentColor()
         paletteButtons.forEach { $0.isSelectedColor = colorsMatch($0.color, active) }
+        customColorButton?.isSelectedColor = !paletteButtons.contains { colorsMatch($0.color, active) }
     }
 
     private func updateColorTargetButton(_ button: NSButton?, selected: Bool) {
@@ -750,6 +771,56 @@ private final class DirectColorButton: NSButton {
         layer?.shadowOffset = .zero
         layer?.borderWidth = isSelectedColor ? 2 : 1
         layer?.borderColor = isSelectedColor ? glow.color.cgColor : NSColor.separatorColor.cgColor
+        layer?.shadowPath = CGPath(roundedRect: bounds.insetBy(dx: -1, dy: -1), cornerWidth: 6, cornerHeight: 6, transform: nil)
+    }
+}
+
+private final class DirectCustomColorButton: NSButton {
+    var isSelectedColor = false { didSet { needsDisplay = true } }
+
+    init(target: AnyObject?, action: Selector?) {
+        super.init(frame: CGRect(x: 0, y: 0, width: 24, height: 24))
+        self.target = target
+        self.action = action
+        title = ""
+        isBordered = false
+        wantsLayer = true
+        layer?.masksToBounds = false
+        widthAnchor.constraint(equalToConstant: 24).isActive = true
+        heightAnchor.constraint(equalToConstant: 24).isActive = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let rect = bounds.insetBy(dx: 1, dy: 1)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5)
+        NSGraphicsContext.saveGraphicsState()
+        path.addClip()
+        NSGradient(colors: [.systemRed, .systemYellow, .systemGreen, .systemCyan, .systemBlue, .systemPurple, .systemRed])?
+            .draw(in: rect, angle: 0)
+        NSGraphicsContext.restoreGraphicsState()
+
+        let glow = DirectGlowStyle.current
+        (isSelectedColor ? glow.color : NSColor.separatorColor).setStroke()
+        path.lineWidth = isSelectedColor ? 2 : 1
+        path.stroke()
+
+        NSColor.white.setStroke()
+        let plus = NSBezierPath()
+        plus.lineWidth = 2
+        plus.move(to: CGPoint(x: bounds.midX - 4, y: bounds.midY))
+        plus.line(to: CGPoint(x: bounds.midX + 4, y: bounds.midY))
+        plus.move(to: CGPoint(x: bounds.midX, y: bounds.midY - 4))
+        plus.line(to: CGPoint(x: bounds.midX, y: bounds.midY + 4))
+        plus.stroke()
+
+        layer?.shadowColor = glow.color.cgColor
+        layer?.shadowOpacity = isSelectedColor ? glow.opacity : 0
+        layer?.shadowRadius = isSelectedColor ? glow.radius : 0
+        layer?.shadowOffset = .zero
         layer?.shadowPath = CGPath(roundedRect: bounds.insetBy(dx: -1, dy: -1), cornerWidth: 6, cornerHeight: 6, transform: nil)
     }
 }
