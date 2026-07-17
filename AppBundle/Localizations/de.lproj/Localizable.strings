@@ -23,6 +23,7 @@
 "删除标注" = "Anmerkung löschen";
 "拖动标注到这里删除" = "Anmerkung zum Löschen hierher ziehen";
 "拖动鼠标框选截图区域 · Esc 取消" = "Ziehen, um einen Bereich auszuwählen · Esc zum Abbrechen";
+"单击窗口或拖动框选截图区域 · Esc 取消" = "Fenster anklicken oder Bereich ziehen · Esc zum Abbrechen";
 "编辑截图" = "Bildschirmfoto bearbeiten";
 "更多" = "Mehr";
 "自定义颜色" = "Eigene Farbe";

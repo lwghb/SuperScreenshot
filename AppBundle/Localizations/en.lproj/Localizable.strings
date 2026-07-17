@@ -23,6 +23,7 @@
 "删除标注" = "Delete annotation";
 "拖动标注到这里删除" = "Drag an annotation here to delete";
 "拖动鼠标框选截图区域 · Esc 取消" = "Drag to select an area · Esc to cancel";
+"单击窗口或拖动框选截图区域 · Esc 取消" = "Click a window or drag to select an area · Esc to cancel";
 "编辑截图" = "Edit Screenshot";
 "更多" = "More";
 "自定义颜色" = "Custom Color";
