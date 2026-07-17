@@ -231,6 +231,9 @@ final class ScreenshotEditorController: NSObject {
         panel.setTarget(self)
         panel.setAction(#selector(colorChanged(_:)))
         panel.color = currentColor(for: target)
+        if let window {
+            panel.level = NSWindow.Level(rawValue: window.level.rawValue + 1)
+        }
         if let screen {
             positionLegacyColorPanel(panel, on: screen)
         }

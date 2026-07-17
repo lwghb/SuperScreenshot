@@ -380,6 +380,9 @@ final class DirectAnnotationController: NSObject {
         panel.setTarget(self)
         panel.setAction(#selector(customColorChanged(_:)))
         panel.color = currentColor()
+        if let window {
+            panel.level = NSWindow.Level(rawValue: window.level.rawValue + 1)
+        }
         positionColorPanel(panel, on: screen)
         panel.orderFront(nil)
     }
