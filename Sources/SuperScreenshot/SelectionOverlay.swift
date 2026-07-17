@@ -139,6 +139,10 @@ private final class SelectionView: NSView {
         if event.keyCode == 53 { onCancel?() } else { super.keyDown(with: event) }
     }
     override func cancelOperation(_ sender: Any?) { onCancel?() }
+    override func rightMouseDown(with event: NSEvent) {
+        guard !isLocked else { return }
+        onCancel?()
+    }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let trackingAreaRef { removeTrackingArea(trackingAreaRef) }
