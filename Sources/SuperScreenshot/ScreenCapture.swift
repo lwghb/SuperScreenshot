@@ -34,10 +34,9 @@ struct ScreenCaptureSession: @unchecked Sendable {
         guard let display = content.displays.first(where: { $0.displayID == displayID }) else {
             throw ScreenCaptureError.displayNotFound
         }
-        let ownApplications = content.applications.filter { $0.processID == ProcessInfo.processInfo.processIdentifier }
         let filter = SCContentFilter(
             display: display,
-            excludingApplications: ownApplications,
+            excludingApplications: [],
             exceptingWindows: []
         )
         let configuration = SCStreamConfiguration()

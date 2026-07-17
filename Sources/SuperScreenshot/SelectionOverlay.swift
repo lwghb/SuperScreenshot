@@ -102,6 +102,7 @@ private final class ScreenColorSampler {
 private struct WindowCandidate {
     let frame: CGRect
 
+    @MainActor
     static func discover(on screens: [NSScreen]) -> [WindowCandidate] {
         guard let list = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],
@@ -110,11 +111,10 @@ private struct WindowCandidate {
         let mainTop = screens.first(where: { $0.frame.contains(CGPoint(x: 1, y: 1)) })?.frame.maxY
             ?? screens.first?.frame.maxY
             ?? 0
-        let ownPID = ProcessInfo.processInfo.processIdentifier
         return list.compactMap { info in
             guard (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
-                  (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value != ownPID,
                   (info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1 > 0.01,
+                  isCapturableAppWindow(info),
                   let bounds = info[kCGWindowBounds as String] as? [String: Any],
                   let quartzFrame = CGRect(dictionaryRepresentation: bounds as CFDictionary),
                   quartzFrame.width >= 40,
@@ -128,6 +128,19 @@ private struct WindowCandidate {
             guard screens.contains(where: { $0.frame.intersects(appKitFrame) }) else { return nil }
             return WindowCandidate(frame: appKitFrame)
         }
+    }
+
+    @MainActor
+    private static func isCapturableAppWindow(_ info: [String: Any]) -> Bool {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        guard (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == ownPID else {
+            return true
+        }
+        guard let number = (info[kCGWindowNumber as String] as? NSNumber)?.intValue,
+              let window = NSApp.windows.first(where: { $0.windowNumber == number }) else {
+            return false
+        }
+        return window.sharingType != .none
     }
 }
 
