@@ -3,15 +3,15 @@ import AppKit
 @MainActor
 final class AboutWindowController: NSWindowController {
     private enum Link {
-        static let repository = URL(string: "https://github.com/lwghb/superScreenShot")!
-        static let issues = URL(string: "https://github.com/lwghb/superScreenShot/issues")!
-        static let newIssue = URL(string: "https://github.com/lwghb/superScreenShot/issues/new")!
-        static let license = URL(string: "https://github.com/lwghb/superScreenShot/blob/main/LICENSE")!
-        static let email = URL(string: "mailto:lwghb@users.noreply.github.com?subject=SuperScreenShot%20Feedback")!
+        static let repository = URL(string: "https://github.com/lwghb/SuperScreenshot")!
+        static let issues = URL(string: "https://github.com/lwghb/SuperScreenshot/issues")!
+        static let newIssue = URL(string: "https://github.com/lwghb/SuperScreenshot/issues/new")!
+        static let license = URL(string: "https://github.com/lwghb/SuperScreenshot/blob/main/LICENSE")!
+        static let email = URL(string: "mailto:lwghb@users.noreply.github.com?subject=SuperScreenshot%20Feedback")!
     }
 
     init() {
-        let window = NSWindow(
+        let window = AboutWindow(
             contentRect: NSRect(x: 0, y: 0, width: 440, height: 510),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
@@ -135,5 +135,11 @@ final class AboutWindowController: NSWindowController {
         let version = info?["CFBundleShortVersionString"] as? String ?? L("未知")
         let build = info?["CFBundleVersion"] as? String ?? "—"
         return LF("版本 %@（%@）", version, build)
+    }
+}
+
+private final class AboutWindow: NSWindow {
+    override func cancelOperation(_ sender: Any?) {
+        orderOut(sender)
     }
 }
