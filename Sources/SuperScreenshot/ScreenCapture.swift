@@ -59,16 +59,27 @@ enum ScreenCapture {
             .map { CGDirectDisplayID($0.uint32Value) }
     }
     static func displayRect(for rect: CGRect, on screen: NSScreen) -> CGRect {
-        displayRect(for: rect, screenFrame: screen.frame)
+        displayRect(for: rect, screenFrame: screen.frame, scale: screen.backingScaleFactor)
     }
-    static func displayRect(for rect: CGRect, screenFrame: CGRect) -> CGRect {
-        CGRect(x: rect.minX - screenFrame.minX, y: screenFrame.maxY - rect.maxY,
-               width: rect.width, height: rect.height).integral
+    static func displayRect(for rect: CGRect, screenFrame: CGRect, scale: CGFloat = 1) -> CGRect {
+        pixelAligned(
+            CGRect(x: rect.minX - screenFrame.minX, y: screenFrame.maxY - rect.maxY,
+                   width: rect.width, height: rect.height),
+            scale: scale
+        )
+    }
+    static func pixelAligned(_ rect: CGRect, scale: CGFloat) -> CGRect {
+        let scale = max(1, scale)
+        let minX = (rect.minX * scale).rounded() / scale
+        let minY = (rect.minY * scale).rounded() / scale
+        let maxX = (rect.maxX * scale).rounded() / scale
+        let maxY = (rect.maxY * scale).rounded() / scale
+        return CGRect(x: minX, y: minY, width: max(0, maxX - minX), height: max(0, maxY - minY))
     }
     static func pixelSize(for sourceRect: CGRect, scale: CGFloat) -> (width: Int, height: Int) {
         (
-            width: max(1, Int((sourceRect.width * scale).rounded(.up))),
-            height: max(1, Int((sourceRect.height * scale).rounded(.up)))
+            width: max(1, Int((sourceRect.width * scale).rounded())),
+            height: max(1, Int((sourceRect.height * scale).rounded()))
         )
     }
     static func verifyAccess() async throws {

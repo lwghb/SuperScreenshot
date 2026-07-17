@@ -97,6 +97,8 @@ private final class SelectionView: NSView {
     override func mouseUp(with event: NSEvent) {
         guard !isLocked else { return }
         guard selection.width >= 10, selection.height >= 10 else { return }
+        selection = ScreenCapture.pixelAligned(selection, scale: window?.backingScaleFactor ?? 1)
+        needsDisplay = true
         isLocked = true
         onSelection?(selection)
     }

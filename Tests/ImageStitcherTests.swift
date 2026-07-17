@@ -26,6 +26,20 @@ struct ImageStitcherTests {
         #expect(size.height == 360)
     }
 
+    @Test func alignsSelectionAndCaptureToSameRetinaPixels() {
+        let selection = CGRect(x: 100.24, y: 200.26, width: 300.51, height: 180.49)
+        let aligned = ScreenCapture.pixelAligned(selection, scale: 2)
+        let capture = ScreenCapture.displayRect(
+            for: aligned,
+            screenFrame: CGRect(x: 0, y: 0, width: 1728, height: 1117),
+            scale: 2
+        )
+        #expect((aligned.minX * 2).rounded() == aligned.minX * 2)
+        #expect((aligned.minY * 2).rounded() == aligned.minY * 2)
+        #expect(ScreenCapture.pixelSize(for: capture, scale: 2).width == Int(aligned.width * 2))
+        #expect(ScreenCapture.pixelSize(for: capture, scale: 2).height == Int(aligned.height * 2))
+    }
+
     @Test func detectsEqualImages() throws {
         let ctx = try #require(CGContext(data: nil, width: 100, height: 100, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         ctx.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
