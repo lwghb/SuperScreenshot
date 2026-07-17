@@ -750,6 +750,9 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     private func beginTextInput(at imagePoint: CGPoint, viewPoint: CGPoint) {
         let field = NSTextField(frame: CGRect(x: viewPoint.x, y: viewPoint.y - 32, width: 20, height: 32))
         field.cell = EditorTextFieldCell(textCell: "")
+        field.isEditable = true
+        field.isSelectable = true
+        field.isEnabled = true
         field.font = .systemFont(ofSize: 18, weight: .semibold)
         field.textColor = textColor
         field.backgroundColor = textBackgroundColor.withAlphaComponent(0.9)
