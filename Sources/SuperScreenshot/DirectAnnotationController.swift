@@ -101,8 +101,8 @@ final class DirectAnnotationController: NSObject {
         toolbarPanel.contentView = toolbar
         toolbarPanel.alphaValue = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 1 : 0
         toolbarWindow = toolbarPanel
-        updateToolState()
         toolbar.layoutSubtreeIfNeeded()
+        updateToolState()
         toolbarPanel.orderFrontRegardless()
         if toolbarPanel.alphaValue == 0 {
             NSAnimationContext.runAnimationGroup { context in
@@ -675,8 +675,23 @@ private final class ToolButton: NSButton {
         layer?.shadowOffset = .zero
         layer?.borderWidth = selected ? 2 : 0
         layer?.borderColor = selected ? glow.color.cgColor : NSColor.clear.cgColor
-        layer?.shadowPath = CGPath(roundedRect: bounds.insetBy(dx: -1, dy: -1), cornerWidth: 8, cornerHeight: 8, transform: nil)
+        updateShadowPath()
         needsDisplay = true
+    }
+
+    override func layout() {
+        super.layout()
+        updateShadowPath()
+    }
+
+    private func updateShadowPath() {
+        guard !bounds.isEmpty else { return }
+        layer?.shadowPath = CGPath(
+            roundedRect: bounds.insetBy(dx: -1, dy: -1),
+            cornerWidth: 8,
+            cornerHeight: 8,
+            transform: nil
+        )
     }
 
     override func draw(_ dirtyRect: NSRect) {
