@@ -358,7 +358,7 @@ private enum ScreenshotAnnotation {
     case arrow(start: CGPoint, end: CGPoint, color: NSColor)
     case rectangle(CGRect, color: NSColor)
     case ellipse(CGRect, color: NSColor)
-    case text(String, origin: CGPoint, textColor: NSColor, backgroundColor: NSColor)
+    case text(String, origin: CGPoint, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor)
     case mosaic(points: [CGPoint], brushWidth: CGFloat)
 }
 
@@ -498,13 +498,13 @@ final class ColoredTitleButton: NSButton {
 }
 
 private final class EditorTextFieldCell: NSTextFieldCell {
+    var contentInsets = NSEdgeInsets()
+
     override func drawingRect(forBounds rect: NSRect) -> NSRect {
-        var drawingRect = super.drawingRect(forBounds: rect)
-        let textHeight = ceil(max(attributedStringValue.size().height, font?.boundingRectForFont.height ?? 0))
-        guard textHeight > 0, drawingRect.height > textHeight else { return drawingRect }
-        drawingRect.origin.y += floor((drawingRect.height - textHeight) / 2)
-        drawingRect.size.height = textHeight
-        return drawingRect
+        super.drawingRect(forBounds: rect).insetBy(
+            dx: contentInsets.left,
+            dy: contentInsets.top
+        )
     }
 }
 
@@ -513,8 +513,9 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     var showsImageBorder = true
     var pendingText: String?
     var strokeColor: NSColor = .systemRed
-    var textColor: NSColor = .white
-    var textBackgroundColor: NSColor = .systemBlue
+    var textColor: NSColor = .white { didSet { updateActiveTextFieldStyle() } }
+    var textBackgroundColor: NSColor = .systemBlue { didSet { updateActiveTextFieldStyle() } }
+    var textFontSize: CGFloat = 18 { didSet { updateActiveTextFieldStyle() } }
     var onEscape: (() -> Void)?
     var onAnnotationDragLocation: ((CGPoint?) -> Void)?
     var onAnnotationDragEnded: ((CGPoint) -> Bool)?
@@ -529,6 +530,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     private var lastMovePoint: CGPoint?
     private var activeTextField: NSTextField?
     private var activeTextOrigin: CGPoint?
+    private var activeTextAnchor: CGPoint?
     private var suppressNextTextMouseDown = false
     private var activeMosaicPoints: [CGPoint]?
     private var lastMosaicSampleTime: TimeInterval = 0
@@ -737,10 +739,10 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             annotations[index] = .rectangle(rect, color: color)
         case let (.ellipse(rect, _), .stroke):
             annotations[index] = .ellipse(rect, color: color)
-        case let (.text(text, origin, _, background), .text):
-            annotations[index] = .text(text, origin: origin, textColor: color, backgroundColor: background)
-        case let (.text(text, origin, textColor, _), .textBackground):
-            annotations[index] = .text(text, origin: origin, textColor: textColor, backgroundColor: color)
+        case let (.text(text, origin, fontSize, _, background), .text):
+            annotations[index] = .text(text, origin: origin, fontSize: fontSize, textColor: color, backgroundColor: background)
+        case let (.text(text, origin, fontSize, textColor, _), .textBackground):
+            annotations[index] = .text(text, origin: origin, fontSize: fontSize, textColor: textColor, backgroundColor: color)
         default:
             break
         }
@@ -748,16 +750,14 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     }
 
     private func beginTextInput(at imagePoint: CGPoint, viewPoint: CGPoint) {
-        let field = NSTextField(frame: CGRect(x: viewPoint.x, y: viewPoint.y - 32, width: 20, height: 32))
+        let field = NSTextField(frame: CGRect(x: viewPoint.x, y: viewPoint.y, width: 20, height: 20))
         field.cell = EditorTextFieldCell(textCell: "")
         field.isEditable = true
         field.isSelectable = true
         field.isEnabled = true
-        field.font = .systemFont(ofSize: 18, weight: .semibold)
-        field.textColor = textColor
-        field.backgroundColor = textBackgroundColor.withAlphaComponent(0.9)
+        field.wantsLayer = true
         field.isBordered = false
-        field.drawsBackground = true
+        field.drawsBackground = false
         field.delegate = self
         field.target = self
         field.action = #selector(commitTextField)
@@ -766,7 +766,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         addSubview(field)
         activeTextField = field
         activeTextOrigin = imagePoint
-        resizeActiveTextField()
+        activeTextAnchor = viewPoint
+        updateActiveTextFieldStyle()
         window?.makeFirstResponder(field)
     }
 
@@ -786,25 +787,41 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
     }
 
     private func resizeActiveTextField() {
-        guard let field = activeTextField else { return }
+        guard let field = activeTextField, let anchor = activeTextAnchor else { return }
+        let font = NSFont.systemFont(ofSize: textFontSize, weight: .semibold)
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: field.font ?? NSFont.systemFont(ofSize: 18, weight: .semibold)
+            .font: font
         ]
         let textWidth = NSAttributedString(string: field.stringValue, attributes: attributes).size().width
-        let width = min(max(20, ceil(textWidth) + 12), max(20, bounds.width - field.frame.minX - 12))
-        field.setFrameSize(CGSize(width: width, height: 32))
+        let textHeight = ceil(max(NSAttributedString(string: field.stringValue, attributes: attributes).size().height, font.boundingRectForFont.height))
+        let padding = textFontSize * 0.35
+        let width = min(max(padding * 2 + 2, ceil(textWidth) + padding * 2), max(padding * 2 + 2, bounds.width - anchor.x - 12))
+        let height = ceil(textHeight + padding * 2)
+        field.frame = CGRect(x: anchor.x, y: anchor.y - height, width: width, height: height)
+        (field.cell as? EditorTextFieldCell)?.contentInsets = NSEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
+    }
+
+    private func updateActiveTextFieldStyle() {
+        guard let field = activeTextField else { return }
+        field.font = .systemFont(ofSize: textFontSize, weight: .semibold)
+        field.textColor = textColor
+        field.layer?.backgroundColor = textBackgroundColor.withAlphaComponent(0.9).cgColor
+        field.layer?.cornerRadius = textFontSize * 0.35
+        resizeActiveTextField()
     }
 
     private func commitActiveText() {
         guard let field = activeTextField else { return }
         let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty, let origin = activeTextOrigin {
-            annotations.append(.text(text, origin: origin, textColor: textColor, backgroundColor: textBackgroundColor))
+            let imageFontSize = textFontSize * CGFloat(image.width) / imageRect.width
+            annotations.append(.text(text, origin: origin, fontSize: imageFontSize, textColor: textColor, backgroundColor: textBackgroundColor))
             selectedIndex = annotations.count - 1
         }
         field.removeFromSuperview()
         activeTextField = nil
         activeTextOrigin = nil
+        activeTextAnchor = nil
         needsDisplay = true
     }
 
@@ -832,8 +849,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
     }
 
-    private func textRect(_ text: String, at origin: CGPoint) -> CGRect {
-        let fontSize = max(24, CGFloat(image.width) / 28)
+    private func textRect(_ text: String, at origin: CGPoint, fontSize: CGFloat) -> CGRect {
         let padding = fontSize * 0.35
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold)
@@ -849,8 +865,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
                 if distance(point, toSegmentFrom: start, to: end) < 22 { return index }
             case let .rectangle(rect, _), let .ellipse(rect, _):
                 if rect.insetBy(dx: -12, dy: -12).contains(point) { return index }
-            case let .text(text, origin, _, _):
-                if textRect(text, at: origin).insetBy(dx: -8, dy: -8).contains(point) { return index }
+            case let .text(text, origin, fontSize, _, _):
+                if textRect(text, at: origin, fontSize: fontSize).insetBy(dx: -8, dy: -8).contains(point) { return index }
             case let .mosaic(points, brushWidth):
                 if polyline(points, contains: point, tolerance: brushWidth / 2 + 8) { return index }
             }
@@ -866,8 +882,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             annotations[index] = .rectangle(rect.offsetBy(dx: delta.x, dy: delta.y), color: color)
         case let .ellipse(rect, color):
             annotations[index] = .ellipse(rect.offsetBy(dx: delta.x, dy: delta.y), color: color)
-        case let .text(text, origin, textColor, backgroundColor):
-            annotations[index] = .text(text, origin: CGPoint(x: origin.x + delta.x, y: origin.y + delta.y), textColor: textColor, backgroundColor: backgroundColor)
+        case let .text(text, origin, fontSize, textColor, backgroundColor):
+            annotations[index] = .text(text, origin: CGPoint(x: origin.x + delta.x, y: origin.y + delta.y), fontSize: fontSize, textColor: textColor, backgroundColor: backgroundColor)
         case let .mosaic(points, brushWidth):
             annotations[index] = .mosaic(
                 points: points.map { CGPoint(x: $0.x + delta.x, y: $0.y + delta.y) },
@@ -960,8 +976,8 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
             drawShape(rect, color: color, ellipse: false, in: context)
         case let .ellipse(rect, color):
             drawShape(rect, color: color, ellipse: true, in: context)
-        case let .text(text, origin, textColor, backgroundColor):
-            drawText(text, at: origin, textColor: textColor, backgroundColor: backgroundColor, in: context)
+        case let .text(text, origin, fontSize, textColor, backgroundColor):
+            drawText(text, at: origin, fontSize: fontSize, textColor: textColor, backgroundColor: backgroundColor, in: context)
         case let .mosaic(points, brushWidth):
             drawMosaic(points: points, brushWidth: brushWidth, in: context)
         }
@@ -1010,8 +1026,7 @@ final class ScreenshotEditorView: NSView, NSTextFieldDelegate {
         context.restoreGState()
     }
 
-    private func drawText(_ text: String, at origin: CGPoint, textColor: NSColor, backgroundColor: NSColor, in context: CGContext) {
-        let fontSize = max(24, CGFloat(image.width) / 28)
+    private func drawText(_ text: String, at origin: CGPoint, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor, in context: CGContext) {
         let padding = fontSize * 0.35
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),

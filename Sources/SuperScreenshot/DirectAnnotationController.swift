@@ -22,6 +22,8 @@ final class DirectAnnotationController: NSObject {
     private var mosaicButton: ToolButton?
     private var textColorButton: NSButton?
     private var textBackgroundButton: NSButton?
+    private var fontSizeLabel: NSTextField?
+    private var fontSizeSlider: NSSlider?
     private var deleteDropButton: DeleteDropButton?
     private var finishButton: NSButton?
     private var paletteButtons: [DirectColorButton] = []
@@ -45,6 +47,8 @@ final class DirectAnnotationController: NSObject {
         canvasView.strokeColor = loadColor("annotation.strokeColor", fallback: .systemRed)
         canvasView.textColor = loadColor("annotation.textColor", fallback: .white)
         canvasView.textBackgroundColor = loadColor("annotation.textBackgroundColor", fallback: .systemRed)
+        let savedFontSize = UserDefaults.standard.double(forKey: "annotation.textFontSize")
+        canvasView.textFontSize = savedFontSize > 0 ? CGFloat(savedFontSize) : 18
         canvasView.onEscape = { [weak self] in self?.cancel() }
         canvas = canvasView
 
@@ -168,12 +172,26 @@ final class DirectAnnotationController: NSObject {
         palette.translatesAutoresizingMaskIntoConstraints = false
         let textColor = button("字色", action: #selector(useTextColor))
         let textBackground = button("背景", action: #selector(useTextBackground))
+        let sizeLabel = NSTextField(labelWithString: "字号")
+        let sizeSlider = NSSlider(
+            value: Double(canvas?.textFontSize ?? 18),
+            minValue: 12,
+            maxValue: 48,
+            target: self,
+            action: #selector(changeTextFontSize(_:))
+        )
+        sizeSlider.isContinuous = true
+        sizeSlider.widthAnchor.constraint(equalToConstant: 92).isActive = true
         textColor.wantsLayer = true
         textBackground.wantsLayer = true
         textColor.layer?.cornerRadius = 6
         textBackground.layer?.cornerRadius = 6
         textColorButton = textColor
         textBackgroundButton = textBackground
+        fontSizeLabel = sizeLabel
+        fontSizeSlider = sizeSlider
+        palette.addArrangedSubview(sizeLabel)
+        palette.addArrangedSubview(sizeSlider)
         palette.addArrangedSubview(textColor)
         palette.addArrangedSubview(textBackground)
         let colors: [NSColor] = [.systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple, .white, .black]
@@ -314,6 +332,13 @@ final class DirectAnnotationController: NSObject {
         focusCanvas()
     }
 
+    @objc private func changeTextFontSize(_ sender: NSSlider) {
+        let size = CGFloat(sender.doubleValue.rounded())
+        canvas?.textFontSize = size
+        UserDefaults.standard.set(Double(size), forKey: "annotation.textFontSize")
+        focusCanvas()
+    }
+
     @objc private func useRectangle() {
         mode = .rectangle
         colorTarget = .stroke
@@ -381,6 +406,8 @@ final class DirectAnnotationController: NSObject {
         textButton?.configure(top: canvas?.textColor ?? .white, bottom: canvas?.textBackgroundColor ?? .systemRed, selected: mode == .text)
         textColorButton?.isHidden = mode != .text
         textBackgroundButton?.isHidden = mode != .text
+        fontSizeLabel?.isHidden = mode != .text
+        fontSizeSlider?.isHidden = mode != .text
         updateColorTargetButton(textColorButton, selected: colorTarget == .text)
         updateColorTargetButton(textBackgroundButton, selected: colorTarget == .textBackground)
         let active = currentColor()
