@@ -34,6 +34,8 @@ final class DirectAnnotationController: NSObject {
     private var colorPanelClickMonitor: Any?
     private var resizeWindows: [SelectionResizeHandle: NSPanel] = [:]
     private var resizeStartSelection: CGRect?
+    private var resizeCursorMonitor: Any?
+    private var isShowingResizeCursor = false
 
     init(image: CGImage, selection: CGRect, screen: NSScreen, fullScreenImage: CGImage? = nil) {
         self.fullScreenImage = fullScreenImage
@@ -152,7 +154,7 @@ final class DirectAnnotationController: NSObject {
                 backing: .buffered,
                 defer: false
             )
-            panel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 4)
+            panel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 2)
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             panel.isOpaque = false
             panel.backgroundColor = .clear
@@ -171,6 +173,49 @@ final class DirectAnnotationController: NSObject {
             panel.orderFrontRegardless()
         }
         updateResizeHandleFrames()
+        installResizeCursorMonitor()
+    }
+
+    private func installResizeCursorMonitor() {
+        resizeCursorMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { [weak self] event in
+            self?.updateResizeCursor(at: NSEvent.mouseLocation)
+            return event
+        }
+    }
+
+    private func updateResizeCursor(at point: CGPoint) {
+        if toolbarWindow?.frame.contains(point) == true || activeColorPanel?.frame.contains(point) == true {
+            if isShowingResizeCursor {
+                isShowingResizeCursor = false
+                DispatchQueue.main.async { NSCursor.arrow.set() }
+            }
+            return
+        }
+        if let handle = resizeHandle(at: point) {
+            isShowingResizeCursor = true
+            let cursor = SelectionResizeCursor.cursor(for: handle)
+            DispatchQueue.main.async { cursor.set() }
+        } else if isShowingResizeCursor {
+            isShowingResizeCursor = false
+            DispatchQueue.main.async { NSCursor.arrow.set() }
+        }
+    }
+
+    private func resizeHandle(at point: CGPoint) -> SelectionResizeHandle? {
+        let tolerance: CGFloat = 20
+        let nearLeft = abs(point.x - selection.minX) <= tolerance
+        let nearRight = abs(point.x - selection.maxX) <= tolerance
+        let nearBottom = abs(point.y - selection.minY) <= tolerance
+        let nearTop = abs(point.y - selection.maxY) <= tolerance
+        if nearLeft && nearBottom { return .bottomLeft }
+        if nearRight && nearBottom { return .bottomRight }
+        if nearLeft && nearTop { return .topLeft }
+        if nearRight && nearTop { return .topRight }
+        if nearLeft && point.y >= selection.minY && point.y <= selection.maxY { return .left }
+        if nearRight && point.y >= selection.minY && point.y <= selection.maxY { return .right }
+        if nearBottom && point.x >= selection.minX && point.x <= selection.maxX { return .bottom }
+        if nearTop && point.x >= selection.minX && point.x <= selection.maxX { return .top }
+        return nil
     }
 
     private func resizeSelection(handle: SelectionResizeHandle, to point: CGPoint) {
@@ -220,8 +265,8 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func updateResizeHandleFrames() {
-        let edge: CGFloat = 20
-        let corner: CGFloat = 24
+        let edge: CGFloat = 40
+        let corner: CGFloat = 40
         for (handle, panel) in resizeWindows {
             let frame: CGRect
             switch handle {
@@ -258,6 +303,14 @@ final class DirectAnnotationController: NSObject {
     }
 
     func close() {
+        if let resizeCursorMonitor {
+            NSEvent.removeMonitor(resizeCursorMonitor)
+            self.resizeCursorMonitor = nil
+        }
+        if isShowingResizeCursor {
+            NSCursor.arrow.set()
+            isShowingResizeCursor = false
+        }
         resizeWindows.values.forEach { $0.orderOut(nil) }
         resizeWindows.removeAll()
         toolbarWindow?.orderOut(nil)
@@ -709,15 +762,7 @@ private final class SelectionResizeHandleView: NSView {
     }
 
     private var resizeCursor: NSCursor {
-        if handle.isHorizontalEdge {
-            return .resizeLeftRight
-        } else if handle.isVerticalEdge {
-            return .resizeUpDown
-        } else if handle == .bottomLeft || handle == .topRight {
-            return SelectionResizeCursor.diagonalRising
-        } else {
-            return SelectionResizeCursor.diagonalFalling
-        }
+        SelectionResizeCursor.cursor(for: handle)
     }
 
     override func resetCursorRects() {
@@ -744,7 +789,7 @@ private final class SelectionResizeHandleView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         // A nearly transparent surface makes the full resize band participate in
         // mouse and cursor hit testing instead of only the visible center knob.
-        NSColor.black.withAlphaComponent(0.002).setFill()
+        NSColor.black.withAlphaComponent(0.01).setFill()
         bounds.fill(using: .copy)
         let size: CGFloat = 8
         let knob = CGRect(x: bounds.midX - size / 2, y: bounds.midY - size / 2, width: size, height: size)
@@ -761,6 +806,18 @@ private final class SelectionResizeHandleView: NSView {
 private enum SelectionResizeCursor {
     static let diagonalRising = makeCursor(rising: true)
     static let diagonalFalling = makeCursor(rising: false)
+
+    static func cursor(for handle: SelectionResizeHandle) -> NSCursor {
+        if handle.isHorizontalEdge {
+            return .resizeLeftRight
+        } else if handle.isVerticalEdge {
+            return .resizeUpDown
+        } else if handle == .bottomLeft || handle == .topRight {
+            return diagonalRising
+        } else {
+            return diagonalFalling
+        }
+    }
 
     private static func makeCursor(rising: Bool) -> NSCursor {
         let image = NSImage(size: CGSize(width: 20, height: 20), flipped: false) { rect in
