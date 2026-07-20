@@ -3,25 +3,27 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>0.9.86</title>
-            <pubDate>Fri, 17 Jul 2026 22:40:40 +0800</pubDate>
+            <title>0.9.87</title>
+            <pubDate>Mon, 20 Jul 2026 18:26:29 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>138</sparkle:version>
-            <sparkle:shortVersionString>0.9.86</sparkle:shortVersionString>
+            <sparkle:version>139</sparkle:version>
+            <sparkle:shortVersionString>0.9.87</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.86
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.87
 
-- 短箭头先显示为圆头线段。
-- 箭头头部从约 20px 开始平滑出现，并逐渐增长到完整形态。
-- 优化箭身、圆角尾部与箭头头部的衔接。
+- 点击箭头、矩形或圆形后进入编辑状态。
+- 箭头支持拖动首尾控制点调整方向和长度。
+- 矩形和圆形支持通过四边、四角控制点调整大小。
+- 保留拖动主体移动标注和点击空白取消选中。
 
 ---
 
-- Renders very short arrows as rounded line segments.
-- Smoothly grows the arrowhead from about 20px to its full shape.
-- Refined the connection between the rounded shaft and arrowhead.
+- Added editable selection states for arrows, rectangles, and ellipses.
+- Resize arrows using start and end handles.
+- Resize shapes using edge and corner handles.
+- Preserved body dragging and deselection by clicking empty space.
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.86/SuperScreenshot-v0.9.86-Universal.zip" length="2781288" type="application/octet-stream" sparkle:edSignature="uyh0k0Bqt/gaXVcXYP8A1SykVhcQu1iwy7kEeU6IG5vfaAkVU6lfmUyR0OHFjPOOTEaPK7Z/GXrkGU/soT6tBA=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.87/SuperScreenshot-v0.9.87-Universal.zip" length="2790284" type="application/octet-stream" sparkle:edSignature="d2oQDf+P4AXeSxRfwYSXmMb3oUbpEi1ORAAE/+f2TIj19f7JmmMmAzmSdLZkUsH2RnGT7iuupfBj89hhsNpdBg=="/>
         </item>
     </channel>
 </rss>
