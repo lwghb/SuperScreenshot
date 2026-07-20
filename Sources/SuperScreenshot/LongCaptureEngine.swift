@@ -25,8 +25,6 @@ final class LongCaptureEngine: @unchecked Sendable {
         var candidate: CGImage?
         var candidateMotion: EdgeMotion?
         var candidateStableSamples = 0
-        var lastPreviewUpdate = ProcessInfo.processInfo.systemUptime
-        let previewUpdateInterval: TimeInterval = 0.35
 
         while true {
             switch await control.state {
@@ -63,11 +61,9 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if candidateStableSamples >= 1 {
                     frames.append(current)
                     motions.append(motion)
-                    let now = ProcessInfo.processInfo.systemUptime
-                    if now - lastPreviewUpdate >= previewUpdateInterval {
-                        onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? current)
-                        lastPreviewUpdate = now
-                    }
+                    onPreviewUpdated(
+                        ImageStitcher.preview(frames, motions: motions) ?? current
+                    )
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     if frames.count >= 120 {
                         return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]

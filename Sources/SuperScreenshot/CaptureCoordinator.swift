@@ -8,7 +8,7 @@ private func postAutomaticScrollPulse() {
             scrollWheelEvent2Source: nil,
             units: .pixel,
             wheelCount: 1,
-            wheel1: -12,
+            wheel1: -20,
             wheel2: 0,
             wheel3: 0
         ) {
@@ -374,7 +374,7 @@ final class CaptureCoordinator: ObservableObject {
         let timer = DispatchSource.makeTimerSource(
             queue: DispatchQueue(label: "com.lion.superscreenshot.autoscroll", qos: .userInteractive)
         )
-        timer.schedule(deadline: .now(), repeating: .milliseconds(60), leeway: .milliseconds(2))
+        timer.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(2))
         let handler: @Sendable () -> Void = {
             postAutomaticScrollPulse()
         }
