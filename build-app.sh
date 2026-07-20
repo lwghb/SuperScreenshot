@@ -13,7 +13,7 @@ cd "$ROOT"
 # Every packaged release gets a new patch version and build number.
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
 IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
-NEXT_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+NEXT_VERSION="${RELEASE_VERSION:-$MAJOR.$MINOR.$((PATCH + 1))}"
 BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")"
 NEXT_BUILD_NUMBER="$((BUILD_NUMBER + 1))"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $NEXT_VERSION" "$PLIST"
