@@ -25,6 +25,8 @@ final class LongCaptureEngine: @unchecked Sendable {
         var candidate: CGImage?
         var candidateMotion: EdgeMotion?
         var candidateStableSamples = 0
+        var lastPreviewUpdate = ProcessInfo.processInfo.systemUptime
+        let previewUpdateInterval: TimeInterval = 0.35
 
         while true {
             switch await control.state {
@@ -34,7 +36,6 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if let candidate, let candidateMotion {
                     frames.append(candidate)
                     motions.append(candidateMotion)
-                    onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? candidate)
                 }
                 if frames.count == 1 { return frames[0] }
                 return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]
@@ -42,7 +43,9 @@ final class LongCaptureEngine: @unchecked Sendable {
                 break
             }
 
-            try await Task.sleep(nanoseconds: 16_000_000)
+            // Two samples still fit between automatic scroll events, while avoiding
+            // unnecessary 60 fps ScreenCaptureKit work on a mostly unchanged frame.
+            try await Task.sleep(nanoseconds: 32_000_000)
             let current = try await session.capture()
             if ImageStitcher.isNearlyIdentical(frames.last!, current) {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
@@ -59,7 +62,11 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if candidateStableSamples >= 1 {
                     frames.append(current)
                     motions.append(motion)
-                    onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? current)
+                    let now = ProcessInfo.processInfo.systemUptime
+                    if now - lastPreviewUpdate >= previewUpdateInterval {
+                        onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? current)
+                        lastPreviewUpdate = now
+                    }
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     if frames.count >= 120 {
                         return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]

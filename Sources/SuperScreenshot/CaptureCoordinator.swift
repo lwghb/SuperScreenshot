@@ -362,13 +362,13 @@ final class CaptureCoordinator: ObservableObject {
                     scrollWheelEvent2Source: nil,
                     units: .pixel,
                     wheelCount: 1,
-                    wheel1: -20,
+                    wheel1: -12,
                     wheel2: 0,
                     wheel3: 0
                 ) {
                     event.post(tap: .cghidEventTap)
                 }
-                try? await Task.sleep(nanoseconds: 100_000_000)
+                try? await Task.sleep(nanoseconds: 60_000_000)
             }
             self?.longStatusController?.setAutoScrolling(false)
         }
