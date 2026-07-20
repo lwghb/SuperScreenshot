@@ -399,6 +399,11 @@ private enum ScreenshotAnnotation {
     case mosaic(points: [CGPoint], brushWidth: CGFloat)
 }
 
+private enum AnnotationResizeHandle: CaseIterable {
+    case arrowStart, arrowEnd
+    case topLeft, top, topRight, right, bottomRight, bottom, bottomLeft, left
+}
+
 private final class ColorIndicatorButton: NSButton {
     var topColor: NSColor?
     var bottomColor: NSColor?
@@ -572,7 +577,14 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     private var dragStart: CGPoint?
     private var dragEnd: CGPoint?
     private var movingIndex: Int?
-    private var selectedIndex: Int?
+    private var selectedIndex: Int? {
+        didSet {
+            window?.invalidateCursorRects(for: self)
+            needsDisplay = true
+        }
+    }
+    private var resizingHandle: AnnotationResizeHandle?
+    private var resizeOriginalAnnotation: ScreenshotAnnotation?
     private var lastMovePoint: CGPoint?
     private var activeTextView: NSTextView?
     private var activeTextOrigin: CGPoint?
@@ -596,6 +608,16 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
 
     override var acceptsFirstResponder: Bool { true }
 
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard let selectedIndex, annotations.indices.contains(selectedIndex) else { return }
+        for (handle, point) in controlHandles(for: annotations[selectedIndex]) {
+            let viewPoint = viewPoint(from: point)
+            let rect = CGRect(x: viewPoint.x - 10, y: viewPoint.y - 10, width: 20, height: 20)
+            addCursorRect(rect, cursor: cursor(for: handle))
+        }
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         window?.makeFirstResponder(self)
@@ -617,6 +639,11 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         commitActiveText()
         if !annotations.isEmpty {
             annotations.removeLast()
+            if annotations.isEmpty {
+                selectedIndex = nil
+            } else if let selectedIndex {
+                self.selectedIndex = min(selectedIndex, annotations.count - 1)
+            }
             needsDisplay = true
         }
     }
@@ -649,7 +676,15 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         if wasEditingText {
             return
         }
-        let point = imagePoint(from: convert(event.locationInWindow, from: nil))
+        let viewPoint = convert(event.locationInWindow, from: nil)
+        let point = imagePoint(from: viewPoint)
+        if let index = selectedIndex,
+           let handle = hitResizeHandle(at: point, annotation: annotations[index]) {
+            resizingHandle = handle
+            resizeOriginalAnnotation = annotations[index]
+            window?.makeFirstResponder(self)
+            return
+        }
         if mode != .mosaic, let index = hitAnnotation(point) {
             movingIndex = index
             selectedIndex = index
@@ -658,9 +693,10 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             window?.makeFirstResponder(self)
             return
         }
+        selectedIndex = nil
         switch mode {
         case .text:
-            beginTextInput(at: point, viewPoint: convert(event.locationInWindow, from: nil))
+            beginTextInput(at: point, viewPoint: viewPoint)
         case .arrow, .rectangle, .ellipse:
             dragStart = point
             dragEnd = point
@@ -672,6 +708,13 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
 
     override func mouseDragged(with event: NSEvent) {
         let point = imagePoint(from: convert(event.locationInWindow, from: nil))
+        if let index = selectedIndex,
+           let handle = resizingHandle,
+           let original = resizeOriginalAnnotation {
+            resizeAnnotation(at: index, original: original, handle: handle, to: point)
+            needsDisplay = true
+            return
+        }
         if let index = movingIndex, let last = lastMovePoint {
             moveAnnotation(at: index, by: CGPoint(x: point.x - last.x, y: point.y - last.y))
             lastMovePoint = point
@@ -693,6 +736,12 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     }
 
     override func mouseUp(with event: NSEvent) {
+        if resizingHandle != nil {
+            resizingHandle = nil
+            resizeOriginalAnnotation = nil
+            window?.invalidateCursorRects(for: self)
+            return
+        }
         if let index = movingIndex {
             let shouldDelete = onAnnotationDragEnded?(event.locationInWindow) ?? false
             onAnnotationDragLocation?(nil)
@@ -701,6 +750,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             }
             movingIndex = nil
             lastMovePoint = nil
+            window?.invalidateCursorRects(for: self)
             return
         }
         if var points = activeMosaicPoints {
@@ -758,6 +808,9 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         applyImageTransform(context)
         context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         for annotation in annotations { draw(annotation, in: context) }
+        if let selectedIndex, annotations.indices.contains(selectedIndex) {
+            drawSelectionHandles(for: annotations[selectedIndex], in: context)
+        }
         if let points = activeMosaicPoints {
             draw(.mosaic(points: points, brushWidth: mosaicBrushWidth), in: context)
         }
@@ -928,6 +981,144 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         let rect = imageRect
         context.translateBy(x: rect.minX, y: rect.minY)
         context.scaleBy(x: rect.width / CGFloat(image.width), y: rect.height / CGFloat(image.height))
+    }
+
+    private var imageToViewScale: CGFloat {
+        imageRect.width / CGFloat(image.width)
+    }
+
+    private func viewPoint(from imagePoint: CGPoint) -> CGPoint {
+        let rect = imageRect
+        return CGPoint(
+            x: rect.minX + imagePoint.x * rect.width / CGFloat(image.width),
+            y: rect.minY + imagePoint.y * rect.height / CGFloat(image.height)
+        )
+    }
+
+    private func controlHandles(for annotation: ScreenshotAnnotation) -> [(AnnotationResizeHandle, CGPoint)] {
+        switch annotation {
+        case let .arrow(start, end, _):
+            return [(.arrowStart, start), (.arrowEnd, end)]
+        case let .rectangle(rect, _), let .ellipse(rect, _):
+            return [
+                (.topLeft, CGPoint(x: rect.minX, y: rect.maxY)),
+                (.top, CGPoint(x: rect.midX, y: rect.maxY)),
+                (.topRight, CGPoint(x: rect.maxX, y: rect.maxY)),
+                (.right, CGPoint(x: rect.maxX, y: rect.midY)),
+                (.bottomRight, CGPoint(x: rect.maxX, y: rect.minY)),
+                (.bottom, CGPoint(x: rect.midX, y: rect.minY)),
+                (.bottomLeft, CGPoint(x: rect.minX, y: rect.minY)),
+                (.left, CGPoint(x: rect.minX, y: rect.midY))
+            ]
+        case .text, .mosaic:
+            return []
+        }
+    }
+
+    private func hitResizeHandle(at point: CGPoint, annotation: ScreenshotAnnotation) -> AnnotationResizeHandle? {
+        let tolerance = 11 / max(imageToViewScale, 0.001)
+        return controlHandles(for: annotation).first {
+            hypot(point.x - $0.1.x, point.y - $0.1.y) <= tolerance
+        }?.0
+    }
+
+    private func cursor(for handle: AnnotationResizeHandle) -> NSCursor {
+        switch handle {
+        case .left, .right:
+            return .resizeLeftRight
+        case .top, .bottom:
+            return .resizeUpDown
+        case .arrowStart, .arrowEnd, .topLeft, .topRight, .bottomLeft, .bottomRight:
+            return .crosshair
+        }
+    }
+
+    private func resizeAnnotation(
+        at index: Int,
+        original: ScreenshotAnnotation,
+        handle: AnnotationResizeHandle,
+        to point: CGPoint
+    ) {
+        let clamped = CGPoint(
+            x: min(max(point.x, 0), CGFloat(image.width)),
+            y: min(max(point.y, 0), CGFloat(image.height))
+        )
+        switch original {
+        case let .arrow(start, end, color):
+            if handle == .arrowStart {
+                annotations[index] = .arrow(start: clamped, end: end, color: color)
+            } else if handle == .arrowEnd {
+                annotations[index] = .arrow(start: start, end: clamped, color: color)
+            }
+        case let .rectangle(rect, color):
+            annotations[index] = .rectangle(
+                resizedRect(rect, handle: handle, point: clamped),
+                color: color
+            )
+        case let .ellipse(rect, color):
+            annotations[index] = .ellipse(
+                resizedRect(rect, handle: handle, point: clamped),
+                color: color
+            )
+        case .text, .mosaic:
+            break
+        }
+    }
+
+    private func resizedRect(_ original: CGRect, handle: AnnotationResizeHandle, point: CGPoint) -> CGRect {
+        let preferredMinimum = 8 / max(imageToViewScale, 0.001)
+        let minimumWidth = min(preferredMinimum, original.width)
+        let minimumHeight = min(preferredMinimum, original.height)
+        var minX = original.minX
+        var maxX = original.maxX
+        var minY = original.minY
+        var maxY = original.maxY
+        switch handle {
+        case .topLeft, .left, .bottomLeft:
+            minX = min(point.x, original.maxX - minimumWidth)
+        case .topRight, .right, .bottomRight:
+            maxX = max(point.x, original.minX + minimumWidth)
+        default:
+            break
+        }
+        switch handle {
+        case .topLeft, .top, .topRight:
+            maxY = max(point.y, original.minY + minimumHeight)
+        case .bottomLeft, .bottom, .bottomRight:
+            minY = min(point.y, original.maxY - minimumHeight)
+        default:
+            break
+        }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    private func drawSelectionHandles(for annotation: ScreenshotAnnotation, in context: CGContext) {
+        let handles = controlHandles(for: annotation)
+        guard !handles.isEmpty else { return }
+        let scale = max(imageToViewScale, 0.001)
+        let radius = 5 / scale
+        if case let .rectangle(rect, _) = annotation {
+            drawSelectionBounds(rect, in: context, scale: scale)
+        } else if case let .ellipse(rect, _) = annotation {
+            drawSelectionBounds(rect, in: context, scale: scale)
+        }
+        for (_, point) in handles {
+            let circle = CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2)
+            context.setFillColor(NSColor.white.cgColor)
+            context.fillEllipse(in: circle)
+            context.setStrokeColor(NSColor.systemBlue.cgColor)
+            context.setLineWidth(2 / scale)
+            context.strokeEllipse(in: circle.insetBy(dx: 1 / scale, dy: 1 / scale))
+        }
+    }
+
+    private func drawSelectionBounds(_ rect: CGRect, in context: CGContext, scale: CGFloat) {
+        context.saveGState()
+        context.setStrokeColor(NSColor.systemBlue.withAlphaComponent(0.9).cgColor)
+        context.setLineWidth(1 / scale)
+        context.setLineDash(phase: 0, lengths: [4 / scale, 3 / scale])
+        context.stroke(rect)
+        context.restoreGState()
     }
 
     private func normalizedRect(_ a: CGPoint, _ b: CGPoint) -> CGRect {
