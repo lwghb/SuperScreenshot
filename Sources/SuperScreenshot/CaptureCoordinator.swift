@@ -2,6 +2,21 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
+private func postAutomaticScrollPulse() {
+    autoreleasepool {
+        if let event = CGEvent(
+            scrollWheelEvent2Source: nil,
+            units: .pixel,
+            wheelCount: 1,
+            wheel1: -20,
+            wheel2: 0,
+            wheel3: 0
+        ) {
+            event.post(tap: .cghidEventTap)
+        }
+    }
+}
+
 struct CaptureShortcut: Equatable {
     let keyCode: UInt16
     let modifiersRaw: UInt
@@ -53,7 +68,7 @@ final class CaptureCoordinator: ObservableObject {
     private var shortcutRecorder: ShortcutRecorderController?
     private var editorController: ScreenshotEditorController?
     private var isCheckingCaptureAccess = false
-    private var autoScrollTask: Task<Void, Never>?
+    private var isAutoScrolling = false
     private var autoScrollOriginalMouseLocation: CGPoint?
     private let longCapture = LongCaptureEngine()
 
@@ -294,7 +309,11 @@ final class CaptureCoordinator: ObservableObject {
                     sourceRect: displayRect,
                     scale: scale
                 )
-                let image = try await longCapture.capture(session: session, control: control) { preview in
+                let image = try await longCapture.capture(
+                    session: session,
+                    control: control,
+                    onAutoScrollPulse: postAutomaticScrollPulse
+                ) { preview in
                     Task { @MainActor in status.update(preview: preview) }
                 }
                 await MainActor.run {
@@ -328,7 +347,7 @@ final class CaptureCoordinator: ObservableObject {
         displayID: CGDirectDisplayID,
         displayRect: CGRect
     ) {
-        if autoScrollTask != nil {
+        if isAutoScrolling {
             stopAutoScroll()
             return
         }
@@ -354,31 +373,18 @@ final class CaptureCoordinator: ObservableObject {
             y: displayBounds.minY + displayRect.midY
         )
         CGWarpMouseCursorPosition(target)
+        isAutoScrolling = true
         longStatusController?.setAutoScrolling(true)
-
-        autoScrollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                autoreleasepool {
-                    if let event = CGEvent(
-                        scrollWheelEvent2Source: nil,
-                        units: .pixel,
-                        wheelCount: 1,
-                        wheel1: -20,
-                        wheel2: 0,
-                        wheel3: 0
-                    ) {
-                        event.post(tap: .cghidEventTap)
-                    }
-                }
-                try? await Task.sleep(nanoseconds: 100_000_000)
-            }
-            self?.longStatusController?.setAutoScrolling(false)
+        if let control = longCaptureControl {
+            Task { await control.setAutoScrolling(true) }
         }
     }
 
     private func stopAutoScroll() {
-        autoScrollTask?.cancel()
-        autoScrollTask = nil
+        isAutoScrolling = false
+        if let control = longCaptureControl {
+            Task { await control.setAutoScrolling(false) }
+        }
         if let original = autoScrollOriginalMouseLocation {
             CGWarpMouseCursorPosition(original)
         }

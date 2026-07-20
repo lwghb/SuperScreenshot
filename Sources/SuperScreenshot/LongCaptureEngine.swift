@@ -16,6 +16,7 @@ final class LongCaptureEngine: @unchecked Sendable {
     func capture(
         session: ScreenCaptureSession,
         control: LongCaptureControl,
+        onAutoScrollPulse: @escaping @Sendable () -> Void,
         onPreviewUpdated: @escaping @Sendable (CGImage) -> Void
     ) async throws -> CGImage {
         let initial = try await session.capture()
@@ -25,9 +26,11 @@ final class LongCaptureEngine: @unchecked Sendable {
         var candidate: CGImage?
         var candidateMotion: EdgeMotion?
         var candidateStableSamples = 0
+        var waitingForAutomaticFrame = false
 
         while true {
-            switch await control.state {
+            let status = await control.status
+            switch status.state {
             case .cancelled:
                 throw CancellationError()
             case .finished:
@@ -40,6 +43,15 @@ final class LongCaptureEngine: @unchecked Sendable {
                 return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]
             case .running:
                 break
+            }
+
+            if status.isAutoScrolling {
+                if !waitingForAutomaticFrame {
+                    onAutoScrollPulse()
+                    waitingForAutomaticFrame = true
+                }
+            } else {
+                waitingForAutomaticFrame = false
             }
 
             try await Task.sleep(nanoseconds: 16_000_000)
@@ -61,6 +73,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                     motions.append(motion)
                     onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? current)
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
+                    waitingForAutomaticFrame = false
                     if frames.count >= 120 {
                         return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]
                     }
@@ -76,7 +89,14 @@ final class LongCaptureEngine: @unchecked Sendable {
 
 actor LongCaptureControl {
     enum State { case running, finished, cancelled }
+    struct Status: Sendable {
+        let state: State
+        let isAutoScrolling: Bool
+    }
     private(set) var state: State = .running
+    private var isAutoScrolling = false
+    var status: Status { Status(state: state, isAutoScrolling: isAutoScrolling) }
     func finish() { state = .finished }
     func cancel() { state = .cancelled }
+    func setAutoScrolling(_ enabled: Bool) { isAutoScrolling = enabled }
 }
