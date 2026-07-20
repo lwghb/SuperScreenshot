@@ -90,6 +90,17 @@ struct ImageStitcherTests {
         #expect(backwardEdge.shift == 80)
     }
 
+    @Test func automaticMotionUsesInteriorConsensus() throws {
+        let document = try #require(makeDirectionalDocument())
+        let upper = try #require(document.cropping(to: CGRect(x: 0, y: 0, width: 160, height: 400)))
+        let lower = try #require(document.cropping(to: CGRect(x: 0, y: 80, width: 160, height: 400)))
+        let first = try #require(addFixedOverlay(to: upper))
+        let second = try #require(addFixedOverlay(to: lower))
+        let motion = try #require(ImageStitcher.detectAutomaticMotion(previous: first, next: second))
+        #expect(motion.direction == .contentMovesUp)
+        #expect(abs(motion.shift - 80) <= 1)
+    }
+
     @Test func rejectsWrongOrExcessiveAutomaticScrollMotion() {
         #expect(LongCaptureEngine.isPlausibleAutomaticMotion(
             EdgeMotion(direction: .contentMovesUp, shift: 40, score: 0)
@@ -146,6 +157,16 @@ struct ImageStitcherTests {
         context.fill(CGRect(x: 0, y: 0, width: 300, height: 400))
         context.setFillColor(CGColor(gray: centerGray, alpha: 1))
         context.fill(CGRect(x: 40, y: 80, width: 220, height: 240))
+        return context.makeImage()
+    }
+
+    private func addFixedOverlay(to image: CGImage) -> CGImage? {
+        guard let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        context.setFillColor(CGColor(gray: 0.05, alpha: 1))
+        context.fill(CGRect(x: 50, y: 40, width: 60, height: 48))
+        context.setFillColor(CGColor(gray: 0.9, alpha: 1))
+        context.fillEllipse(in: CGRect(x: 68, y: 52, width: 24, height: 24))
         return context.makeImage()
     }
 

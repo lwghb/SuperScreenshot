@@ -77,7 +77,10 @@ final class LongCaptureEngine: @unchecked Sendable {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 continue
             }
-            guard let motion = ImageStitcher.detectEdgeMotion(previous: frames.last!, next: current) else {
+            let detectedMotion = status.isAutoScrolling
+                ? ImageStitcher.detectAutomaticMotion(previous: frames.last!, next: current)
+                : ImageStitcher.detectEdgeMotion(previous: frames.last!, next: current)
+            guard let motion = detectedMotion else {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 continue
             }

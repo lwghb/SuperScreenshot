@@ -197,6 +197,46 @@ enum ImageStitcher {
         return best
     }
 
+    static func detectAutomaticMotion(previous: CGImage, next: CGImage) -> EdgeMotion? {
+        let height = min(previous.height, next.height)
+        let width = min(128, min(previous.width, next.width))
+        let bandHeight = min(40, max(12, height / 12))
+        let maximumShift = min(160, height - bandHeight - 1)
+        guard maximumShift >= 8,
+              let previousPixels = verticalSample(previous, width: width, height: height),
+              let nextPixels = verticalSample(next, width: width, height: height) else { return nil }
+
+        let anchors = [0.28, 0.46, 0.64, 0.82].map {
+            min(height - bandHeight, Int(Double(height - bandHeight) * $0))
+        }
+        var bestShift = 0
+        var bestScore = Double.greatestFiniteMagnitude
+        for shift in 8...maximumShift {
+            var scores: [Double] = []
+            for anchor in anchors where anchor - shift >= 0 {
+                scores.append(anchorScore(
+                    anchorImage: previousPixels,
+                    candidateImage: nextPixels,
+                    width: width,
+                    anchorStartRow: anchor,
+                    candidateStartRow: anchor - shift,
+                    anchorHeight: bandHeight
+                ))
+            }
+            guard scores.count >= 3 else { continue }
+            scores.sort()
+            // Ignore the worst band so one fixed overlay or animation cannot
+            // dictate the displacement for the whole frame.
+            let consensus = scores.dropLast().reduce(0, +) / Double(scores.count - 1)
+            if consensus < bestScore {
+                bestScore = consensus
+                bestShift = shift
+            }
+        }
+        guard bestShift > 0, bestScore < 10 else { return nil }
+        return EdgeMotion(direction: .contentMovesUp, shift: bestShift, score: bestScore)
+    }
+
     static func bestMatch(previous: CGImage, next: CGImage) -> OverlapMatch {
         guard let a = sample(previous), let b = sample(next) else {
             return OverlapMatch(direction: .contentMovesUp, overlap: previous.height / 3, score: .greatestFiniteMagnitude)
