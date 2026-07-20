@@ -90,6 +90,18 @@ struct ImageStitcherTests {
         #expect(backwardEdge.shift == 80)
     }
 
+    @Test func rejectsWrongOrExcessiveAutomaticScrollMotion() {
+        #expect(LongCaptureEngine.isPlausibleAutomaticMotion(
+            EdgeMotion(direction: .contentMovesUp, shift: 40, score: 0)
+        ))
+        #expect(!LongCaptureEngine.isPlausibleAutomaticMotion(
+            EdgeMotion(direction: .contentMovesDown, shift: 40, score: 0)
+        ))
+        #expect(!LongCaptureEngine.isPlausibleAutomaticMotion(
+            EdgeMotion(direction: .contentMovesUp, shift: 300, score: 0)
+        ))
+    }
+
     @Test func ignoresAnimationAwayFromCaptureEdges() throws {
         let first = try #require(makeInteriorAnimationImage(centerGray: 0.2))
         let second = try #require(makeInteriorAnimationImage(centerGray: 0.8))

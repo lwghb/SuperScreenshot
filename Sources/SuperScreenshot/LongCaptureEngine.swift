@@ -13,6 +13,10 @@ enum LongCaptureError: LocalizedError {
 }
 
 final class LongCaptureEngine: @unchecked Sendable {
+    static func isPlausibleAutomaticMotion(_ motion: EdgeMotion) -> Bool {
+        motion.direction == .contentMovesUp && motion.shift <= 160
+    }
+
     func capture(
         session: ScreenCaptureSession,
         control: LongCaptureControl,
@@ -66,6 +70,14 @@ final class LongCaptureEngine: @unchecked Sendable {
                 continue
             }
             guard let motion = ImageStitcher.detectEdgeMotion(previous: frames.last!, next: current) else {
+                candidate = nil; candidateMotion = nil; candidateStableSamples = 0
+                continue
+            }
+            // Automatic scrolling always moves the page content upward. Reject
+            // ambiguous reverse matches and implausibly large jumps instead of
+            // inserting them at the beginning of the stitched document.
+            if status.isAutoScrolling,
+               !Self.isPlausibleAutomaticMotion(motion) {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 continue
             }
