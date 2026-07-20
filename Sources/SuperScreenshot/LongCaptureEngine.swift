@@ -14,7 +14,7 @@ enum LongCaptureError: LocalizedError {
 
 final class LongCaptureEngine: @unchecked Sendable {
     static func isPlausibleAutomaticMotion(_ motion: EdgeMotion) -> Bool {
-        motion.direction == .contentMovesUp && motion.shift <= 160
+        motion.direction == .contentMovesUp && motion.shift <= 240
     }
 
     func capture(
@@ -65,7 +65,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                 automaticPulseTime = nil
             }
 
-            // The automatic 50 px animation has completed before this point.
+            // The automatic 80 px animation has completed before this point.
             // Leave a short compositor settling window, then sample only once.
             let captureDelay: UInt64 = status.isAutoScrolling ? 40_000_000 : 16_000_000
             try await Task.sleep(nanoseconds: captureDelay)

@@ -3,7 +3,7 @@ import ApplicationServices
 import CoreGraphics
 
 private func performAutomaticScrollStep() async {
-    for index in 0..<10 {
+    for index in 0..<16 {
         autoreleasepool {
             if let event = CGEvent(
                 scrollWheelEvent2Source: nil,
@@ -16,7 +16,7 @@ private func performAutomaticScrollStep() async {
                 event.post(tap: .cghidEventTap)
             }
         }
-        if index < 9 {
+        if index < 15 {
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
     }
