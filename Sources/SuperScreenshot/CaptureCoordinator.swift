@@ -2,6 +2,21 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
+private func postAutomaticScrollPulse() {
+    autoreleasepool {
+        if let event = CGEvent(
+            scrollWheelEvent2Source: nil,
+            units: .pixel,
+            wheelCount: 1,
+            wheel1: -12,
+            wheel2: 0,
+            wheel3: 0
+        ) {
+            event.post(tap: .cghidEventTap)
+        }
+    }
+}
+
 struct CaptureShortcut: Equatable {
     let keyCode: UInt16
     let modifiersRaw: UInt
@@ -360,20 +375,10 @@ final class CaptureCoordinator: ObservableObject {
             queue: DispatchQueue(label: "com.lion.superscreenshot.autoscroll", qos: .userInteractive)
         )
         timer.schedule(deadline: .now(), repeating: .milliseconds(60), leeway: .milliseconds(2))
-        timer.setEventHandler {
-            autoreleasepool {
-                if let event = CGEvent(
-                    scrollWheelEvent2Source: nil,
-                    units: .pixel,
-                    wheelCount: 1,
-                    wheel1: -12,
-                    wheel2: 0,
-                    wheel3: 0
-                ) {
-                    event.post(tap: .cghidEventTap)
-                }
-            }
+        let handler: @Sendable () -> Void = {
+            postAutomaticScrollPulse()
         }
+        timer.setEventHandler(handler: handler)
         autoScrollTimer = timer
         timer.resume()
     }
