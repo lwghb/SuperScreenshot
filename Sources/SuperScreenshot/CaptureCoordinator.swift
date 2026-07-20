@@ -2,17 +2,22 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
-private func postAutomaticScrollPulse() {
-    autoreleasepool {
-        if let event = CGEvent(
-            scrollWheelEvent2Source: nil,
-            units: .pixel,
-            wheelCount: 1,
-            wheel1: -20,
-            wheel2: 0,
-            wheel3: 0
-        ) {
-            event.post(tap: .cghidEventTap)
+private func performAutomaticScrollStep() async {
+    for index in 0..<5 {
+        autoreleasepool {
+            if let event = CGEvent(
+                scrollWheelEvent2Source: nil,
+                units: .pixel,
+                wheelCount: 1,
+                wheel1: -10,
+                wheel2: 0,
+                wheel3: 0
+            ) {
+                event.post(tap: .cghidEventTap)
+            }
+        }
+        if index < 4 {
+            try? await Task.sleep(nanoseconds: 16_000_000)
         }
     }
 }
@@ -312,7 +317,7 @@ final class CaptureCoordinator: ObservableObject {
                 let image = try await longCapture.capture(
                     session: session,
                     control: control,
-                    onAutoScrollPulse: postAutomaticScrollPulse
+                    onAutoScrollStep: performAutomaticScrollStep
                 ) { preview in
                     Task { @MainActor in status.update(preview: preview) }
                 }

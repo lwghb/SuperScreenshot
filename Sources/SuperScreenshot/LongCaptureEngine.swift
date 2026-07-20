@@ -20,7 +20,7 @@ final class LongCaptureEngine: @unchecked Sendable {
     func capture(
         session: ScreenCaptureSession,
         control: LongCaptureControl,
-        onAutoScrollPulse: @escaping @Sendable () -> Void,
+        onAutoScrollStep: @escaping @Sendable () async -> Void,
         onPreviewUpdated: @escaping @Sendable (CGImage) -> Void
     ) async throws -> CGImage {
         let initial = try await session.capture()
@@ -56,16 +56,19 @@ final class LongCaptureEngine: @unchecked Sendable {
                 let now = ProcessInfo.processInfo.systemUptime
                 let needsRetry = automaticPulseTime.map { now - $0 >= 0.4 } ?? false
                 if !waitingForAutomaticFrame || needsRetry {
-                    onAutoScrollPulse()
+                    await onAutoScrollStep()
                     waitingForAutomaticFrame = true
-                    automaticPulseTime = now
+                    automaticPulseTime = ProcessInfo.processInfo.systemUptime
                 }
             } else {
                 waitingForAutomaticFrame = false
                 automaticPulseTime = nil
             }
 
-            try await Task.sleep(nanoseconds: 16_000_000)
+            // The automatic 50 px animation has completed before this point.
+            // Leave a short compositor settling window, then sample only once.
+            let captureDelay: UInt64 = status.isAutoScrolling ? 40_000_000 : 16_000_000
+            try await Task.sleep(nanoseconds: captureDelay)
             let current = try await session.capture()
             if ImageStitcher.isNearlyIdentical(frames.last!, current) {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
