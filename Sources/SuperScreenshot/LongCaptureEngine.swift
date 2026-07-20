@@ -32,6 +32,8 @@ final class LongCaptureEngine: @unchecked Sendable {
         var candidateStableSamples = 0
         var waitingForAutomaticFrame = false
         var automaticPulseTime: TimeInterval?
+        var lastPreviewTime = ProcessInfo.processInfo.systemUptime
+        let previewInterval: TimeInterval = 0.25
 
         while true {
             let status = await control.status
@@ -88,7 +90,11 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if candidateStableSamples >= 1 {
                     frames.append(current)
                     motions.append(motion)
-                    onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
+                    let now = ProcessInfo.processInfo.systemUptime
+                    if now - lastPreviewTime >= previewInterval {
+                        onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
+                        lastPreviewTime = now
+                    }
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     waitingForAutomaticFrame = false
                     automaticPulseTime = nil
