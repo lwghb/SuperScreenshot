@@ -3,21 +3,21 @@ import ApplicationServices
 import CoreGraphics
 
 private func performAutomaticScrollStep() async {
-    for index in 0..<5 {
+    for index in 0..<10 {
         autoreleasepool {
             if let event = CGEvent(
                 scrollWheelEvent2Source: nil,
                 units: .pixel,
                 wheelCount: 1,
-                wheel1: -10,
+                wheel1: -5,
                 wheel2: 0,
                 wheel3: 0
             ) {
                 event.post(tap: .cghidEventTap)
             }
         }
-        if index < 4 {
-            try? await Task.sleep(nanoseconds: 16_000_000)
+        if index < 9 {
+            try? await Task.sleep(nanoseconds: 20_000_000)
         }
     }
 }
