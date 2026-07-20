@@ -27,6 +27,7 @@ final class LongCaptureEngine: @unchecked Sendable {
         var candidateMotion: EdgeMotion?
         var candidateStableSamples = 0
         var waitingForAutomaticFrame = false
+        var automaticPulseTime: TimeInterval?
 
         while true {
             let status = await control.status
@@ -46,12 +47,16 @@ final class LongCaptureEngine: @unchecked Sendable {
             }
 
             if status.isAutoScrolling {
-                if !waitingForAutomaticFrame {
+                let now = ProcessInfo.processInfo.systemUptime
+                let needsRetry = automaticPulseTime.map { now - $0 >= 0.4 } ?? false
+                if !waitingForAutomaticFrame || needsRetry {
                     onAutoScrollPulse()
                     waitingForAutomaticFrame = true
+                    automaticPulseTime = now
                 }
             } else {
                 waitingForAutomaticFrame = false
+                automaticPulseTime = nil
             }
 
             try await Task.sleep(nanoseconds: 16_000_000)
@@ -74,6 +79,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                     onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? current)
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     waitingForAutomaticFrame = false
+                    automaticPulseTime = nil
                     if frames.count >= 120 {
                         return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]
                     }

@@ -8,6 +8,7 @@ final class LongCaptureStatusController: NSObject {
     private let selection: CGRect
     private let screen: NSScreen
     private var window: NSPanel?
+    private var targetFrame: CGRect?
     private let imageView = NSImageView()
     private let escapeHotKey = GlobalHotKeyManager(identifier: 2)
     private lazy var autoScrollButton = button(L("自动滚动"), action: #selector(toggleAutoScroll))
@@ -33,8 +34,9 @@ final class LongCaptureStatusController: NSObject {
         }
         let y = min(max(selection.midY - height / 2, screen.visibleFrame.minY + 12), screen.visibleFrame.maxY - height - 12)
 
+        let frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
         let panel = NSPanel(
-            contentRect: CGRect(origin: CGPoint(x: x, y: y), size: size),
+            contentRect: frame,
             styleMask: [.titled, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -70,7 +72,9 @@ final class LongCaptureStatusController: NSObject {
         ])
         panel.contentView = content
         window = panel
+        targetFrame = panel.frame
         panel.orderFrontRegardless()
+        panel.setFrame(panel.frame, display: true)
 
         escapeHotKey.onPressed = { [weak self] in self?.onCancel?() }
         escapeHotKey.register(keyCode: 53, modifiersRaw: 0)
@@ -78,6 +82,9 @@ final class LongCaptureStatusController: NSObject {
 
     func update(preview: CGImage) {
         imageView.image = NSImage(cgImage: preview, size: NSSize(width: preview.width, height: preview.height))
+        if let targetFrame, window?.frame != targetFrame {
+            window?.setFrame(targetFrame, display: true)
+        }
     }
 
     func setAutoScrolling(_ isScrolling: Bool) {
@@ -96,5 +103,6 @@ final class LongCaptureStatusController: NSObject {
         escapeHotKey.invalidate()
         window?.orderOut(nil)
         window = nil
+        targetFrame = nil
     }
 }
