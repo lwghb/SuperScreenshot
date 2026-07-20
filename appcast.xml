@@ -3,27 +3,18 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>0.9.87</title>
-            <pubDate>Mon, 20 Jul 2026 18:26:29 +0800</pubDate>
+            <title>1.0.9</title>
+            <pubDate>Mon, 20 Jul 2026 22:20:00 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>139</sparkle:version>
-            <sparkle:shortVersionString>0.9.87</sparkle:shortVersionString>
+            <sparkle:version>162</sparkle:version>
+            <sparkle:shortVersionString>1.0.9</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 0.9.87
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 1.0.9
 
-- 点击箭头、矩形或圆形后进入编辑状态。
-- 箭头支持拖动首尾控制点调整方向和长度。
-- 矩形和圆形支持通过四边、四角控制点调整大小。
-- 保留拖动主体移动标注和点击空白取消选中。
-
----
-
-- Added editable selection states for arrows, rectangles, and ellipses.
-- Resize arrows using start and end handles.
-- Resize shapes using edge and corner handles.
-- Preserved body dragging and deselection by clicking empty space.
+- 恢复滚动截图稳定版本。
+- 保留多区域内容识别与拼接修复。
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v0.9.87/SuperScreenshot-v0.9.87-Universal.zip" length="2790284" type="application/octet-stream" sparkle:edSignature="d2oQDf+P4AXeSxRfwYSXmMb3oUbpEi1ORAAE/+f2TIj19f7JmmMmAzmSdLZkUsH2RnGT7iuupfBj89hhsNpdBg=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v1.0.9/SuperScreenshot-v1.0.9-Universal.zip" length="2803431" type="application/octet-stream" sparkle:edSignature="y6DKhdaRF9yQW9K+YDgpZ9J9D8YpeEakkHaDTAo1WsEzR2MtIwCsA97L6o7Pqny7mbGqcRzsmm8inH6VoemyCQ=="/>
         </item>
     </channel>
 </rss>
