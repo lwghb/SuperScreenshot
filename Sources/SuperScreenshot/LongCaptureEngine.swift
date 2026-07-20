@@ -43,9 +43,10 @@ final class LongCaptureEngine: @unchecked Sendable {
                 break
             }
 
-            // Two samples still fit between automatic scroll events, while avoiding
-            // unnecessary 60 fps ScreenCaptureKit work on a mostly unchanged frame.
-            try await Task.sleep(nanoseconds: 32_000_000)
+            // Keep enough samples between smooth automatic scroll events so the
+            // stability gate never skips content. Preview composition is throttled
+            // separately because that is the expensive work that grows over time.
+            try await Task.sleep(nanoseconds: 16_000_000)
             let current = try await session.capture()
             if ImageStitcher.isNearlyIdentical(frames.last!, current) {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
