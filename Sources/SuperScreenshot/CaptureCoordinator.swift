@@ -53,7 +53,7 @@ final class CaptureCoordinator: ObservableObject {
     private var shortcutRecorder: ShortcutRecorderController?
     private var editorController: ScreenshotEditorController?
     private var isCheckingCaptureAccess = false
-    private var autoScrollTask: Task<Void, Never>?
+    private var autoScrollTimer: DispatchSourceTimer?
     private var autoScrollOriginalMouseLocation: CGPoint?
     private let longCapture = LongCaptureEngine()
 
@@ -328,7 +328,7 @@ final class CaptureCoordinator: ObservableObject {
         displayID: CGDirectDisplayID,
         displayRect: CGRect
     ) {
-        if autoScrollTask != nil {
+        if autoScrollTimer != nil {
             stopAutoScroll()
             return
         }
@@ -356,8 +356,12 @@ final class CaptureCoordinator: ObservableObject {
         CGWarpMouseCursorPosition(target)
         longStatusController?.setAutoScrolling(true)
 
-        autoScrollTask = Task { [weak self] in
-            while !Task.isCancelled {
+        let timer = DispatchSource.makeTimerSource(
+            queue: DispatchQueue(label: "com.lion.superscreenshot.autoscroll", qos: .userInteractive)
+        )
+        timer.schedule(deadline: .now(), repeating: .milliseconds(60), leeway: .milliseconds(2))
+        timer.setEventHandler {
+            autoreleasepool {
                 if let event = CGEvent(
                     scrollWheelEvent2Source: nil,
                     units: .pixel,
@@ -368,15 +372,15 @@ final class CaptureCoordinator: ObservableObject {
                 ) {
                     event.post(tap: .cghidEventTap)
                 }
-                try? await Task.sleep(nanoseconds: 60_000_000)
             }
-            self?.longStatusController?.setAutoScrolling(false)
         }
+        autoScrollTimer = timer
+        timer.resume()
     }
 
     private func stopAutoScroll() {
-        autoScrollTask?.cancel()
-        autoScrollTask = nil
+        autoScrollTimer?.cancel()
+        autoScrollTimer = nil
         if let original = autoScrollOriginalMouseLocation {
             CGWarpMouseCursorPosition(original)
         }
