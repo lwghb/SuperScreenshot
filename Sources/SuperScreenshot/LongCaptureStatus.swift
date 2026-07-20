@@ -47,7 +47,7 @@ final class LongCaptureStatusController: NSObject {
         panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        imageView.imageScaling = .scaleProportionallyDown
+        imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.imageAlignment = .alignTop
         imageView.imageFrameStyle = .grayBezel
         imageView.translatesAutoresizingMaskIntoConstraints = false
