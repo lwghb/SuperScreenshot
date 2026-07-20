@@ -92,9 +92,6 @@ final class LongCaptureEngine: @unchecked Sendable {
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     waitingForAutomaticFrame = false
                     automaticPulseTime = nil
-                    if frames.count >= 120 {
-                        return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]
-                    }
                 }
             } else {
                 candidate = current
