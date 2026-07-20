@@ -103,6 +103,14 @@ struct ImageStitcherTests {
         #expect(LongCaptureEngine.isPlausibleAutomaticMotion(
             EdgeMotion(direction: .contentMovesUp, shift: 160, score: 0)
         ))
+        #expect(LongCaptureEngine.isPlausibleAutomaticMotion(
+            EdgeMotion(direction: .contentMovesUp, shift: 320, score: 0),
+            scale: 2
+        ))
+        #expect(!LongCaptureEngine.isPlausibleAutomaticMotion(
+            EdgeMotion(direction: .contentMovesDown, shift: 320, score: 0),
+            scale: 2
+        ))
     }
 
     @Test func previewPreservesEveryAcceptedSliceAtFixedWidth() throws {

@@ -13,8 +13,9 @@ enum LongCaptureError: LocalizedError {
 }
 
 final class LongCaptureEngine: @unchecked Sendable {
-    static func isPlausibleAutomaticMotion(_ motion: EdgeMotion) -> Bool {
-        motion.direction == .contentMovesUp && motion.shift <= 240
+    static func isPlausibleAutomaticMotion(_ motion: EdgeMotion, scale: CGFloat = 1) -> Bool {
+        let maximumShift = min(500, Int((240 * max(1, scale)).rounded()))
+        return motion.direction == .contentMovesUp && motion.shift <= maximumShift
     }
 
     func capture(
@@ -82,7 +83,7 @@ final class LongCaptureEngine: @unchecked Sendable {
             // ambiguous reverse matches and implausibly large jumps instead of
             // inserting them at the beginning of the stitched document.
             if status.isAutoScrolling,
-               !Self.isPlausibleAutomaticMotion(motion) {
+               !Self.isPlausibleAutomaticMotion(motion, scale: session.scale) {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 continue
             }
