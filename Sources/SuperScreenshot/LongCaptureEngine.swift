@@ -34,6 +34,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if let candidate, let candidateMotion {
                     frames.append(candidate)
                     motions.append(candidateMotion)
+                    onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? candidate)
                 }
                 if frames.count == 1 { return frames[0] }
                 return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]
@@ -41,9 +42,6 @@ final class LongCaptureEngine: @unchecked Sendable {
                 break
             }
 
-            // Keep enough samples between smooth automatic scroll events so the
-            // stability gate never skips content. Preview composition is throttled
-            // separately because that is the expensive work that grows over time.
             try await Task.sleep(nanoseconds: 16_000_000)
             let current = try await session.capture()
             if ImageStitcher.isNearlyIdentical(frames.last!, current) {
@@ -61,9 +59,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if candidateStableSamples >= 1 {
                     frames.append(current)
                     motions.append(motion)
-                    onPreviewUpdated(
-                        ImageStitcher.preview(frames, motions: motions) ?? current
-                    )
+                    onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? current)
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     if frames.count >= 120 {
                         return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]

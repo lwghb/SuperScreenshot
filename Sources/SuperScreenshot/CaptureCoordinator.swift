@@ -2,21 +2,6 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
-private func postAutomaticScrollPulse() {
-    autoreleasepool {
-        if let event = CGEvent(
-            scrollWheelEvent2Source: nil,
-            units: .pixel,
-            wheelCount: 1,
-            wheel1: -20,
-            wheel2: 0,
-            wheel3: 0
-        ) {
-            event.post(tap: .cghidEventTap)
-        }
-    }
-}
-
 struct CaptureShortcut: Equatable {
     let keyCode: UInt16
     let modifiersRaw: UInt
@@ -68,7 +53,7 @@ final class CaptureCoordinator: ObservableObject {
     private var shortcutRecorder: ShortcutRecorderController?
     private var editorController: ScreenshotEditorController?
     private var isCheckingCaptureAccess = false
-    private var autoScrollTimer: DispatchSourceTimer?
+    private var autoScrollTask: Task<Void, Never>?
     private var autoScrollOriginalMouseLocation: CGPoint?
     private let longCapture = LongCaptureEngine()
 
@@ -343,7 +328,7 @@ final class CaptureCoordinator: ObservableObject {
         displayID: CGDirectDisplayID,
         displayRect: CGRect
     ) {
-        if autoScrollTimer != nil {
+        if autoScrollTask != nil {
             stopAutoScroll()
             return
         }
@@ -371,21 +356,29 @@ final class CaptureCoordinator: ObservableObject {
         CGWarpMouseCursorPosition(target)
         longStatusController?.setAutoScrolling(true)
 
-        let timer = DispatchSource.makeTimerSource(
-            queue: DispatchQueue(label: "com.lion.superscreenshot.autoscroll", qos: .userInteractive)
-        )
-        timer.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(2))
-        let handler: @Sendable () -> Void = {
-            postAutomaticScrollPulse()
+        autoScrollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                autoreleasepool {
+                    if let event = CGEvent(
+                        scrollWheelEvent2Source: nil,
+                        units: .pixel,
+                        wheelCount: 1,
+                        wheel1: -20,
+                        wheel2: 0,
+                        wheel3: 0
+                    ) {
+                        event.post(tap: .cghidEventTap)
+                    }
+                }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            self?.longStatusController?.setAutoScrolling(false)
         }
-        timer.setEventHandler(handler: handler)
-        autoScrollTimer = timer
-        timer.resume()
     }
 
     private func stopAutoScroll() {
-        autoScrollTimer?.cancel()
-        autoScrollTimer = nil
+        autoScrollTask?.cancel()
+        autoScrollTask = nil
         if let original = autoScrollOriginalMouseLocation {
             CGWarpMouseCursorPosition(original)
         }
