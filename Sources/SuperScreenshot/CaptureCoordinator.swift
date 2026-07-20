@@ -2,21 +2,25 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 
-private func performAutomaticScrollStep() async {
-    for index in 0..<16 {
+private func performAutomaticScrollStep(distance: Int) async {
+    let pulseCount = 16
+    let baseDistance = distance / pulseCount
+    let remainder = distance % pulseCount
+    for index in 0..<pulseCount {
+        let pulseDistance = baseDistance + (index < remainder ? 1 : 0)
         autoreleasepool {
             if let event = CGEvent(
                 scrollWheelEvent2Source: nil,
                 units: .pixel,
                 wheelCount: 1,
-                wheel1: -5,
+                wheel1: Int32(-pulseDistance),
                 wheel2: 0,
                 wheel3: 0
             ) {
                 event.post(tap: .cghidEventTap)
             }
         }
-        if index < 15 {
+        if index < pulseCount - 1 {
             try? await Task.sleep(nanoseconds: 20_000_000)
         }
     }
@@ -317,7 +321,10 @@ final class CaptureCoordinator: ObservableObject {
                 let image = try await longCapture.capture(
                     session: session,
                     control: control,
-                    onAutoScrollStep: performAutomaticScrollStep
+                    onAutoScrollStep: {
+                        let distance = max(1, Int((80 / max(1, scale)).rounded()))
+                        await performAutomaticScrollStep(distance: distance)
+                    }
                 ) { preview in
                     Task { @MainActor in status.update(preview: preview) }
                 }
