@@ -107,7 +107,7 @@ enum ImageStitcher {
     static func preview(
         _ frames: [CGImage],
         motions: [EdgeMotion],
-        maximumWidth: Int = 120
+        maximumWidth: Int = 280
     ) -> CGImage? {
         guard let first = frames.first else { return nil }
         let slices = slices(from: frames, motions: motions)

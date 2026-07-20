@@ -83,6 +83,19 @@ final class LongCaptureEngine: @unchecked Sendable {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 continue
             }
+            if status.isAutoScrolling {
+                frames.append(current)
+                motions.append(motion)
+                let now = ProcessInfo.processInfo.systemUptime
+                if now - lastPreviewTime >= previewInterval {
+                    onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
+                    lastPreviewTime = now
+                }
+                candidate = nil; candidateMotion = nil; candidateStableSamples = 0
+                waitingForAutomaticFrame = false
+                automaticPulseTime = nil
+                continue
+            }
             if let pending = candidate,
                candidateMotion?.direction == motion.direction,
                ImageStitcher.relevantEdgeIsStable(pending, current, direction: motion.direction) {
