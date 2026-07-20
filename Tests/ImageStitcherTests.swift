@@ -102,6 +102,20 @@ struct ImageStitcherTests {
         ))
     }
 
+    @Test func previewPreservesEveryAcceptedSliceAtFixedWidth() throws {
+        let document = try #require(makeDirectionalDocument())
+        let upper = try #require(document.cropping(to: CGRect(x: 0, y: 0, width: 160, height: 400)))
+        let lower = try #require(document.cropping(to: CGRect(x: 0, y: 80, width: 160, height: 400)))
+        let motion = try #require(ImageStitcher.detectEdgeMotion(previous: upper, next: lower))
+        let preview = try #require(ImageStitcher.preview(
+            [upper, lower],
+            motions: [motion],
+            maximumWidth: 80
+        ))
+        #expect(preview.width == 80)
+        #expect(preview.height == 240)
+    }
+
     @Test func ignoresAnimationAwayFromCaptureEdges() throws {
         let first = try #require(makeInteriorAnimationImage(centerGray: 0.2))
         let second = try #require(makeInteriorAnimationImage(centerGray: 0.8))

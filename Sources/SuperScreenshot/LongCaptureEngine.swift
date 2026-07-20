@@ -88,7 +88,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if candidateStableSamples >= 1 {
                     frames.append(current)
                     motions.append(motion)
-                    onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? current)
+                    onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     waitingForAutomaticFrame = false
                     automaticPulseTime = nil

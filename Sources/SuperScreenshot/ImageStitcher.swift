@@ -92,6 +92,49 @@ enum ImageStitcher {
     static func stitch(_ frames: [CGImage], motions: [EdgeMotion]) -> CGImage? {
         guard let first = frames.first else { return nil }
         let width = first.width
+        let slices = slices(from: frames, motions: motions)
+        let totalHeight = slices.reduce(0) { $0 + $1.height }
+        guard totalHeight < 100_000,
+              let ctx = CGContext(data: nil, width: width, height: totalHeight, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        var y = totalHeight
+        for slice in slices {
+            y -= slice.height
+            ctx.draw(slice, in: CGRect(x: 0, y: y, width: width, height: slice.height))
+        }
+        return ctx.makeImage()
+    }
+
+    static func preview(
+        _ frames: [CGImage],
+        motions: [EdgeMotion],
+        maximumWidth: Int = 280
+    ) -> CGImage? {
+        guard let first = frames.first else { return nil }
+        let slices = slices(from: frames, motions: motions)
+        let width = min(maximumWidth, first.width)
+        let scale = CGFloat(width) / CGFloat(first.width)
+        let heights = slices.map { max(1, Int((CGFloat($0.height) * scale).rounded())) }
+        let totalHeight = heights.reduce(0, +)
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: totalHeight,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.interpolationQuality = .medium
+        var y = totalHeight
+        for (slice, height) in zip(slices, heights) {
+            y -= height
+            context.draw(slice, in: CGRect(x: 0, y: y, width: width, height: height))
+        }
+        return context.makeImage()
+    }
+
+    private static func slices(from frames: [CGImage], motions: [EdgeMotion]) -> [CGImage] {
+        guard let first = frames.first else { return [] }
         var slices: [CGImage] = [first]
         for (index, next) in frames.dropFirst().enumerated() {
             guard index < motions.count else { break }
@@ -106,15 +149,7 @@ enum ImageStitcher {
                 if let topSlice = next.cropping(to: topRect) { slices.insert(topSlice, at: 0) }
             }
         }
-        let totalHeight = slices.reduce(0) { $0 + $1.height }
-        guard totalHeight < 100_000,
-              let ctx = CGContext(data: nil, width: width, height: totalHeight, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        var y = totalHeight
-        for slice in slices {
-            y -= slice.height
-            ctx.draw(slice, in: CGRect(x: 0, y: y, width: width, height: slice.height))
-        }
-        return ctx.makeImage()
+        return slices
     }
 
     static func detectEdgeMotion(previous: CGImage, next: CGImage) -> EdgeMotion? {
