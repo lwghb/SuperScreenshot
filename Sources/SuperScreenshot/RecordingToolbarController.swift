@@ -42,7 +42,14 @@ final class RecordingToolbarController: NSObject {
 
     @objc private func toggle() {
         if startedAt == nil {
-            startedAt = Date(); startButton.title = L("结束录屏"); startButton.bezelColor = .systemRed; startButton.contentTintColor = .white; timerLabel.isHidden = false; backButton?.isHidden = true
+            startedAt = Date(); startButton.title = L("结束录屏")
+            startButton.isBordered = false
+            startButton.wantsLayer = true
+            startButton.layer?.backgroundColor = NSColor.systemRed.cgColor
+            startButton.layer?.cornerRadius = 7
+            startButton.contentTintColor = .white
+            startButton.attributedTitle = NSAttributedString(string: L("结束录屏"), attributes: [.foregroundColor: NSColor.white])
+            timerLabel.isHidden = false; backButton?.isHidden = true
             timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
             onStart?()
         } else { onStop?() }
@@ -53,8 +60,10 @@ final class RecordingToolbarController: NSObject {
         timer?.invalidate(); timer = nil; startedAt = nil
         timerLabel.stringValue = "00:00"
         startButton.title = L("开始录屏")
-        startButton.bezelColor = nil
+        startButton.isBordered = true
+        startButton.layer?.backgroundColor = NSColor.clear.cgColor
         startButton.contentTintColor = nil
+        startButton.attributedTitle = NSAttributedString(string: L("开始录屏"))
         timerLabel.isHidden = true
         backButton?.isHidden = false
     }

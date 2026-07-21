@@ -49,18 +49,11 @@ final class RecordingEditorController: NSObject {
         content.addSubview(trimRange)
 
         let save = NSButton(title: L("保存"), target: self, action: #selector(save))
-        save.bezelStyle = .rounded
-        save.bezelColor = .systemBlue
-        save.contentTintColor = .white
+        applyFilledStyle(to: save, color: .systemGreen)
         save.keyEquivalent = "\r"
         save.frame = CGRect(x: 558, y: 18, width: 108, height: 32)
         let copy = NSButton(title: L("复制到剪贴板"), target: self, action: #selector(copyToPasteboard))
-        copy.bezelStyle = .rounded
-        copy.bezelColor = .systemBlue
-        copy.contentTintColor = .white
-        copy.wantsLayer = true
-        copy.layer?.backgroundColor = NSColor.systemBlue.cgColor
-        copy.layer?.cornerRadius = 6
+        applyFilledStyle(to: copy, color: .systemGreen)
         copy.frame = CGRect(x: 678, y: 18, width: 118, height: 32)
         content.addSubview(save)
         content.addSubview(copy)
@@ -146,6 +139,15 @@ final class RecordingEditorController: NSObject {
     }
 
     private func close() { player.pause(); panel?.orderOut(nil); panel = nil }
+
+    private func applyFilledStyle(to button: NSButton, color: NSColor) {
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = color.cgColor
+        button.layer?.cornerRadius = 7
+        button.contentTintColor = .white
+        button.attributedTitle = NSAttributedString(string: button.title, attributes: [.foregroundColor: NSColor.white])
+    }
 }
 
 @MainActor
