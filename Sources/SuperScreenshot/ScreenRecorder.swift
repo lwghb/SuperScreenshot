@@ -69,6 +69,27 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         self.options = options
         self.outputURL = outputURL
+        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+        self.writer = writer
+        let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: configuration.width,
+            AVVideoHeightKey: configuration.height
+        ])
+        video.expectsMediaDataInRealTime = true
+        writer.add(video)
+        videoInput = video
+        if options.capturesSystemAudio {
+            let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 2,
+                AVEncoderBitRateKey: 192_000
+            ])
+            audio.expectsMediaDataInRealTime = true
+            writer.add(audio)
+            audioInput = audio
+        }
         let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: DispatchQueue(label: "com.lion.superscreenshot.record.video"))
         if options.capturesSystemAudio {
@@ -118,9 +139,6 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         Task { @MainActor [weak self] in
             let sampleBuffer = boxed.value
             guard let self, CMSampleBufferDataIsReady(sampleBuffer) else { return }
-            if type == .screen, writer == nil {
-                createWriter(for: sampleBuffer)
-            }
             if writer?.status == .unknown { writer?.startWriting(); writer?.startSession(atSourceTime: sampleBuffer.presentationTimeStamp) }
             guard writer?.status == .writing else { return }
             switch type {
@@ -134,38 +152,6 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
                 }
             default: break
             }
-        }
-    }
-
-    private func createWriter(for sampleBuffer: CMSampleBuffer) {
-        guard let outputURL,
-              let format = CMSampleBufferGetFormatDescription(sampleBuffer) else { return }
-        let dimensions = CMVideoFormatDescriptionGetDimensions(format)
-        guard dimensions.width > 0, dimensions.height > 0 else { return }
-        do {
-            let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
-            let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
-                AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: dimensions.width,
-                AVVideoHeightKey: dimensions.height
-            ])
-            video.expectsMediaDataInRealTime = true
-            writer.add(video)
-            if options.capturesSystemAudio {
-                let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
-                    AVFormatIDKey: kAudioFormatMPEG4AAC,
-                    AVSampleRateKey: 48_000,
-                    AVNumberOfChannelsKey: 2,
-                    AVEncoderBitRateKey: 192_000
-                ])
-                audio.expectsMediaDataInRealTime = true
-                writer.add(audio)
-                audioInput = audio
-            }
-            self.writer = writer
-            videoInput = video
-        } catch {
-            lastErrorDescription = error.localizedDescription
         }
     }
 
