@@ -55,6 +55,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             configuration.width = max(1, Int((selection.width * scale).rounded()))
             configuration.height = max(1, Int((selection.height * scale).rounded()))
         }
+        // H.264/HEVC encoders require even pixel dimensions. Selection edges
+        // can otherwise produce an MP4 with media data but no valid moov atom.
+        configuration.width = max(2, configuration.width & ~1)
+        configuration.height = max(2, configuration.height & ~1)
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(options.frameRate.rawValue))
         configuration.queueDepth = 5
         configuration.showsCursor = true
@@ -67,7 +71,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
         self.writer = writer
         let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.hevc,
+            AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: configuration.width,
             AVVideoHeightKey: configuration.height
         ])
@@ -107,7 +111,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             writer?.cancelWriting()
             isRecording = false
             stream = nil
-            return outputURL
+            return nil
         }
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
