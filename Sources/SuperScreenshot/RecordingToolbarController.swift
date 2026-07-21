@@ -10,6 +10,7 @@ final class RecordingToolbarController: NSObject {
     private var startedAt: Date?
     private let timerLabel = NSTextField(labelWithString: "00:00")
     private let startButton = NSButton(title: L("开始录屏"), target: nil, action: nil)
+    private weak var backButton: NSButton?
 
     func show(in screen: NSScreen) {
         let size = CGSize(width: 360, height: 64)
@@ -24,6 +25,7 @@ final class RecordingToolbarController: NSObject {
         let stack = NSStackView()
         stack.orientation = .horizontal; stack.spacing = 12; stack.alignment = .centerY
         let back = NSButton(title: L("返回截图"), target: self, action: #selector(back))
+        backButton = back
         startButton.target = self; startButton.action = #selector(toggle)
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
         timerLabel.isHidden = true
@@ -36,7 +38,7 @@ final class RecordingToolbarController: NSObject {
 
     @objc private func toggle() {
         if startedAt == nil {
-            startedAt = Date(); startButton.title = L("结束录屏"); timerLabel.isHidden = false
+            startedAt = Date(); startButton.title = L("结束录屏"); timerLabel.isHidden = false; backButton?.isHidden = true
             timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
             onStart?()
         } else { onStop?() }
