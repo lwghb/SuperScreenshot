@@ -17,11 +17,21 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
     let queue = DispatchQueue(label: "com.lion.superscreenshot.record.writer")
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
+    private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var audioInput: AVAssetWriterInput?
     private var started = false
     private var errorDescription: String?
 
     func prepare(url: URL, width: Int, height: Int, includesAudio: Bool) throws {
+        // The recorder instance is reused for later recordings. Do not carry
+        // a completed writer's state into the next session.
+        writer = nil
+        videoInput = nil
+        pixelBufferAdaptor = nil
+        audioInput = nil
+        started = false
+        errorDescription = nil
+
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         writer.shouldOptimizeForNetworkUse = true
         let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -33,6 +43,15 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
         writer.add(video)
         self.writer = writer
         videoInput = video
+        pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: video,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: width,
+                kCVPixelBufferHeightKey as String: height,
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+            ]
+        )
         if includesAudio {
             let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -54,17 +73,23 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
             started = writer.status == .writing
         }
         guard writer.status == .writing else { return }
-        let accepted: Bool
         switch type {
         case .screen where videoInput?.isReadyForMoreMediaData == true:
-            accepted = videoInput?.append(sampleBuffer) ?? false
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                errorDescription = "录屏帧不包含图像数据"
+                return
+            }
+            let accepted = pixelBufferAdaptor?.append(pixelBuffer, withPresentationTime: sampleBuffer.presentationTimeStamp) ?? false
+            if !accepted {
+                errorDescription = writer.error?.localizedDescription ?? "视频编码器拒绝了屏幕帧"
+            }
         case .audio where audioInput?.isReadyForMoreMediaData == true:
-            accepted = audioInput?.append(sampleBuffer) ?? false
+            let accepted = audioInput?.append(sampleBuffer) ?? false
+            if !accepted {
+                errorDescription = writer.error?.localizedDescription ?? "音频编码器拒绝了音频帧"
+            }
         default:
             return
-        }
-        if !accepted {
-            errorDescription = writer.error?.localizedDescription
         }
     }
 
@@ -147,6 +172,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         configuration.height = max(2, configuration.height & ~1)
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(options.frameRate.rawValue))
         configuration.queueDepth = 5
+        // Feed the writer a stable, explicitly declared pixel format instead
+        // of relying on the screen server's dynamic raw frame format.
+        configuration.pixelFormat = kCVPixelFormatType_32BGRA
         configuration.showsCursor = true
         configuration.capturesAudio = options.capturesSystemAudio
         configuration.sampleRate = 48_000
