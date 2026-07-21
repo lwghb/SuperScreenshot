@@ -45,5 +45,12 @@ final class RecordingToolbarController: NSObject {
     }
     private func updateTimer() { guard let startedAt else { return }; timerLabel.stringValue = String(format: "%02d:%02d", Int(Date().timeIntervalSince(startedAt)) / 60, Int(Date().timeIntervalSince(startedAt)) % 60) }
     @objc private func back() { onBack?() }
+    func recordingDidStop() {
+        timer?.invalidate(); timer = nil; startedAt = nil
+        timerLabel.stringValue = "00:00"
+        startButton.title = L("开始录屏")
+        timerLabel.isHidden = true
+        backButton?.isHidden = false
+    }
     func close() { timer?.invalidate(); timer = nil; panel?.orderOut(nil); panel = nil }
 }
