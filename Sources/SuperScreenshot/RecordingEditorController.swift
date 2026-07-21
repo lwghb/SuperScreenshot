@@ -50,14 +50,16 @@ final class RecordingEditorController: NSObject {
 
         let save = NSButton(title: L("保存"), target: self, action: #selector(save))
         save.bezelStyle = .rounded
+        save.bezelColor = .systemBlue
+        save.contentTintColor = .white
         save.keyEquivalent = "\r"
         save.frame = CGRect(x: 558, y: 18, width: 108, height: 32)
         let copy = NSButton(title: L("复制到剪贴板"), target: self, action: #selector(copyToPasteboard))
         copy.bezelStyle = .rounded
-        copy.bezelColor = .systemGreen
+        copy.bezelColor = .systemBlue
         copy.contentTintColor = .white
         copy.wantsLayer = true
-        copy.layer?.backgroundColor = NSColor.systemGreen.cgColor
+        copy.layer?.backgroundColor = NSColor.systemBlue.cgColor
         copy.layer?.cornerRadius = 6
         copy.frame = CGRect(x: 678, y: 18, width: 118, height: 32)
         content.addSubview(save)
