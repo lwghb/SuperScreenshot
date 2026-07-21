@@ -139,6 +139,8 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
-        Task { @MainActor [weak self] in self?.isRecording = false }
+        // Keep the recorder in the stopping state so the user's stop action
+        // can still finalize the writer and produce a playable MP4.
+        print("Screen recording stream stopped: \(error)")
     }
 }
