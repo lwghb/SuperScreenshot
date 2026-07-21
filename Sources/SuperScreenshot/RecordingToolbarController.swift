@@ -40,7 +40,7 @@ private final class RecordingStopButton: NSButton {
 
 @MainActor
 final class RecordingToolbarController: NSObject {
-    var onStart: ((RecordingFrameRate) -> Void)?
+    var onStart: ((RecordingFrameRate, Int) -> Void)?
     var onStop: (() -> Void)?
     var onBack: (() -> Void)?
     private var panel: NSPanel?
@@ -50,15 +50,21 @@ final class RecordingToolbarController: NSObject {
     private let startButton = RecordingStopButton(title: L("开始录屏"), target: nil, action: nil)
     private weak var backButton: NSButton?
     private weak var frameRateControl: NSSegmentedControl?
+    private weak var bitRateSlider: NSSlider?
+    private weak var bitRateLabel: NSTextField?
     private var supportsHighFrameRate = false
     private weak var contentView: NSView?
+    private var visibleFrame = CGRect.zero
+    private let bitRates = [1_500_000, 2_300_000, 4_000_000, 6_000_000, 8_000_000]
 
     func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
-        let size = CGSize(width: 360, height: 64)
+        let size = CGSize(width: 480, height: 104)
+        visibleFrame = screen.visibleFrame
         var x = selection.midX - size.width / 2
         x = min(max(x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8)
         var y = selection.minY - size.height - 12
         if y < screen.visibleFrame.minY + 8 { y = selection.maxY + 12 }
+        y = min(max(y, screen.visibleFrame.minY + 8), screen.visibleFrame.maxY - size.height - 8)
         let frame = CGRect(x: x,
                            y: y,
                            width: size.width, height: size.height)
@@ -97,13 +103,27 @@ final class RecordingToolbarController: NSObject {
         if !supportsHighFrameRate {
             frameRate.setToolTip(L("当前屏幕暂不支持 120 FPS"), forSegment: 2)
         }
-        frameRate.frame = CGRect(x: size.width - 112, y: 18, width: 102, height: 28)
+        let fpsLabel = NSTextField(labelWithString: "FPS")
+        fpsLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        fpsLabel.frame = CGRect(x: 102, y: 66, width: 28, height: 18)
+        frameRate.frame = CGRect(x: 130, y: 61, width: 102, height: 28)
         frameRateControl = frameRate
-        timerLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
+        let bitrateLabel = NSTextField(labelWithString: "")
+        bitrateLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        bitrateLabel.alignment = .right
+        bitrateLabel.frame = CGRect(x: 242, y: 66, width: 96, height: 18)
+        bitRateLabel = bitrateLabel
+        let bitrateSlider = NSSlider(value: 1, minValue: 0, maxValue: Double(bitRates.count - 1), target: self, action: #selector(bitRateChanged(_:)))
+        bitrateSlider.numberOfTickMarks = bitRates.count
+        bitrateSlider.allowsTickMarkValuesOnly = true
+        bitrateSlider.frame = CGRect(x: 345, y: 62, width: 112, height: 24)
+        bitRateSlider = bitrateSlider
+        updateBitRateLabel()
+        timerLabel.font = .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
         timerLabel.isHidden = true
         timerLabel.alignment = .right
-        timerLabel.frame = CGRect(x: 78, y: 21, width: 78, height: 22)
-        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(frameRate); content.addSubview(startButton)
+        timerLabel.frame = CGRect(x: 70, y: 17, width: 94, height: 30)
+        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(fpsLabel); content.addSubview(frameRate); content.addSubview(bitrateLabel); content.addSubview(bitrateSlider); content.addSubview(startButton)
         panel.contentView = content
         contentView = content
         self.panel = panel
@@ -133,7 +153,9 @@ final class RecordingToolbarController: NSObject {
             startButton.usesStopStyle = true
             startButton.attributedTitle = NSAttributedString(string: L("结束录屏"))
             timerLabel.isHidden = false; backButton?.isHidden = true; frameRateControl?.isHidden = true
+            bitRateSlider?.isHidden = true; bitRateLabel?.isHidden = true
             startButton.frame.origin.x = 176
+            compactForRecording()
             timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
             let rate: RecordingFrameRate
             switch frameRateControl?.selectedSegment {
@@ -141,7 +163,8 @@ final class RecordingToolbarController: NSObject {
             case 2: rate = .high
             default: rate = .standard
             }
-            onStart?(rate)
+            let index = min(max(Int(bitRateSlider?.integerValue ?? 1), 0), bitRates.count - 1)
+            onStart?(rate, bitRates[index])
         } else { onStop?() }
     }
     @objc private func frameRateChanged(_ sender: NSSegmentedControl) {
@@ -152,6 +175,25 @@ final class RecordingToolbarController: NSObject {
         alert.informativeText = L("当前屏幕刷新率不足 120Hz，无法使用 120 FPS 录制。")
         alert.addButton(withTitle: L("好"))
         alert.runModal()
+    }
+    @objc private func bitRateChanged(_ sender: NSSlider) {
+        sender.integerValue = min(max(sender.integerValue, 0), bitRates.count - 1)
+        updateBitRateLabel()
+    }
+    private func updateBitRateLabel() {
+        let index = min(max(Int(bitRateSlider?.integerValue ?? 1), 0), bitRates.count - 1)
+        bitRateLabel?.stringValue = String(format: "%.1f Mbps", Double(bitRates[index]) / 1_000_000)
+    }
+    private func compactForRecording() {
+        guard let panel else { return }
+        let size = CGSize(width: 360, height: 64)
+        var compact = CGRect(x: panel.frame.midX - size.width / 2, y: panel.frame.minY, width: size.width, height: size.height)
+        compact.origin.x = min(max(compact.minX, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8)
+        compact.origin.y = min(max(compact.minY, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            panel.animator().setFrame(compact, display: true)
+        }
     }
     private func updateTimer() { guard let startedAt else { return }; timerLabel.stringValue = String(format: "%02d:%02d", Int(Date().timeIntervalSince(startedAt)) / 60, Int(Date().timeIntervalSince(startedAt)) % 60) }
     @objc private func back() { onBack?() }
@@ -168,6 +210,8 @@ final class RecordingToolbarController: NSObject {
         timerLabel.isHidden = true
         backButton?.isHidden = false
         frameRateControl?.isHidden = false
+        bitRateSlider?.isHidden = false
+        bitRateLabel?.isHidden = false
         if let contentView { startButton.frame.origin.x = (contentView.bounds.width - startButton.frame.width) / 2 }
     }
     func dismissForBack(completion: @escaping () -> Void) {
