@@ -80,6 +80,7 @@ final class CaptureCoordinator: ObservableObject {
     private var isAutoScrolling = false
     private var autoScrollOriginalMouseLocation: CGPoint?
     private let longCapture = LongCaptureEngine()
+    private var screenRecorder: AnyObject?
 
     init() {
         if let label = UserDefaults.standard.string(forKey: "shortcutKeyLabel") {
@@ -146,6 +147,50 @@ final class CaptureCoordinator: ObservableObject {
                    let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
                     NSWorkspace.shared.open(url)
                 }
+            }
+        }
+    }
+
+    @available(macOS 13.0, *)
+    func toggleScreenRecording() {
+        guard let recorder = screenRecorder as? ScreenRecorder else {
+            return startScreenRecording(on: NSScreen.main)
+        }
+        if recorder.isRecording {
+            Task { @MainActor in
+                let url = try? await recorder.stop()
+                self.screenRecorder = nil
+                guard let url else { return }
+                let panel = NSSavePanel()
+                panel.allowedFileTypes = ["mp4"]
+                panel.nameFieldStringValue = "SuperScreenshot录屏.mp4"
+                panel.begin { response in
+                    guard response == .OK, let target = panel.url else { return }
+                    try? FileManager.default.removeItem(at: target)
+                    try? FileManager.default.moveItem(at: url, to: target)
+                }
+            }
+            return
+        }
+        startScreenRecording(on: NSScreen.main)
+    }
+
+    @available(macOS 13.0, *)
+    private func startScreenRecording(on screen: NSScreen?) {
+        guard let screen else { return }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscreenshot-recording-\(UUID().uuidString).mp4")
+        let recorder = ScreenRecorder()
+        screenRecorder = recorder
+        Task { @MainActor in
+            do {
+                try await recorder.start(
+                    screen: screen,
+                    options: ScreenRecordingOptions(),
+                    outputURL: url
+                )
+            } catch {
+                self.screenRecorder = nil
             }
         }
     }
