@@ -33,7 +33,7 @@ final class RecordingToolbarController: NSObject {
         startButton.target = self; startButton.action = #selector(toggle)
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
         timerLabel.isHidden = true
-        stack.addArrangedSubview(back); stack.addArrangedSubview(startButton); stack.addArrangedSubview(timerLabel)
+        stack.addArrangedSubview(back); stack.addArrangedSubview(timerLabel); stack.addArrangedSubview(startButton)
         stack.translatesAutoresizingMaskIntoConstraints = false
         let content = NSView(frame: CGRect(origin: .zero, size: size)); content.addSubview(stack); panel.contentView = content
         NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: content.centerXAnchor), stack.centerYAnchor.constraint(equalTo: content.centerYAnchor)])

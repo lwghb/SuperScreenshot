@@ -83,6 +83,7 @@ final class CaptureCoordinator: ObservableObject {
     private var screenRecorder: AnyObject?
     private var recordingSelection: CGRect?
     private var recordingToolbar: RecordingToolbarController?
+    private var recordingEditor: RecordingEditorController?
 
     init() {
         if let label = UserDefaults.standard.string(forKey: "shortcutKeyLabel") {
@@ -185,17 +186,10 @@ final class CaptureCoordinator: ObservableObject {
                     alert.runModal()
                     return
                 }
-                let panel = NSSavePanel()
-                panel.allowedFileTypes = ["mp4"]
-                let formatter = DateFormatter()
-                formatter.locale = Locale(identifier: "zh_CN")
-                formatter.dateFormat = "M月d日-H点m分s秒"
-                panel.nameFieldStringValue = "\(formatter.string(from: Date())).mp4"
-                panel.begin { response in
-                    guard response == .OK, let target = panel.url else { return }
-                    try? FileManager.default.removeItem(at: target)
-                    try? FileManager.default.moveItem(at: url, to: target)
-                }
+                self.recordingSelection = nil
+                let editor = RecordingEditorController(url: url)
+                self.recordingEditor = editor
+                editor.show()
             }
             return
         }
