@@ -74,7 +74,10 @@ final class RecordingEditorController: NSObject {
     @objc private func save() {
         let dialog = NSSavePanel()
         dialog.allowedFileTypes = ["mp4"]
-        dialog.nameFieldStringValue = url.deletingPathExtension().lastPathComponent + ".mp4"
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d_H点m分s秒"
+        dialog.nameFieldStringValue = formatter.string(from: Date()) + ".mp4"
         dialog.beginSheetModal(for: panel!) { [weak self] response in
             guard let self, response == .OK, let target = dialog.url else { return }
             self.export(to: target) { result in
