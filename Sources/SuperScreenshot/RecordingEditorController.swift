@@ -56,10 +56,10 @@ final class RecordingEditorController: NSObject {
 
         let save = NSButton(title: L("保存"), target: self, action: #selector(save))
         save.bezelStyle = .rounded
-        save.keyEquivalent = "\r"
         save.frame = CGRect(x: 558, y: 18, width: 108, height: 32)
         let copy = NSButton(title: L("复制到剪贴板"), target: self, action: #selector(copyToPasteboard))
         copy.bezelStyle = .rounded
+        copy.keyEquivalent = "\r"
         copy.frame = CGRect(x: 678, y: 18, width: 118, height: 32)
         content.addSubview(save)
         content.addSubview(copy)
