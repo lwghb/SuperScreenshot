@@ -29,7 +29,7 @@ final class RecordingEditorController: NSObject {
         let content = NSView(frame: CGRect(origin: .zero, size: size))
         let preview = AVPlayerView(frame: CGRect(x: 24, y: 164, width: 772, height: 400))
         preview.player = player
-        preview.controlsStyle = .floating
+        preview.controlsStyle = .none
         preview.videoGravity = .resizeAspect
         content.addSubview(preview)
 
