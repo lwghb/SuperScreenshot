@@ -5,6 +5,7 @@ import CoreGraphics
 final class DirectAnnotationController: NSObject {
     var onFinish: ((CGImage) -> Void)?
     var onLongCapture: ((CGRect) -> Void)?
+    var onScreenRecording: ((CGRect) -> Void)?
     var onCancel: (() -> Void)?
     var onSelectionChanged: ((CGRect) -> Void)?
 
@@ -342,6 +343,7 @@ final class DirectAnnotationController: NSObject {
         mosaicButton = toolButton(image: mosaicToolIcon(), action: #selector(useMosaic), toolTip: L("马赛克"))
         [arrowButton, textButton, rectangleButton, ellipseButton, mosaicButton].compactMap { $0 }.forEach { tools.addArrangedSubview($0) }
         tools.addArrangedSubview(button(L("长截图"), action: #selector(longCapture), toolTip: L("长截图")))
+        tools.addArrangedSubview(button(L("录屏"), action: #selector(screenRecording), toolTip: L("录制当前区域")))
         let finishButton = ColoredTitleButton(title: L("完成"), fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
         self.finishButton = finishButton
         finishButton.keyEquivalent = "\r"
@@ -615,6 +617,10 @@ final class DirectAnnotationController: NSObject {
 
     @objc private func longCapture() {
         onLongCapture?(selection)
+    }
+
+    @objc private func screenRecording() {
+        onScreenRecording?(selection)
     }
 
     @objc private func finish() {

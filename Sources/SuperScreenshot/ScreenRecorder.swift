@@ -36,7 +36,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var outputURL: URL?
     private var options = ScreenRecordingOptions()
 
-    func start(screen: NSScreen, options: ScreenRecordingOptions, outputURL: URL) async throws {
+    func start(screen: NSScreen, selection: CGRect? = nil, options: ScreenRecordingOptions, outputURL: URL) async throws {
         guard !isRecording,
               let displayID = ScreenCapture.displayID(for: screen) else { return }
         let content = try await SCShareableContent.current
@@ -47,6 +47,14 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         let scale = screen.backingScaleFactor
         configuration.width = max(1, Int(screen.frame.width * scale))
         configuration.height = max(1, Int(screen.frame.height * scale))
+        if let selection {
+            configuration.sourceRect = CGRect(x: (selection.minX - screen.frame.minX) * scale,
+                                              y: (screen.frame.maxY - selection.maxY) * scale,
+                                              width: selection.width * scale,
+                                              height: selection.height * scale)
+            configuration.width = max(1, Int((selection.width * scale).rounded()))
+            configuration.height = max(1, Int((selection.height * scale).rounded()))
+        }
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(options.frameRate.rawValue))
         configuration.queueDepth = 5
         configuration.showsCursor = true

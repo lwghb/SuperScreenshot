@@ -81,6 +81,7 @@ final class CaptureCoordinator: ObservableObject {
     private var autoScrollOriginalMouseLocation: CGPoint?
     private let longCapture = LongCaptureEngine()
     private var screenRecorder: AnyObject?
+    private var recordingSelection: CGRect?
 
     init() {
         if let label = UserDefaults.standard.string(forKey: "shortcutKeyLabel") {
@@ -186,6 +187,7 @@ final class CaptureCoordinator: ObservableObject {
             do {
                 try await recorder.start(
                     screen: screen,
+                    selection: self.recordingSelection,
                     options: ScreenRecordingOptions(),
                     outputURL: url
                 )
@@ -255,6 +257,12 @@ final class CaptureCoordinator: ObservableObject {
         directAnnotationController = controller
         controller.onSelectionChanged = { [weak self] selection in
             self?.selectionController?.updateLockedSelection(selection, on: screen)
+        }
+        controller.onScreenRecording = { [weak self] selection in
+            guard let self else { return }
+            self.directAnnotationController?.close()
+            self.recordingSelection = selection
+            if #available(macOS 13.0, *) { self.startScreenRecording(on: screen) }
         }
         controller.onFinish = { [weak self] edited in
             NSPasteboard.general.clearContents()
