@@ -50,6 +50,7 @@ final class RecordingToolbarController: NSObject {
     private let startButton = RecordingStopButton(title: L("开始录屏"), target: nil, action: nil)
     private weak var backButton: NSButton?
     private weak var frameRateControl: NSSegmentedControl?
+    private var supportsHighFrameRate = false
     private weak var contentView: NSView?
 
     func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
@@ -82,16 +83,19 @@ final class RecordingToolbarController: NSObject {
         startButton.target = self; startButton.action = #selector(toggle)
         startButton.bezelStyle = .rounded
         startButton.frame = CGRect(x: (size.width - 112) / 2, y: 14, width: 112, height: 36)
-        let frameRate = NSSegmentedControl(labels: ["30", "60", "120"], trackingMode: .selectOne, target: nil, action: nil)
+        let frameRate = NSSegmentedControl(labels: ["30", "60", "120"], trackingMode: .selectOne, target: self, action: #selector(frameRateChanged(_:)))
         frameRate.selectedSegment = 1
         frameRate.toolTip = L("录制帧率（FPS）")
         frameRate.setWidth(31, forSegment: 0)
         frameRate.setWidth(31, forSegment: 1)
         frameRate.setWidth(39, forSegment: 2)
         if #available(macOS 13.0, *) {
-            frameRate.setEnabled(ScreenRecorder.supportedFrameRates(for: screen).contains(.high), forSegment: 2)
+            supportsHighFrameRate = ScreenRecorder.supportedFrameRates(for: screen).contains(.high)
         } else {
-            frameRate.setEnabled(false, forSegment: 2)
+            supportsHighFrameRate = false
+        }
+        if !supportsHighFrameRate {
+            frameRate.setToolTip(L("当前屏幕暂不支持 120 FPS"), forSegment: 2)
         }
         frameRate.frame = CGRect(x: size.width - 112, y: 18, width: 102, height: 28)
         frameRateControl = frameRate
@@ -139,6 +143,15 @@ final class RecordingToolbarController: NSObject {
             }
             onStart?(rate)
         } else { onStop?() }
+    }
+    @objc private func frameRateChanged(_ sender: NSSegmentedControl) {
+        guard sender.selectedSegment == 2, !supportsHighFrameRate else { return }
+        sender.selectedSegment = 1
+        let alert = NSAlert()
+        alert.messageText = L("暂不支持 120 FPS")
+        alert.informativeText = L("当前屏幕刷新率不足 120Hz，无法使用 120 FPS 录制。")
+        alert.addButton(withTitle: L("好"))
+        alert.runModal()
     }
     private func updateTimer() { guard let startedAt else { return }; timerLabel.stringValue = String(format: "%02d:%02d", Int(Date().timeIntervalSince(startedAt)) / 60, Int(Date().timeIntervalSince(startedAt)) % 60) }
     @objc private func back() { onBack?() }
