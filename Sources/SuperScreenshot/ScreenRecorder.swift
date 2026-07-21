@@ -29,6 +29,7 @@ extension ScreenRecorder {
 @MainActor
 final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private(set) var isRecording = false
+    private(set) var lastErrorDescription: String?
     private var stream: SCStream?
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
@@ -124,7 +125,11 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         }
         isRecording = false
         stream = nil
-        return writer?.status == .completed ? outputURL : nil
+        guard writer?.status == .completed else {
+            lastErrorDescription = writer?.error?.localizedDescription ?? "AVAssetWriter 未能完成写入"
+            return nil
+        }
+        return outputURL
     }
 
     nonisolated func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
