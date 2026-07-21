@@ -98,12 +98,21 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     func stop() async throws -> URL? {
         guard isRecording else { return outputURL }
         try await stream?.stopCapture()
+        // ScreenCaptureKit can still have samples queued on its output queues.
+        // Give those samples a chance to reach the writer before finalizing MP4.
+        try? await Task.sleep(for: .milliseconds(250))
+        guard writer?.status == .writing else {
+            writer?.cancelWriting()
+            isRecording = false
+            stream = nil
+            return nil
+        }
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
         await writer?.finishWriting()
         isRecording = false
         stream = nil
-        return outputURL
+        return writer?.status == .completed ? outputURL : nil
     }
 
     nonisolated func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
