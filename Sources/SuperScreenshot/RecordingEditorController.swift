@@ -8,9 +8,7 @@ final class RecordingEditorController: NSObject {
     private let asset: AVURLAsset
     private let player: AVPlayer
     private var panel: NSPanel?
-    private var startSlider: NSSlider!
-    private var endSlider: NSSlider!
-    private let rangeLabel = NSTextField(labelWithString: "")
+    private var trimRangeView: RecordingTrimRangeView!
     private var duration: Double = 0
 
     init(url: URL) {
@@ -41,52 +39,34 @@ final class RecordingEditorController: NSObject {
         caption.frame = CGRect(x: 32, y: 126, width: 560, height: 20)
         content.addSubview(caption)
 
-        startSlider = NSSlider(value: 0, minValue: 0, maxValue: duration, target: self, action: #selector(rangeChanged))
-        startSlider.frame = CGRect(x: 32, y: 93, width: 650, height: 22)
-        endSlider = NSSlider(value: duration, minValue: 0, maxValue: duration, target: self, action: #selector(rangeChanged))
-        endSlider.frame = CGRect(x: 32, y: 66, width: 650, height: 22)
-        content.addSubview(startSlider)
-        content.addSubview(endSlider)
+        let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 70, width: 764, height: 38))
+        trimRange.duration = duration
+        trimRange.end = duration
+        trimRange.onPreview = { [weak self] seconds in
+            self?.player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+        trimRangeView = trimRange
+        content.addSubview(trimRange)
 
-        rangeLabel.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
-        rangeLabel.alignment = .right
-        rangeLabel.frame = CGRect(x: 690, y: 78, width: 106, height: 22)
-        content.addSubview(rangeLabel)
-        updateRangeLabel()
-
-        let copy = NSButton(title: L("复制到剪贴板"), target: self, action: #selector(copyToPasteboard))
-        copy.bezelStyle = .rounded
-        copy.frame = CGRect(x: 558, y: 18, width: 118, height: 32)
         let save = NSButton(title: L("保存"), target: self, action: #selector(save))
         save.bezelStyle = .rounded
         save.keyEquivalent = "\r"
-        save.frame = CGRect(x: 688, y: 18, width: 108, height: 32)
-        content.addSubview(copy)
+        save.frame = CGRect(x: 558, y: 18, width: 108, height: 32)
+        let copy = NSButton(title: L("复制到剪贴板"), target: self, action: #selector(copyToPasteboard))
+        copy.bezelStyle = .rounded
+        copy.bezelColor = .systemGreen
+        copy.contentTintColor = .white
+        copy.wantsLayer = true
+        copy.layer?.backgroundColor = NSColor.systemGreen.cgColor
+        copy.layer?.cornerRadius = 6
+        copy.frame = CGRect(x: 678, y: 18, width: 118, height: 32)
         content.addSubview(save)
+        content.addSubview(copy)
 
         panel.contentView = content
         self.panel = panel
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-    }
-
-    @objc private func rangeChanged(_ sender: NSSlider) {
-        let minimumLength = min(0.1, duration)
-        if sender === startSlider, startSlider.doubleValue > endSlider.doubleValue - minimumLength {
-            endSlider.doubleValue = min(duration, startSlider.doubleValue + minimumLength)
-        } else if sender === endSlider, endSlider.doubleValue < startSlider.doubleValue + minimumLength {
-            startSlider.doubleValue = max(0, endSlider.doubleValue - minimumLength)
-        }
-        player.seek(to: CMTime(seconds: startSlider.doubleValue, preferredTimescale: 600))
-        updateRangeLabel()
-    }
-
-    private func updateRangeLabel() {
-        rangeLabel.stringValue = "(timeText(startSlider.doubleValue)) – (timeText(endSlider.doubleValue))"
-    }
-
-    private func timeText(_ seconds: Double) -> String {
-        String(format: "%02d:%02d", Int(seconds) / 60, Int(seconds) % 60)
     }
 
     @objc private func save() {
@@ -106,7 +86,7 @@ final class RecordingEditorController: NSObject {
 
     @objc private func copyToPasteboard() {
         let copiedURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("superscreenshot-clip-(UUID().uuidString).mp4")
+            .appendingPathComponent("superscreenshot-clip-\(UUID().uuidString).mp4")
         export(to: copiedURL) { [weak self] result in
             guard let self else { return }
             switch result {
@@ -128,8 +108,8 @@ final class RecordingEditorController: NSObject {
         exporter.outputURL = target
         exporter.outputFileType = .mp4
         exporter.timeRange = CMTimeRange(
-            start: CMTime(seconds: startSlider.doubleValue, preferredTimescale: 600),
-            end: CMTime(seconds: endSlider.doubleValue, preferredTimescale: 600)
+            start: CMTime(seconds: trimRangeView.start, preferredTimescale: 600),
+            end: CMTime(seconds: trimRangeView.end, preferredTimescale: 600)
         )
         exporter.exportAsynchronously { [weak self] in
             DispatchQueue.main.async {
@@ -152,4 +132,52 @@ final class RecordingEditorController: NSObject {
     }
 
     private func close() { player.pause(); panel?.orderOut(nil); panel = nil }
+}
+
+@MainActor
+private final class RecordingTrimRangeView: NSView {
+    var duration: Double = 1 { didSet { needsDisplay = true } }
+    var start: Double = 0 { didSet { needsDisplay = true } }
+    var end: Double = 1 { didSet { needsDisplay = true } }
+    var onPreview: ((Double) -> Void)?
+    private enum DragTarget { case start, end }
+    private var dragTarget: DragTarget?
+
+    override func draw(_ dirtyRect: NSRect) {
+        let track = CGRect(x: 8, y: bounds.midY - 3, width: bounds.width - 16, height: 6)
+        NSColor.quaternaryLabelColor.setFill()
+        NSBezierPath(roundedRect: track, xRadius: 3, yRadius: 3).fill()
+        let startX = position(for: start)
+        let endX = position(for: end)
+        let selection = CGRect(x: startX, y: track.minY, width: max(1, endX - startX), height: track.height)
+        NSColor.systemBlue.setFill()
+        NSBezierPath(roundedRect: selection, xRadius: 3, yRadius: 3).fill()
+        for x in [startX, endX] {
+            let handle = CGRect(x: x - 7, y: bounds.midY - 11, width: 14, height: 22)
+            NSColor.controlAccentColor.setFill()
+            NSBezierPath(roundedRect: handle, xRadius: 7, yRadius: 7).fill()
+            NSColor.white.withAlphaComponent(0.85).setStroke()
+            let line = NSBezierPath(); line.move(to: CGPoint(x: x - 2, y: bounds.midY - 5)); line.line(to: CGPoint(x: x - 2, y: bounds.midY + 5)); line.move(to: CGPoint(x: x + 2, y: bounds.midY - 5)); line.line(to: CGPoint(x: x + 2, y: bounds.midY + 5)); line.lineWidth = 1; line.stroke()
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let x = convert(event.locationInWindow, from: nil).x
+        dragTarget = abs(x - position(for: start)) <= abs(x - position(for: end)) ? .start : .end
+        update(at: x)
+    }
+    override func mouseDragged(with event: NSEvent) { update(at: convert(event.locationInWindow, from: nil).x) }
+    override func mouseUp(with event: NSEvent) { dragTarget = nil }
+
+    private func update(at x: CGFloat) {
+        guard let dragTarget else { return }
+        let value = max(0, min(duration, Double((x - 8) / max(1, bounds.width - 16)) * duration))
+        let minimumLength = min(0.1, duration)
+        switch dragTarget {
+        case .start: start = min(value, end - minimumLength); onPreview?(start)
+        case .end: end = max(value, start + minimumLength); onPreview?(end)
+        }
+    }
+
+    private func position(for value: Double) -> CGFloat { 8 + CGFloat(value / max(duration, 0.001)) * (bounds.width - 16) }
 }
