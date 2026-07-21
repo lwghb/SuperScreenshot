@@ -40,7 +40,7 @@ private final class RecordingStopButton: NSButton {
 
 @MainActor
 final class RecordingToolbarController: NSObject {
-    var onStart: (() -> Void)?
+    var onStart: ((RecordingFrameRate) -> Void)?
     var onStop: (() -> Void)?
     var onBack: (() -> Void)?
     private var panel: NSPanel?
@@ -49,6 +49,7 @@ final class RecordingToolbarController: NSObject {
     private let timerLabel = NSTextField(labelWithString: "00:00")
     private let startButton = RecordingStopButton(title: L("开始录屏"), target: nil, action: nil)
     private weak var backButton: NSButton?
+    private weak var frameRateControl: NSSegmentedControl?
     private weak var contentView: NSView?
 
     func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
@@ -81,11 +82,24 @@ final class RecordingToolbarController: NSObject {
         startButton.target = self; startButton.action = #selector(toggle)
         startButton.bezelStyle = .rounded
         startButton.frame = CGRect(x: (size.width - 112) / 2, y: 14, width: 112, height: 36)
+        let frameRate = NSSegmentedControl(labels: ["30", "60", "120"], trackingMode: .selectOne, target: nil, action: nil)
+        frameRate.selectedSegment = 1
+        frameRate.toolTip = L("录制帧率（FPS）")
+        frameRate.setWidth(31, forSegment: 0)
+        frameRate.setWidth(31, forSegment: 1)
+        frameRate.setWidth(39, forSegment: 2)
+        if #available(macOS 13.0, *) {
+            frameRate.setEnabled(ScreenRecorder.supportedFrameRates(for: screen).contains(.high), forSegment: 2)
+        } else {
+            frameRate.setEnabled(false, forSegment: 2)
+        }
+        frameRate.frame = CGRect(x: size.width - 112, y: 18, width: 102, height: 28)
+        frameRateControl = frameRate
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
         timerLabel.isHidden = true
         timerLabel.alignment = .right
         timerLabel.frame = CGRect(x: 78, y: 21, width: 78, height: 22)
-        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(startButton)
+        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(frameRate); content.addSubview(startButton)
         panel.contentView = content
         contentView = content
         self.panel = panel
@@ -114,10 +128,16 @@ final class RecordingToolbarController: NSObject {
             startButton.contentTintColor = nil
             startButton.usesStopStyle = true
             startButton.attributedTitle = NSAttributedString(string: L("结束录屏"))
-            timerLabel.isHidden = false; backButton?.isHidden = true
+            timerLabel.isHidden = false; backButton?.isHidden = true; frameRateControl?.isHidden = true
             startButton.frame.origin.x = 176
             timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
-            onStart?()
+            let rate: RecordingFrameRate
+            switch frameRateControl?.selectedSegment {
+            case 0: rate = .low
+            case 2: rate = .high
+            default: rate = .standard
+            }
+            onStart?(rate)
         } else { onStop?() }
     }
     private func updateTimer() { guard let startedAt else { return }; timerLabel.stringValue = String(format: "%02d:%02d", Int(Date().timeIntervalSince(startedAt)) / 60, Int(Date().timeIntervalSince(startedAt)) % 60) }
@@ -134,6 +154,7 @@ final class RecordingToolbarController: NSObject {
         startButton.attributedTitle = NSAttributedString(string: L("开始录屏"))
         timerLabel.isHidden = true
         backButton?.isHidden = false
+        frameRateControl?.isHidden = false
         if let contentView { startButton.frame.origin.x = (contentView.bounds.width - startButton.frame.width) / 2 }
     }
     func dismissForBack(completion: @escaping () -> Void) {

@@ -198,7 +198,7 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     @available(macOS 13.0, *)
-    private func startScreenRecording(on screen: NSScreen?) {
+    private func startScreenRecording(on screen: NSScreen?, frameRate: RecordingFrameRate = .standard) {
         guard let screen else { return }
         recordingScreen = screen
         let url = FileManager.default.temporaryDirectory
@@ -210,7 +210,7 @@ final class CaptureCoordinator: ObservableObject {
                 try await recorder.start(
                     screen: screen,
                     selection: self.recordingSelection,
-                    options: ScreenRecordingOptions(),
+                    options: ScreenRecordingOptions(frameRate: frameRate),
                     outputURL: url
                 )
             } catch {
@@ -292,7 +292,9 @@ final class CaptureCoordinator: ObservableObject {
                 if #available(macOS 13.0, *) {
                     let toolbar = RecordingToolbarController()
                     self.recordingToolbar = toolbar
-                    toolbar.onStart = { [weak self] in self?.startScreenRecording(on: screen) }
+                    toolbar.onStart = { [weak self] frameRate in
+                        self?.startScreenRecording(on: screen, frameRate: frameRate)
+                    }
                     toolbar.onStop = { [weak self, weak toolbar] in
                         toolbar?.close()
                         self?.toggleScreenRecording()
