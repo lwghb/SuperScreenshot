@@ -134,6 +134,30 @@ final class DirectAnnotationController: NSObject {
         installResizeHandles()
     }
 
+    /// Lets the recording controls take over from the annotation controls without
+    /// the latter vanishing abruptly.
+    func transitionToRecordingToolbar(completion: @escaping (CGRect?) -> Void) {
+        guard let toolbarWindow else {
+            completion(nil)
+            return
+        }
+        let sourceFrame = toolbarWindow.frame
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            toolbarWindow.orderOut(nil)
+            completion(sourceFrame)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            toolbarWindow.animator().alphaValue = 0
+            toolbarWindow.animator().setFrame(sourceFrame.insetBy(dx: 18, dy: 8), display: true)
+        } completionHandler: { [weak toolbarWindow] in
+            toolbarWindow?.orderOut(nil)
+            completion(sourceFrame)
+        }
+    }
+
     private func resolvedToolbarFrame(size: CGSize) -> CGRect {
         let visible = screen.visibleFrame.insetBy(dx: 12, dy: 12)
         var x = selection.midX - size.width / 2

@@ -49,7 +49,9 @@ private final class SelectionBorderView: NSView {
     required init?(coder: NSCoder) { nil }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.systemBlue.setStroke()
+        // Long capture and screen recording are active operations.  A red
+        // outline makes that state distinct from the blue screenshot editor.
+        NSColor.systemRed.setStroke()
         let path = NSBezierPath(rect: bounds.insetBy(dx: thickness / 2, dy: thickness / 2))
         path.lineWidth = thickness
         path.stroke()

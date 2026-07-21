@@ -282,34 +282,37 @@ final class CaptureCoordinator: ObservableObject {
         }
         controller.onScreenRecording = { [weak self] selection in
             guard let self else { return }
-            self.directAnnotationController?.close()
-            self.directAnnotationController = nil
-            self.selectionController?.close()
-            self.selectionController = nil
-            self.recordingSelection = selection
-            if #available(macOS 13.0, *) {
-                let toolbar = RecordingToolbarController()
-                self.recordingToolbar = toolbar
-                toolbar.onStart = { [weak self] in self?.startScreenRecording(on: screen) }
-                toolbar.onStop = { [weak self, weak toolbar] in
-                    toolbar?.close()
-                    self?.toggleScreenRecording()
-                    self?.longSelectionBorder?.close()
-                    self?.longSelectionBorder = nil
+            self.directAnnotationController?.transitionToRecordingToolbar { [weak self] sourceFrame in
+                guard let self else { return }
+                self.directAnnotationController?.close()
+                self.directAnnotationController = nil
+                self.selectionController?.close()
+                self.selectionController = nil
+                self.recordingSelection = selection
+                if #available(macOS 13.0, *) {
+                    let toolbar = RecordingToolbarController()
+                    self.recordingToolbar = toolbar
+                    toolbar.onStart = { [weak self] in self?.startScreenRecording(on: screen) }
+                    toolbar.onStop = { [weak self, weak toolbar] in
+                        toolbar?.close()
+                        self?.toggleScreenRecording()
+                        self?.longSelectionBorder?.close()
+                        self?.longSelectionBorder = nil
+                    }
+                    toolbar.onBack = { [weak self] in
+                        guard let self else { return }
+                        self.recordingToolbar?.close()
+                        self.recordingToolbar = nil
+                        self.longSelectionBorder?.close()
+                        self.longSelectionBorder = nil
+                        self.recordingSelection = nil
+                        self.presentDirectAnnotation(image: image, rect: selection, screen: screen)
+                    }
+                    toolbar.show(in: screen, below: selection, from: sourceFrame)
+                    let border = SelectionBorderController(selection: selection)
+                    self.longSelectionBorder = border
+                    border.show()
                 }
-                toolbar.onBack = { [weak self] in
-                    guard let self else { return }
-                    self.recordingToolbar?.close()
-                    self.recordingToolbar = nil
-                    self.longSelectionBorder?.close()
-                    self.longSelectionBorder = nil
-                    self.recordingSelection = nil
-                    self.presentDirectAnnotation(image: image, rect: selection, screen: screen)
-                }
-                toolbar.show(in: screen, below: selection)
-                let border = SelectionBorderController(selection: selection)
-                self.longSelectionBorder = border
-                border.show()
             }
         }
         controller.onFinish = { [weak self] edited in

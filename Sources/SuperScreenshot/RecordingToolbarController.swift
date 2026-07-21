@@ -13,7 +13,7 @@ final class RecordingToolbarController: NSObject {
     private weak var backButton: NSButton?
     private weak var contentView: NSView?
 
-    func show(in screen: NSScreen, below selection: CGRect) {
+    func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
         let size = CGSize(width: 360, height: 64)
         var x = selection.midX - size.width / 2
         x = min(max(x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8)
@@ -52,7 +52,14 @@ final class RecordingToolbarController: NSObject {
         contentView = content
         self.panel = panel
         panel.alphaValue = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 1 : 0
-        panel.setFrame(frame.offsetBy(dx: 0, dy: -10), display: false)
+        let initialFrame: CGRect
+        if let sourceFrame {
+            initialFrame = frame.offsetBy(dx: sourceFrame.midX - frame.midX,
+                                          dy: sourceFrame.midY - frame.midY)
+        } else {
+            initialFrame = frame.offsetBy(dx: 0, dy: -10)
+        }
+        panel.setFrame(initialFrame, display: false)
         panel.orderFrontRegardless()
         if panel.alphaValue == 0 {
             NSAnimationContext.runAnimationGroup { context in
@@ -68,13 +75,10 @@ final class RecordingToolbarController: NSObject {
         if startedAt == nil {
             startedAt = Date(); startButton.title = L("结束录屏")
             startButton.isBordered = true
-            startButton.bezelStyle = .texturedRounded
-            startButton.wantsLayer = true
-            startButton.layer?.backgroundColor = NSColor.systemRed.cgColor
-            startButton.layer?.cornerRadius = 7
-            startButton.layer?.masksToBounds = true
+            startButton.bezelStyle = .rounded
+            startButton.bezelColor = .systemRed
             startButton.contentTintColor = .white
-            startButton.attributedTitle = NSAttributedString(string: L("结束录屏"), attributes: [.foregroundColor: NSColor.white])
+            startButton.attributedTitle = NSAttributedString(string: L("结束录屏"))
             timerLabel.isHidden = false; backButton?.isHidden = true
             startButton.frame.origin.x = 176
             timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
@@ -89,7 +93,7 @@ final class RecordingToolbarController: NSObject {
         startButton.title = L("开始录屏")
         startButton.isBordered = true
         startButton.bezelStyle = .rounded
-        startButton.layer?.backgroundColor = NSColor.clear.cgColor
+        startButton.bezelColor = nil
         startButton.contentTintColor = nil
         startButton.attributedTitle = NSAttributedString(string: L("开始录屏"))
         timerLabel.isHidden = true
