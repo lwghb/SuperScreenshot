@@ -121,16 +121,25 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
         let configuration = SCStreamConfiguration()
-        let scale = screen.backingScaleFactor
-        configuration.width = max(1, Int(screen.frame.width * scale))
-        configuration.height = max(1, Int(screen.frame.height * scale))
+        // ScreenCaptureKit uses the display's capture pixel grid, which is not
+        // necessarily NSScreen.backingScaleFactor on scaled Retina displays.
+        let xScale = CGFloat(display.width) / screen.frame.width
+        let yScale = CGFloat(display.height) / screen.frame.height
+        configuration.width = max(1, Int((screen.frame.width * xScale).rounded()))
+        configuration.height = max(1, Int((screen.frame.height * yScale).rounded()))
         if let selection {
-            configuration.sourceRect = CGRect(x: (selection.minX - screen.frame.minX) * scale,
-                                              y: (screen.frame.maxY - selection.maxY) * scale,
-                                              width: selection.width * scale,
-                                              height: selection.height * scale)
-            configuration.width = max(1, Int((selection.width * scale).rounded()))
-            configuration.height = max(1, Int((selection.height * scale).rounded()))
+            let displayRect = CGRect(x: 0, y: 0, width: display.width, height: display.height)
+            let requestedRect = CGRect(x: (selection.minX - screen.frame.minX) * xScale,
+                                       y: (screen.frame.maxY - selection.maxY) * yScale,
+                                       width: selection.width * xScale,
+                                       height: selection.height * yScale)
+            let sourceRect = requestedRect.integral.intersection(displayRect)
+            guard sourceRect.width >= 2, sourceRect.height >= 2 else {
+                throw NSError(domain: "SuperScreenshot.Recording", code: 1, userInfo: [NSLocalizedDescriptionKey: "录制区域超出当前屏幕范围"])
+            }
+            configuration.sourceRect = sourceRect
+            configuration.width = Int(sourceRect.width)
+            configuration.height = Int(sourceRect.height)
         }
         // H.264/HEVC encoders require even pixel dimensions. Selection edges
         // can otherwise produce an MP4 with media data but no valid moov atom.
