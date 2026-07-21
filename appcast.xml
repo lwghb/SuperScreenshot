@@ -3,18 +3,19 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>1.0.9</title>
-            <pubDate>Mon, 20 Jul 2026 22:20:00 +0800</pubDate>
+            <title>SuperScreenshot 2.0.0</title>
+            <pubDate>Tue, 21 Jul 2026 16:16:39 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>162</sparkle:version>
-            <sparkle:shortVersionString>1.0.9</sparkle:shortVersionString>
+            <sparkle:version>200</sparkle:version>
+            <sparkle:shortVersionString>2.0.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 1.0.9
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 2.0.0
 
-- 恢复滚动截图稳定版本。
-- 保留多区域内容识别与拼接修复。
+- 完善截图、长截图与多屏交互体验。
+- 新增区域录屏、剪辑、保存与复制功能。
+- 优化录屏画质、色彩与工具栏交互。
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v1.0.9/SuperScreenshot-v1.0.9-Universal.zip" length="2803431" type="application/octet-stream" sparkle:edSignature="y6DKhdaRF9yQW9K+YDgpZ9J9D8YpeEakkHaDTAo1WsEzR2MtIwCsA97L6o7Pqny7mbGqcRzsmm8inH6VoemyCQ=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.0/SuperScreenshot-v2.0.0-Universal.zip" length="2909747" type="application/octet-stream" sparkle:edSignature="68rglIFd4z+tNKPDlWrUepGXaL32QGPbhSQsZqsdKxz4y0iZpYiS+57X7vhRJ39UcyX8RjI1Kz7Lrcy+BA5oBQ=="/>
         </item>
     </channel>
 </rss>
