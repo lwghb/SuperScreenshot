@@ -189,8 +189,8 @@ final class CaptureCoordinator: ObservableObject {
                 panel.allowedFileTypes = ["mp4"]
                 let formatter = DateFormatter()
                 formatter.locale = Locale(identifier: "zh_CN")
-                formatter.dateFormat = "yyyy年M月d日-H点m分"
-                panel.nameFieldStringValue = "录屏-\(formatter.string(from: Date())).mp4"
+                formatter.dateFormat = "M月d日-H点m分s秒"
+                panel.nameFieldStringValue = "\(formatter.string(from: Date())).mp4"
                 panel.begin { response in
                     guard response == .OK, let target = panel.url else { return }
                     try? FileManager.default.removeItem(at: target)
