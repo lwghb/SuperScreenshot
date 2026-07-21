@@ -177,7 +177,14 @@ final class CaptureCoordinator: ObservableObject {
             Task { @MainActor in
                 let url = try? await recorder.stop()
                 self.screenRecorder = nil
-                guard let url else { return }
+                guard let url else {
+                    let alert = NSAlert()
+                    alert.messageText = L("录屏保存失败")
+                    alert.informativeText = L("录屏未能完成视频文件写入，请重试。")
+                    alert.addButton(withTitle: L("好"))
+                    alert.runModal()
+                    return
+                }
                 let panel = NSSavePanel()
                 panel.allowedFileTypes = ["mp4"]
                 panel.nameFieldStringValue = "SuperScreenshot录屏.mp4"

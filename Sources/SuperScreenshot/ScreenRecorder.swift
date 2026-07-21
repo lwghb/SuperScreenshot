@@ -115,7 +115,13 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         }
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
-        await writer?.finishWriting()
+        if let writer {
+            await withCheckedContinuation { continuation in
+                writer.finishWriting {
+                    continuation.resume()
+                }
+            }
+        }
         isRecording = false
         stream = nil
         return writer?.status == .completed ? outputURL : nil
