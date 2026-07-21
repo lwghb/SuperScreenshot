@@ -3,7 +3,7 @@ import AppKit
 @MainActor
 final class SelectionBorderController {
     private let selection: CGRect
-    private var windows: [NSPanel] = []
+    private var window: NSPanel?
 
     init(selection: CGRect) {
         self.selection = selection
@@ -11,39 +11,47 @@ final class SelectionBorderController {
 
     func show() {
         let thickness: CGFloat = 3
-        // Keep the four edge panels connected. The former visual gap made the
-        // recording and long-capture selection outline appear broken.
-        let gap: CGFloat = 0
-        let pieces = [
-            CGRect(x: selection.minX, y: selection.maxY + gap, width: selection.width, height: thickness),
-            CGRect(x: selection.minX, y: selection.minY - thickness - gap, width: selection.width, height: thickness),
-            CGRect(x: selection.minX - thickness - gap, y: selection.minY, width: thickness, height: selection.height),
-            CGRect(x: selection.maxX + gap, y: selection.minY, width: thickness, height: selection.height)
-        ]
-
-        windows = pieces.map { frame in
-            let panel = NSPanel(
-                contentRect: frame,
-                styleMask: .borderless,
-                backing: .buffered,
-                defer: false
-            )
-            panel.level = .screenSaver
-            panel.sharingType = .none
-            panel.backgroundColor = .systemBlue
-            panel.isOpaque = false
-            panel.hasShadow = false
-            panel.ignoresMouseEvents = true
-            panel.hidesOnDeactivate = false
-            panel.isFloatingPanel = true
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            return panel
-        }
-        windows.forEach { $0.orderFrontRegardless() }
+        let frame = selection.insetBy(dx: -thickness / 2, dy: -thickness / 2)
+        let panel = NSPanel(
+            contentRect: frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .screenSaver
+        panel.sharingType = .none
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.hidesOnDeactivate = false
+        panel.isFloatingPanel = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.contentView = SelectionBorderView(frame: CGRect(origin: .zero, size: frame.size), thickness: thickness)
+        window = panel
+        panel.orderFrontRegardless()
     }
 
     func close() {
-        windows.forEach { $0.orderOut(nil) }
-        windows.removeAll()
+        window?.orderOut(nil)
+        window = nil
+    }
+}
+
+private final class SelectionBorderView: NSView {
+    private let thickness: CGFloat
+
+    init(frame: CGRect, thickness: CGFloat) {
+        self.thickness = thickness
+        super.init(frame: frame)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.systemBlue.setStroke()
+        let path = NSBezierPath(rect: bounds.insetBy(dx: thickness / 2, dy: thickness / 2))
+        path.lineWidth = thickness
+        path.stroke()
     }
 }
