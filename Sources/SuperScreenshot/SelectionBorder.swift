@@ -11,7 +11,9 @@ final class SelectionBorderController {
 
     func show() {
         let thickness: CGFloat = 3
-        let gap: CGFloat = 2
+        // Keep the four edge panels connected. The former visual gap made the
+        // recording and long-capture selection outline appear broken.
+        let gap: CGFloat = 0
         let pieces = [
             CGRect(x: selection.minX, y: selection.maxY + gap, width: selection.width, height: thickness),
             CGRect(x: selection.minX, y: selection.minY - thickness - gap, width: selection.width, height: thickness),
