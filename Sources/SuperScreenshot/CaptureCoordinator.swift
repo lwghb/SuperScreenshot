@@ -262,6 +262,9 @@ final class CaptureCoordinator: ObservableObject {
         controller.onScreenRecording = { [weak self] selection in
             guard let self else { return }
             self.directAnnotationController?.close()
+            self.directAnnotationController = nil
+            self.selectionController?.close()
+            self.selectionController = nil
             self.recordingSelection = selection
             if #available(macOS 13.0, *) {
                 let toolbar = RecordingToolbarController()
