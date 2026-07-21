@@ -112,6 +112,8 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             writer?.cancelWriting()
             isRecording = false
             stream = nil
+            let status = writer.map { String(describing: $0.status) } ?? "没有创建写入器"
+            lastErrorDescription = writer?.error?.localizedDescription ?? "AVAssetWriter 状态：\(status)"
             return nil
         }
         videoInput?.markAsFinished()
