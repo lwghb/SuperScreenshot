@@ -82,6 +82,7 @@ final class CaptureCoordinator: ObservableObject {
     private let longCapture = LongCaptureEngine()
     private var screenRecorder: AnyObject?
     private var recordingSelection: CGRect?
+    private var recordingToolbar: RecordingToolbarController?
 
     init() {
         if let label = UserDefaults.standard.string(forKey: "shortcutKeyLabel") {
@@ -262,7 +263,14 @@ final class CaptureCoordinator: ObservableObject {
             guard let self else { return }
             self.directAnnotationController?.close()
             self.recordingSelection = selection
-            if #available(macOS 13.0, *) { self.startScreenRecording(on: screen) }
+            if #available(macOS 13.0, *) {
+                let toolbar = RecordingToolbarController()
+                self.recordingToolbar = toolbar
+                toolbar.onStart = { [weak self] in self?.startScreenRecording(on: screen) }
+                toolbar.onStop = { [weak self] in self?.toggleScreenRecording() }
+                toolbar.onBack = { [weak self] in self?.recordingToolbar?.close(); self?.recordingToolbar = nil }
+                toolbar.show(in: screen)
+            }
         }
         controller.onFinish = { [weak self] edited in
             NSPasteboard.general.clearContents()
