@@ -82,6 +82,7 @@ final class CaptureCoordinator: ObservableObject {
     private let longCapture = LongCaptureEngine()
     private var screenRecorder: AnyObject?
     private var recordingSelection: CGRect?
+    private var recordingScreen: NSScreen?
     private var recordingToolbar: RecordingToolbarController?
     private var recordingEditor: RecordingEditorController?
 
@@ -187,7 +188,7 @@ final class CaptureCoordinator: ObservableObject {
                     return
                 }
                 self.recordingSelection = nil
-                let editor = RecordingEditorController(url: url)
+                let editor = RecordingEditorController(url: url, screen: self.recordingScreen ?? NSScreen.main ?? NSScreen.screens[0])
                 self.recordingEditor = editor
                 editor.show()
             }
@@ -199,6 +200,7 @@ final class CaptureCoordinator: ObservableObject {
     @available(macOS 13.0, *)
     private func startScreenRecording(on screen: NSScreen?) {
         guard let screen else { return }
+        recordingScreen = screen
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("superscreenshot-recording-\(UUID().uuidString).mp4")
         let recorder = ScreenRecorder()

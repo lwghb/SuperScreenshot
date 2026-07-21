@@ -5,14 +5,16 @@ import AVKit
 @MainActor
 final class RecordingEditorController: NSObject {
     private let url: URL
+    private let screen: NSScreen
     private let asset: AVURLAsset
     private let player: AVPlayer
     private var panel: NSPanel?
     private var trimRangeView: RecordingTrimRangeView!
     private var duration: Double = 0
 
-    init(url: URL) {
+    init(url: URL, screen: NSScreen) {
         self.url = url
+        self.screen = screen
         asset = AVURLAsset(url: url)
         player = AVPlayer(url: url)
     }
@@ -23,7 +25,11 @@ final class RecordingEditorController: NSObject {
         let panel = NSPanel(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.title = L("编辑录屏")
         panel.isReleasedWhenClosed = false
-        panel.center()
+        let visible = screen.visibleFrame
+        panel.setFrameOrigin(CGPoint(
+            x: visible.midX - size.width / 2,
+            y: visible.midY - size.height / 2
+        ))
         panel.level = .floating
 
         let content = NSView(frame: CGRect(origin: .zero, size: size))
@@ -49,11 +55,11 @@ final class RecordingEditorController: NSObject {
         content.addSubview(trimRange)
 
         let save = NSButton(title: L("保存"), target: self, action: #selector(save))
-        applyFilledStyle(to: save, color: .systemGreen)
+        save.bezelStyle = .rounded
         save.keyEquivalent = "\r"
         save.frame = CGRect(x: 558, y: 18, width: 108, height: 32)
         let copy = NSButton(title: L("复制到剪贴板"), target: self, action: #selector(copyToPasteboard))
-        applyFilledStyle(to: copy, color: .systemGreen)
+        copy.bezelStyle = .rounded
         copy.frame = CGRect(x: 678, y: 18, width: 118, height: 32)
         content.addSubview(save)
         content.addSubview(copy)
@@ -140,14 +146,6 @@ final class RecordingEditorController: NSObject {
 
     private func close() { player.pause(); panel?.orderOut(nil); panel = nil }
 
-    private func applyFilledStyle(to button: NSButton, color: NSColor) {
-        button.isBordered = false
-        button.wantsLayer = true
-        button.layer?.backgroundColor = color.cgColor
-        button.layer?.cornerRadius = 7
-        button.contentTintColor = .white
-        button.attributedTitle = NSAttributedString(string: button.title, attributes: [.foregroundColor: NSColor.white])
-    }
 }
 
 @MainActor

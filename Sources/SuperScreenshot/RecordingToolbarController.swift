@@ -11,6 +11,7 @@ final class RecordingToolbarController: NSObject {
     private let timerLabel = NSTextField(labelWithString: "00:00")
     private let startButton = NSButton(title: L("开始录屏"), target: nil, action: nil)
     private weak var backButton: NSButton?
+    private weak var contentView: NSView?
 
     func show(in screen: NSScreen, below selection: CGRect) {
         let size = CGSize(width: 360, height: 64)
@@ -24,20 +25,43 @@ final class RecordingToolbarController: NSObject {
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .screenSaver
         panel.isOpaque = false
-        panel.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.98)
+        panel.backgroundColor = .clear
         panel.hasShadow = true
-        let stack = NSStackView()
-        stack.orientation = .horizontal; stack.spacing = 12; stack.alignment = .centerY
-        let back = NSButton(title: L("返回截图"), target: self, action: #selector(back))
+        let content = NSVisualEffectView(frame: CGRect(origin: .zero, size: size))
+        content.material = .hudWindow
+        content.blendingMode = .withinWindow
+        content.state = .active
+        content.wantsLayer = true
+        content.layer?.cornerRadius = 12
+        content.layer?.masksToBounds = true
+        let back = NSButton(title: "", target: self, action: #selector(back))
+        back.image = NSImage(systemSymbolName: "arrow.left", accessibilityDescription: L("返回截图"))
+        back.imagePosition = .imageOnly
+        back.toolTip = L("返回截图")
+        back.frame = CGRect(x: 16, y: 14, width: 36, height: 36)
         backButton = back
         startButton.target = self; startButton.action = #selector(toggle)
+        startButton.bezelStyle = .rounded
+        startButton.frame = CGRect(x: (size.width - 112) / 2, y: 14, width: 112, height: 36)
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
         timerLabel.isHidden = true
-        stack.addArrangedSubview(back); stack.addArrangedSubview(timerLabel); stack.addArrangedSubview(startButton)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        let content = NSView(frame: CGRect(origin: .zero, size: size)); content.addSubview(stack); panel.contentView = content
-        NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: content.centerXAnchor), stack.centerYAnchor.constraint(equalTo: content.centerYAnchor)])
-        self.panel = panel; panel.orderFrontRegardless()
+        timerLabel.alignment = .right
+        timerLabel.frame = CGRect(x: 78, y: 21, width: 78, height: 22)
+        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(startButton)
+        panel.contentView = content
+        contentView = content
+        self.panel = panel
+        panel.alphaValue = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 1 : 0
+        panel.setFrame(frame.offsetBy(dx: 0, dy: -10), display: false)
+        panel.orderFrontRegardless()
+        if panel.alphaValue == 0 {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.22
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                panel.animator().alphaValue = 1
+                panel.animator().setFrame(frame, display: true)
+            }
+        }
     }
 
     @objc private func toggle() {
@@ -50,6 +74,7 @@ final class RecordingToolbarController: NSObject {
             startButton.contentTintColor = .white
             startButton.attributedTitle = NSAttributedString(string: L("结束录屏"), attributes: [.foregroundColor: NSColor.white])
             timerLabel.isHidden = false; backButton?.isHidden = true
+            startButton.frame.origin.x = 176
             timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
             onStart?()
         } else { onStop?() }
@@ -66,6 +91,7 @@ final class RecordingToolbarController: NSObject {
         startButton.attributedTitle = NSAttributedString(string: L("开始录屏"))
         timerLabel.isHidden = true
         backButton?.isHidden = false
+        if let contentView { startButton.frame.origin.x = (contentView.bounds.width - startButton.frame.width) / 2 }
     }
     func close() { timer?.invalidate(); timer = nil; panel?.orderOut(nil); panel = nil }
 }
