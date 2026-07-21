@@ -78,6 +78,12 @@ final class DirectAnnotationController: NSObject {
         window.isOpaque = true
         window.acceptsMouseMovedEvents = true
         window.contentView = canvasView
+        // The selection overlay is intentionally removed before entering the
+        // editor. Keep its blue boundary visible in the editor itself so a
+        // return from recording restores the same clear capture affordance.
+        let selectionBorder = DirectPreviewBorderView(frame: canvasView.bounds)
+        selectionBorder.autoresizingMask = [.width, .height]
+        canvasView.addSubview(selectionBorder)
         window.setFrame(selection, display: false)
         canvasView.onAnnotationDragLocation = { [weak self] point in
             self?.updateDeleteDropTarget(at: point)
@@ -861,7 +867,7 @@ private final class DirectPreviewBorderView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.white.withAlphaComponent(0.9).setStroke()
+        NSColor.systemBlue.setStroke()
         let border = NSBezierPath(rect: bounds.insetBy(dx: 1, dy: 1))
         border.lineWidth = 2
         border.stroke()
