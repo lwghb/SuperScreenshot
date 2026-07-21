@@ -187,7 +187,10 @@ final class CaptureCoordinator: ObservableObject {
                 }
                 let panel = NSSavePanel()
                 panel.allowedFileTypes = ["mp4"]
-                panel.nameFieldStringValue = "SuperScreenshot录屏.mp4"
+                let formatter = DateFormatter()
+                formatter.locale = Locale(identifier: "zh_CN")
+                formatter.dateFormat = "yyyy年M月d日-H点m分"
+                panel.nameFieldStringValue = "录屏-\(formatter.string(from: Date())).mp4"
                 panel.begin { response in
                     guard response == .OK, let target = panel.url else { return }
                     try? FileManager.default.removeItem(at: target)
@@ -298,7 +301,15 @@ final class CaptureCoordinator: ObservableObject {
                     self?.longSelectionBorder?.close()
                     self?.longSelectionBorder = nil
                 }
-                toolbar.onBack = { [weak self] in self?.recordingToolbar?.close(); self?.recordingToolbar = nil }
+                toolbar.onBack = { [weak self] in
+                    guard let self else { return }
+                    self.recordingToolbar?.close()
+                    self.recordingToolbar = nil
+                    self.longSelectionBorder?.close()
+                    self.longSelectionBorder = nil
+                    self.recordingSelection = nil
+                    self.presentDirectAnnotation(image: image, rect: selection, screen: screen)
+                }
                 toolbar.show(in: screen, below: selection)
                 let border = SelectionBorderController(selection: selection)
                 self.longSelectionBorder = border
