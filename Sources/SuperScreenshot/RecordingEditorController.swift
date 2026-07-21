@@ -75,8 +75,8 @@ final class RecordingEditorController: NSObject {
         let dialog = NSSavePanel()
         dialog.allowedFileTypes = ["mp4"]
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d_H点m分s秒"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
         dialog.nameFieldStringValue = formatter.string(from: Date()) + ".mp4"
         dialog.beginSheetModal(for: panel!) { [weak self] response in
             guard let self, response == .OK, let target = dialog.url else { return }
@@ -106,6 +106,15 @@ final class RecordingEditorController: NSObject {
 
     private func export(to target: URL, completion: @escaping (Result<URL, Error>) -> Void) {
         if FileManager.default.fileExists(atPath: target.path) { try? FileManager.default.removeItem(at: target) }
+        // Keeping the entire recording must not introduce a second encode.
+        // This preserves the original capture's exact dimensions and bitrate.
+        if trimRangeView.start <= 0.001, trimRangeView.end >= duration - 0.001 {
+            do {
+                try FileManager.default.copyItem(at: url, to: target)
+                completion(.success(target))
+            } catch { completion(.failure(error)) }
+            return
+        }
         guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
             completion(.failure(NSError(domain: "SuperScreenshot.Recording", code: 20, userInfo: [NSLocalizedDescriptionKey: L("无法创建视频导出器")])))
             return

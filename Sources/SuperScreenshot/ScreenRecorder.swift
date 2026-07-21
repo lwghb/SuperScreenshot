@@ -22,7 +22,7 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
     private var started = false
     private var errorDescription: String?
 
-    func prepare(url: URL, width: Int, height: Int, includesAudio: Bool) throws {
+    func prepare(url: URL, width: Int, height: Int, frameRate: Int, includesAudio: Bool) throws {
         // The recorder instance is reused for later recordings. Do not carry
         // a completed writer's state into the next session.
         writer = nil
@@ -34,10 +34,19 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
 
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         writer.shouldOptimizeForNetworkUse = true
+        // Screen text and UI edges need a materially higher bitrate than the
+        // system default for camera footage. Keep the capture pixel size and
+        // use a quality floor that scales with resolution and frame rate.
+        let bitRate = min(45_000_000, max(12_000_000, width * height * frameRate * 14 / 100))
         let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: width,
-            AVVideoHeightKey: height
+            AVVideoHeightKey: height,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: bitRate,
+                AVVideoMaxKeyFrameIntervalKey: frameRate,
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+            ]
         ])
         video.expectsMediaDataInRealTime = true
         writer.add(video)
@@ -182,7 +191,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         self.options = options
         self.outputURL = outputURL
-        try writerPipeline.prepare(url: outputURL, width: configuration.width, height: configuration.height, includesAudio: options.capturesSystemAudio)
+        try writerPipeline.prepare(url: outputURL, width: configuration.width, height: configuration.height, frameRate: options.frameRate.rawValue, includesAudio: options.capturesSystemAudio)
         let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: writerPipeline.queue)
         if options.capturesSystemAudio {
