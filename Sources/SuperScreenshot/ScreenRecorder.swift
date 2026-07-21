@@ -18,6 +18,14 @@ struct ScreenRecordingOptions {
 }
 
 @available(macOS 13.0, *)
+extension ScreenRecorder {
+    static func supportedFrameRates(for screen: NSScreen) -> [RecordingFrameRate] {
+        let refreshRate = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenRefreshRate")] as? NSNumber)?.doubleValue ?? 60
+        return refreshRate >= 119 ? RecordingFrameRate.allCases : [.low, .standard]
+    }
+}
+
+@available(macOS 13.0, *)
 @MainActor
 final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private(set) var isRecording = false
