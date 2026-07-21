@@ -158,6 +158,21 @@ final class CaptureCoordinator: ObservableObject {
         guard let recorder = screenRecorder as? ScreenRecorder else {
             return startScreenRecording(on: NSScreen.main)
         }
+        // The start call is asynchronous. If the user ends immediately, wait
+        // for ScreenCaptureKit to become active instead of starting a second
+        // recorder and leaving the stop action with no visible result.
+        if !recorder.isRecording {
+            Task { @MainActor [weak self, weak recorder] in
+                for _ in 0..<20 {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    if recorder?.isRecording == true {
+                        self?.toggleScreenRecording()
+                        return
+                    }
+                }
+            }
+            return
+        }
         if recorder.isRecording {
             Task { @MainActor in
                 let url = try? await recorder.stop()

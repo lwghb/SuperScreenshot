@@ -99,13 +99,15 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         guard isRecording else { return outputURL }
         try await stream?.stopCapture()
         // ScreenCaptureKit can still have samples queued on its output queues.
-        // Give those samples a chance to reach the writer before finalizing MP4.
-        try? await Task.sleep(for: .milliseconds(250))
+        // Wait briefly for the first sample to start the writer before finalizing.
+        for _ in 0..<20 where writer?.status == .unknown {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
         guard writer?.status == .writing else {
             writer?.cancelWriting()
             isRecording = false
             stream = nil
-            return nil
+            return outputURL
         }
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
