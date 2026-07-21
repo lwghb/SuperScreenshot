@@ -46,6 +46,11 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
                 AVVideoAverageBitRateKey: bitRate,
                 AVVideoMaxKeyFrameIntervalKey: frameRate,
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+            ],
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
             ]
         ])
         video.expectsMediaDataInRealTime = true
@@ -184,6 +189,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         // Feed the writer a stable, explicitly declared pixel format instead
         // of relying on the screen server's dynamic raw frame format.
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
+        // Record SDR in one known color space. Without this, ScreenCaptureKit
+        // may deliver display-profile colors that an H.264 player interprets
+        // as a different range, producing the dark/desaturated result.
+        configuration.colorSpaceName = CGColorSpace.sRGB
         configuration.showsCursor = true
         configuration.capturesAudio = options.capturesSystemAudio
         configuration.sampleRate = 48_000
