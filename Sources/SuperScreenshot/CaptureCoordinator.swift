@@ -271,13 +271,13 @@ final class CaptureCoordinator: ObservableObject {
                 self.recordingToolbar = toolbar
                 toolbar.onStart = { [weak self] in self?.startScreenRecording(on: screen) }
                 toolbar.onStop = { [weak self, weak toolbar] in
-                    toolbar?.recordingDidStop()
+                    toolbar?.close()
                     self?.toggleScreenRecording()
                     self?.longSelectionBorder?.close()
                     self?.longSelectionBorder = nil
                 }
                 toolbar.onBack = { [weak self] in self?.recordingToolbar?.close(); self?.recordingToolbar = nil }
-                toolbar.show(in: screen)
+                toolbar.show(in: screen, below: selection)
                 let border = SelectionBorderController(selection: selection)
                 self.longSelectionBorder = border
                 border.show()

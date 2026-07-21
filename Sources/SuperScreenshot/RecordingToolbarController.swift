@@ -12,10 +12,14 @@ final class RecordingToolbarController: NSObject {
     private let startButton = NSButton(title: L("开始录屏"), target: nil, action: nil)
     private weak var backButton: NSButton?
 
-    func show(in screen: NSScreen) {
+    func show(in screen: NSScreen, below selection: CGRect) {
         let size = CGSize(width: 360, height: 64)
-        let frame = CGRect(x: screen.visibleFrame.midX - size.width / 2,
-                           y: screen.visibleFrame.minY + 40,
+        var x = selection.midX - size.width / 2
+        x = min(max(x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8)
+        var y = selection.minY - size.height - 12
+        if y < screen.visibleFrame.minY + 8 { y = selection.maxY + 12 }
+        let frame = CGRect(x: x,
+                           y: y,
                            width: size.width, height: size.height)
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .screenSaver
