@@ -151,7 +151,7 @@ final class DirectAnnotationController: NSObject {
             context.duration = 0.18
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             toolbarWindow.animator().alphaValue = 0
-            toolbarWindow.animator().setFrame(sourceFrame.insetBy(dx: 18, dy: 8), display: true)
+            toolbarWindow.animator().setFrame(sourceFrame.offsetBy(dx: 0, dy: 14), display: true)
         } completionHandler: { [weak toolbarWindow] in
             toolbarWindow?.orderOut(nil)
             completion(sourceFrame)

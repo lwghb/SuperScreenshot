@@ -301,12 +301,14 @@ final class CaptureCoordinator: ObservableObject {
                     }
                     toolbar.onBack = { [weak self] in
                         guard let self else { return }
-                        self.recordingToolbar?.close()
-                        self.recordingToolbar = nil
-                        self.longSelectionBorder?.close()
-                        self.longSelectionBorder = nil
-                        self.recordingSelection = nil
-                        self.presentDirectAnnotation(image: image, rect: selection, screen: screen)
+                        self.recordingToolbar?.dismissForBack { [weak self] in
+                            guard let self else { return }
+                            self.recordingToolbar = nil
+                            self.longSelectionBorder?.close()
+                            self.longSelectionBorder = nil
+                            self.recordingSelection = nil
+                            self.presentDirectAnnotation(image: image, rect: selection, screen: screen)
+                        }
                     }
                     toolbar.show(in: screen, below: selection, from: sourceFrame)
                     let border = SelectionBorderController(selection: selection)

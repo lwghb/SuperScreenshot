@@ -1,5 +1,43 @@
 import AppKit
 
+private final class RecordingStopButton: NSButton {
+    var usesStopStyle = false {
+        didSet { needsDisplay = true }
+    }
+
+    override var isHighlighted: Bool {
+        didSet { needsDisplay = true }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard usesStopStyle else {
+            super.draw(dirtyRect)
+            return
+        }
+        let inset = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let path = NSBezierPath(roundedRect: inset, xRadius: 8, yRadius: 8)
+        let fill = isHighlighted
+            ? NSColor.systemRed.blended(withFraction: 0.22, of: .black)!
+            : NSColor.systemRed
+        fill.setFill()
+        path.fill()
+        NSColor.white.withAlphaComponent(isHighlighted ? 0.16 : 0.28).setStroke()
+        path.lineWidth = 1
+        path.stroke()
+        let style = NSMutableParagraphStyle()
+        style.alignment = .center
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 16, weight: .semibold),
+            .foregroundColor: NSColor.white,
+            .paragraphStyle: style
+        ]
+        (title as NSString).draw(
+            in: CGRect(x: 4, y: (bounds.height - 19) / 2 - 1, width: bounds.width - 8, height: 20),
+            withAttributes: attributes
+        )
+    }
+}
+
 @MainActor
 final class RecordingToolbarController: NSObject {
     var onStart: (() -> Void)?
@@ -9,7 +47,7 @@ final class RecordingToolbarController: NSObject {
     private var timer: Timer?
     private var startedAt: Date?
     private let timerLabel = NSTextField(labelWithString: "00:00")
-    private let startButton = NSButton(title: L("开始录屏"), target: nil, action: nil)
+    private let startButton = RecordingStopButton(title: L("开始录屏"), target: nil, action: nil)
     private weak var backButton: NSButton?
     private weak var contentView: NSView?
 
@@ -52,13 +90,9 @@ final class RecordingToolbarController: NSObject {
         contentView = content
         self.panel = panel
         panel.alphaValue = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 1 : 0
-        let initialFrame: CGRect
-        if let sourceFrame {
-            initialFrame = frame.offsetBy(dx: sourceFrame.midX - frame.midX,
-                                          dy: sourceFrame.midY - frame.midY)
-        } else {
-            initialFrame = frame.offsetBy(dx: 0, dy: -10)
-        }
+        // Drop down from the centre of the recording toolbar's final lane.
+        // This continues the editor toolbar transition without a sideways jump.
+        let initialFrame = frame.offsetBy(dx: 0, dy: 14)
         panel.setFrame(initialFrame, display: false)
         panel.orderFrontRegardless()
         if panel.alphaValue == 0 {
@@ -76,8 +110,9 @@ final class RecordingToolbarController: NSObject {
             startedAt = Date(); startButton.title = L("结束录屏")
             startButton.isBordered = true
             startButton.bezelStyle = .rounded
-            startButton.bezelColor = .systemRed
-            startButton.contentTintColor = .white
+            startButton.bezelColor = nil
+            startButton.contentTintColor = nil
+            startButton.usesStopStyle = true
             startButton.attributedTitle = NSAttributedString(string: L("结束录屏"))
             timerLabel.isHidden = false; backButton?.isHidden = true
             startButton.frame.origin.x = 176
@@ -95,10 +130,27 @@ final class RecordingToolbarController: NSObject {
         startButton.bezelStyle = .rounded
         startButton.bezelColor = nil
         startButton.contentTintColor = nil
+        startButton.usesStopStyle = false
         startButton.attributedTitle = NSAttributedString(string: L("开始录屏"))
         timerLabel.isHidden = true
         backButton?.isHidden = false
         if let contentView { startButton.frame.origin.x = (contentView.bounds.width - startButton.frame.width) / 2 }
+    }
+    func dismissForBack(completion: @escaping () -> Void) {
+        guard let panel, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            close(); completion(); return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            panel.animator().alphaValue = 0
+            panel.animator().setFrame(panel.frame.offsetBy(dx: 0, dy: 14), display: true)
+        } completionHandler: { [weak self] in
+            DispatchQueue.main.async {
+                self?.close()
+                completion()
+            }
+        }
     }
     func close() { timer?.invalidate(); timer = nil; panel?.orderOut(nil); panel = nil }
 }
