@@ -7,9 +7,87 @@ enum RecordingFrameRate: Int, CaseIterable {
     case high = 120
 }
 
-private final class SampleBufferBox: @unchecked Sendable {
-    let value: CMSampleBuffer
-    init(_ value: CMSampleBuffer) { self.value = value }
+@available(macOS 13.0, *)
+private final class RecordingWriterPipeline: @unchecked Sendable {
+    enum FinishResult: Sendable {
+        case success
+        case failure(String)
+    }
+
+    let queue = DispatchQueue(label: "com.lion.superscreenshot.record.writer")
+    private var writer: AVAssetWriter?
+    private var videoInput: AVAssetWriterInput?
+    private var audioInput: AVAssetWriterInput?
+    private var started = false
+    private var errorDescription: String?
+
+    func prepare(url: URL, width: Int, height: Int, includesAudio: Bool) throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        writer.shouldOptimizeForNetworkUse = true
+        let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height
+        ])
+        video.expectsMediaDataInRealTime = true
+        writer.add(video)
+        self.writer = writer
+        videoInput = video
+        if includesAudio {
+            let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 2,
+                AVEncoderBitRateKey: 192_000
+            ])
+            audio.expectsMediaDataInRealTime = true
+            writer.add(audio)
+            audioInput = audio
+        }
+    }
+
+    func append(_ sampleBuffer: CMSampleBuffer, type: SCStreamOutputType) {
+        guard CMSampleBufferDataIsReady(sampleBuffer), let writer else { return }
+        if !started, type == .screen {
+            writer.startWriting()
+            writer.startSession(atSourceTime: sampleBuffer.presentationTimeStamp)
+            started = writer.status == .writing
+        }
+        guard writer.status == .writing else { return }
+        let accepted: Bool
+        switch type {
+        case .screen where videoInput?.isReadyForMoreMediaData == true:
+            accepted = videoInput?.append(sampleBuffer) ?? false
+        case .audio where audioInput?.isReadyForMoreMediaData == true:
+            accepted = audioInput?.append(sampleBuffer) ?? false
+        default:
+            return
+        }
+        if !accepted {
+            errorDescription = writer.error?.localizedDescription
+        }
+    }
+
+    func finish() async -> FinishResult {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                guard let writer = self.writer, self.started, writer.status == .writing else {
+                    let detail = self.errorDescription ?? self.writer?.error?.localizedDescription ?? "没有收到可写入的视频帧"
+                    continuation.resume(returning: .failure(detail))
+                    return
+                }
+                self.videoInput?.markAsFinished()
+                self.audioInput?.markAsFinished()
+                writer.finishWriting {
+                    if writer.status == .completed {
+                        continuation.resume(returning: .success)
+                    } else {
+                        continuation.resume(returning: .failure(writer.error?.localizedDescription ?? "视频文件收尾失败"))
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct ScreenRecordingOptions {
@@ -31,11 +109,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private(set) var isRecording = false
     private(set) var lastErrorDescription: String?
     private var stream: SCStream?
-    private var writer: AVAssetWriter?
-    private var videoInput: AVAssetWriterInput?
-    private var audioInput: AVAssetWriterInput?
     private var outputURL: URL?
     private var options = ScreenRecordingOptions()
+    private let writerPipeline = RecordingWriterPipeline()
 
     func start(screen: NSScreen, selection: CGRect? = nil, options: ScreenRecordingOptions, outputURL: URL) async throws {
         guard !isRecording,
@@ -69,31 +145,11 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         self.options = options
         self.outputURL = outputURL
-        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
-        self.writer = writer
-        let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: configuration.width,
-            AVVideoHeightKey: configuration.height
-        ])
-        video.expectsMediaDataInRealTime = true
-        writer.add(video)
-        videoInput = video
-        if options.capturesSystemAudio {
-            let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
-                AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 48_000,
-                AVNumberOfChannelsKey: 2,
-                AVEncoderBitRateKey: 192_000
-            ])
-            audio.expectsMediaDataInRealTime = true
-            writer.add(audio)
-            audioInput = audio
-        }
+        try writerPipeline.prepare(url: outputURL, width: configuration.width, height: configuration.height, includesAudio: options.capturesSystemAudio)
         let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
-        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: DispatchQueue(label: "com.lion.superscreenshot.record.video"))
+        try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: writerPipeline.queue)
         if options.capturesSystemAudio {
-            try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: DispatchQueue(label: "com.lion.superscreenshot.record.audio"))
+            try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: writerPipeline.queue)
         }
         try await stream.startCapture()
         self.stream = stream
@@ -103,56 +159,19 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     func stop() async throws -> URL? {
         guard isRecording else { return outputURL }
         try await stream?.stopCapture()
-        // ScreenCaptureKit can still have samples queued on its output queues.
-        // Wait briefly for the first sample to start the writer before finalizing.
-        for _ in 0..<20 where writer?.status == .unknown {
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-        guard writer?.status == .writing else {
-            writer?.cancelWriting()
-            isRecording = false
-            stream = nil
-            let status = writer.map { String(describing: $0.status) } ?? "没有创建写入器"
-            lastErrorDescription = writer?.error?.localizedDescription ?? "AVAssetWriter 状态：\(status)"
-            return nil
-        }
-        videoInput?.markAsFinished()
-        audioInput?.markAsFinished()
-        if let writer {
-            await withCheckedContinuation { continuation in
-                writer.finishWriting {
-                    continuation.resume()
-                }
-            }
-        }
         isRecording = false
         stream = nil
-        guard writer?.status == .completed else {
-            lastErrorDescription = writer?.error?.localizedDescription ?? "AVAssetWriter 未能完成写入"
+        switch await writerPipeline.finish() {
+        case .success:
+            return outputURL
+        case .failure(let description):
+            lastErrorDescription = description
             return nil
         }
-        return outputURL
     }
 
     nonisolated func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        let boxed = SampleBufferBox(sampleBuffer)
-        Task { @MainActor [weak self] in
-            let sampleBuffer = boxed.value
-            guard let self, CMSampleBufferDataIsReady(sampleBuffer) else { return }
-            if writer?.status == .unknown { writer?.startWriting(); writer?.startSession(atSourceTime: sampleBuffer.presentationTimeStamp) }
-            guard writer?.status == .writing else { return }
-            switch type {
-            case .screen where videoInput?.isReadyForMoreMediaData == true:
-                if videoInput?.append(sampleBuffer) == false {
-                    lastErrorDescription = writer?.error?.localizedDescription
-                }
-            case .audio where audioInput?.isReadyForMoreMediaData == true:
-                if audioInput?.append(sampleBuffer) == false {
-                    lastErrorDescription = writer?.error?.localizedDescription
-                }
-            default: break
-            }
-        }
+        writerPipeline.append(sampleBuffer, type: type)
     }
 
     nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
