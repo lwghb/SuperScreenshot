@@ -3,19 +3,19 @@
     <channel>
         <title>SuperScreenshot</title>
         <item>
-            <title>SuperScreenshot 2.0.3</title>
-            <pubDate>Tue, 21 Jul 2026 23:31:51 +0800</pubDate>
+            <title>SuperScreenshot 2.0.11</title>
+            <pubDate>Wed, 22 Jul 2026 11:47:12 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>203</sparkle:version>
-            <sparkle:shortVersionString>2.0.3</sparkle:shortVersionString>
+            <sparkle:version>211</sparkle:version>
+            <sparkle:shortVersionString>2.0.11</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 2.0.3
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 2.0.11
 
-- 新增录屏码率滑块，默认 2.3 Mbps。
-- 优化 FPS 与码率的录制前设置布局。
-- 修复全屏录制时结束录屏工具栏不可见的问题。
+- 新增动态码率上限，按录制区域分辨率与 FPS 自动计算。
+- 录制中和编辑界面显示 FPS、码率与预计文件大小。
+- 编辑录屏窗口支持跨屏保持显示及缩放预览。
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.3/SuperScreenshot-v2.0.3-Universal.zip" length="2918262" type="application/octet-stream" sparkle:edSignature="AdWLmkc38+w67MYpmaBmzpGXi41w8cR4q3msjJd83NzQP+7sv0+zk1m4HnG4vaGBm5CtM4LDHqD94J9xY+92Cw=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.11/SuperScreenshot-v2.0.11-Universal.zip" length="2924375" type="application/octet-stream" sparkle:edSignature="nmXdBoHk+f4hatCPbieI4wHGIXHYVZz964SqE65FLXE+wKizs+wLc+GlBSac2IAxJ2MrFD0wtLyzVYJR7YE9CQ=="/>
         </item>
     </channel>
 </rss>
