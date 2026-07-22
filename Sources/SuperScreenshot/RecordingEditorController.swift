@@ -84,6 +84,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
         toolbar.onMode = { [weak self] mode in
             self?.annotationOverlayView?.mode = mode
             self?.colorTarget = mode == .text ? .textBackground : .stroke
+            if mode == .mosaic { self?.refreshMosaicSource() }
             self?.updateTextControls()
         }
         toolbar.onColorTarget = { [weak self] target in
@@ -99,6 +100,12 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
         toolbar.onCustomColor = { [weak self] in self?.showCustomTextColor() }
         content.addSubview(toolbar)
         annotationToolbar = toolbar
+        annotationOverlay.canvas.onAnnotationDragLocation = { [weak self] point in
+            self?.updateAnnotationDeleteTarget(at: point)
+        }
+        annotationOverlay.canvas.onAnnotationDragEnded = { [weak self] point in
+            self?.finishAnnotationDelete(at: point) ?? false
+        }
 
         let settingsBadge = NSTextField(labelWithString: "")
 
@@ -221,6 +228,38 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
             colorTarget: colorTarget,
             hasAnnotations: annotationOverlayView.hasAnnotations
         )
+    }
+
+    private func updateAnnotationDeleteTarget(at windowPoint: CGPoint?) {
+        guard let toolbar = annotationToolbar, let windowPoint else {
+            annotationToolbar?.deleteDropButton.isDropTarget = false
+            return
+        }
+        let point = toolbar.convert(windowPoint, from: nil)
+        let deletePoint = toolbar.deleteDropButton.convert(point, from: toolbar)
+        toolbar.deleteDropButton.isDropTarget = toolbar.deleteDropButton.bounds.contains(deletePoint)
+    }
+
+    private func finishAnnotationDelete(at windowPoint: CGPoint) -> Bool {
+        guard let toolbar = annotationToolbar else { return false }
+        let point = toolbar.convert(windowPoint, from: nil)
+        let deletePoint = toolbar.deleteDropButton.convert(point, from: toolbar)
+        let shouldDelete = toolbar.deleteDropButton.bounds.contains(deletePoint)
+        toolbar.deleteDropButton.isDropTarget = false
+        return shouldDelete
+    }
+
+    private func refreshMosaicSource() {
+        let time = player.currentTime()
+        let asset = self.asset
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            guard let image = try? generator.copyCGImage(at: time, actualTime: nil) else { return }
+            DispatchQueue.main.async {
+                self?.annotationOverlayView?.setMosaicSource(image)
+            }
+        }
     }
 
     @objc private func save() {
@@ -438,6 +477,7 @@ private final class RecordingAnnotationOverlayView: NSView {
     func undo() { canvas.undo(); onAnnotationsChanged?() }
     func deleteSelectedAnnotation() { canvas.deleteSelectedAnnotation(); onAnnotationsChanged?() }
     func renderedOverlay() -> CGImage? { canvas.renderedImage() }
+    func setMosaicSource(_ image: CGImage) { canvas.replaceImage(image, annotationOffset: .zero) }
 
     private static func transparentImage(size: CGSize) -> CGImage {
         let width = max(1, Int(size.width.rounded()))
