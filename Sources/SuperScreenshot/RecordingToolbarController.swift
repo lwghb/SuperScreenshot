@@ -190,7 +190,7 @@ final class RecordingToolbarController: NSObject {
             case 2: rate = .high
             default: rate = .standard
             }
-            let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), 6)
+            let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), maximumBitRateMbps)
             recordingSettingsLabel.stringValue = String(format: "%d FPS · %.1f Mbps", rate.rawValue, value)
             recordingSettingsLabel.isHidden = false
             onStart?(rate, Int((value * 1_000_000).rounded()))
