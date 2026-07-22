@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import AVKit
+import QuartzCore
 
 @MainActor
 final class RecordingEditorController: NSObject {
@@ -13,6 +14,12 @@ final class RecordingEditorController: NSObject {
     private var panel: NSPanel?
     private var trimRangeView: RecordingTrimRangeView!
     private weak var recordingInfoLabel: NSTextField?
+    private weak var textOverlayView: RecordingTextOverlayView?
+    private weak var textToolButton: NSButton?
+    private weak var textColorButton: NSButton?
+    private weak var textBackgroundButton: NSButton?
+    private weak var fontSizeSlider: NSSlider?
+    private var colorTarget: RecordingTextColorTarget = .text
     private var duration: Double = 0
 
     init(url: URL, screen: NSScreen, frameRate: Int = 60, bitRate: Int = 1_000_000) {
@@ -48,12 +55,19 @@ final class RecordingEditorController: NSObject {
         preview.autoresizingMask = [.width, .height]
         content.addSubview(preview)
 
+        let textOverlay = RecordingTextOverlayView(frame: preview.frame, videoSize: videoSize)
+        textOverlay.autoresizingMask = [.width, .height]
+        textOverlay.onAnnotationsChanged = { [weak self] in self?.updateTextControls() }
+        content.addSubview(textOverlay)
+        textOverlayView = textOverlay
+
         let settingsBadge = NSTextField(labelWithString: "")
 
         let caption = NSTextField(labelWithString: L("拖动起点和终点，选择需要保留的录屏片段"))
         caption.font = .systemFont(ofSize: 13)
         caption.textColor = .secondaryLabelColor
-        caption.frame = CGRect(x: 32, y: 126, width: 560, height: 20)
+        caption.frame = CGRect(x: 366, y: 126, width: 142, height: 20)
+        caption.font = .systemFont(ofSize: 11)
         content.addSubview(caption)
 
         settingsBadge.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
@@ -63,6 +77,35 @@ final class RecordingEditorController: NSObject {
         settingsBadge.autoresizingMask = [.minXMargin]
         recordingInfoLabel = settingsBadge
         content.addSubview(settingsBadge)
+
+        let textTool = NSButton(title: "T", target: self, action: #selector(useTextTool))
+        textTool.bezelStyle = .texturedRounded
+        textTool.font = .boldSystemFont(ofSize: 16)
+        textTool.frame = CGRect(x: 32, y: 120, width: 34, height: 26)
+        content.addSubview(textTool)
+        textToolButton = textTool
+
+        let textColor = NSButton(title: L("字色"), target: self, action: #selector(pickTextColor))
+        textColor.bezelStyle = .rounded
+        textColor.frame = CGRect(x: 74, y: 120, width: 54, height: 26)
+        content.addSubview(textColor)
+        textColorButton = textColor
+
+        let background = NSButton(title: L("背景"), target: self, action: #selector(pickTextBackground))
+        background.bezelStyle = .rounded
+        background.frame = CGRect(x: 134, y: 120, width: 54, height: 26)
+        content.addSubview(background)
+        textBackgroundButton = background
+
+        let sizeLabel = NSTextField(labelWithString: L("字号"))
+        sizeLabel.font = .systemFont(ofSize: 12)
+        sizeLabel.textColor = .secondaryLabelColor
+        sizeLabel.frame = CGRect(x: 198, y: 124, width: 34, height: 18)
+        content.addSubview(sizeLabel)
+        let fontSize = NSSlider(value: 18, minValue: 12, maxValue: 48, target: self, action: #selector(changeTextFontSize(_:)))
+        fontSize.frame = CGRect(x: 232, y: 121, width: 120, height: 22)
+        content.addSubview(fontSize)
+        fontSizeSlider = fontSize
 
         let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 70, width: 764, height: 38))
         trimRange.duration = duration
@@ -93,12 +136,78 @@ final class RecordingEditorController: NSObject {
         self.panel = panel
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        updateTextControls()
     }
 
     private func updateRecordingInfo() {
         let selectedDuration = max(0, (trimRangeView?.end ?? duration) - (trimRangeView?.start ?? 0))
         let estimatedMegabytes = selectedDuration * Double(bitRate) / 8_000_000
         recordingInfoLabel?.stringValue = String(format: "%d FPS · %.1f Mbps · %@ %.1f MB", frameRate, Double(bitRate) / 1_000_000, L("预计约"), estimatedMegabytes)
+    }
+
+    private var videoSize: CGSize {
+        guard let track = asset.tracks(withMediaType: .video).first else { return CGSize(width: 16, height: 9) }
+        let size = track.naturalSize.applying(track.preferredTransform)
+        return CGSize(width: abs(size.width), height: abs(size.height))
+    }
+
+    @objc private func useTextTool() {
+        guard let textOverlayView else { return }
+        textOverlayView.textMode.toggle()
+        updateTextControls()
+    }
+
+    @objc private func pickTextColor() {
+        colorTarget = .text
+        showTextColorMenu(from: textColorButton)
+    }
+
+    @objc private func pickTextBackground() {
+        colorTarget = .background
+        showTextColorMenu(from: textBackgroundButton)
+    }
+
+    private func showTextColorMenu(from button: NSButton?) {
+        guard let button else { return }
+        let menu = NSMenu()
+        for color in RecordingTextOverlayView.palette {
+            let item = NSMenuItem(title: "", action: #selector(selectTextColor(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = color
+            item.image = colorSwatchImage(color)
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: CGPoint(x: 0, y: button.bounds.height), in: button)
+    }
+
+    @objc private func selectTextColor(_ sender: NSMenuItem) {
+        guard let color = sender.representedObject as? NSColor else { return }
+        if colorTarget == .text { textOverlayView?.textColor = color }
+        else { textOverlayView?.backgroundColor = color }
+        updateTextControls()
+    }
+
+    @objc private func changeTextFontSize(_ sender: NSSlider) {
+        textOverlayView?.textFontSize = CGFloat(sender.doubleValue)
+        updateTextControls()
+    }
+
+    private func updateTextControls() {
+        guard let textOverlayView else { return }
+        textToolButton?.contentTintColor = textOverlayView.textMode ? .systemBlue : .labelColor
+        textToolButton?.state = textOverlayView.textMode ? .on : .off
+        fontSizeSlider?.doubleValue = Double(textOverlayView.textFontSize)
+        textColorButton?.contentTintColor = textOverlayView.textColor
+        textBackgroundButton?.contentTintColor = textOverlayView.backgroundColor
+    }
+
+    private func colorSwatchImage(_ color: NSColor) -> NSImage {
+        let image = NSImage(size: CGSize(width: 14, height: 14))
+        image.lockFocus()
+        color.setFill()
+        NSBezierPath(roundedRect: CGRect(x: 1, y: 1, width: 12, height: 12), xRadius: 3, yRadius: 3).fill()
+        image.unlockFocus()
+        return image
     }
 
     @objc private func save() {
@@ -139,7 +248,7 @@ final class RecordingEditorController: NSObject {
         if FileManager.default.fileExists(atPath: target.path) { try? FileManager.default.removeItem(at: target) }
         // Keeping the entire recording must not introduce a second encode.
         // This preserves the original capture's exact dimensions and bitrate.
-        if trimRangeView.start <= 0.001, trimRangeView.end >= duration - 0.001 {
+        if trimRangeView.start <= 0.001, trimRangeView.end >= duration - 0.001, textOverlayView?.annotations.isEmpty != false {
             do {
                 try FileManager.default.copyItem(at: url, to: target)
                 completion(.success(target))
@@ -156,6 +265,7 @@ final class RecordingEditorController: NSObject {
             start: CMTime(seconds: trimRangeView.start, preferredTimescale: 600),
             end: CMTime(seconds: trimRangeView.end, preferredTimescale: 600)
         )
+        exporter.videoComposition = makeTextVideoComposition()
         exporter.exportAsynchronously { [weak self] in
             DispatchQueue.main.async {
                 switch exporter.status {
@@ -178,6 +288,171 @@ final class RecordingEditorController: NSObject {
 
     private func close() { player.pause(); panel?.orderOut(nil); panel = nil }
 
+    private func makeTextVideoComposition() -> AVMutableVideoComposition? {
+        guard let annotations = textOverlayView?.annotations, !annotations.isEmpty,
+              let videoTrack = asset.tracks(withMediaType: .video).first else { return nil }
+        let composition = AVMutableVideoComposition(propertiesOf: asset)
+        let renderSize = composition.renderSize
+        guard renderSize.width > 0, renderSize.height > 0 else { return nil }
+        let parentLayer = CALayer()
+        parentLayer.frame = CGRect(origin: .zero, size: renderSize)
+        let videoLayer = CALayer()
+        videoLayer.frame = parentLayer.bounds
+        parentLayer.addSublayer(videoLayer)
+        for annotation in annotations {
+            let fontSize = max(12, annotation.fontRatio * renderSize.width)
+            let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+            let textSize = NSAttributedString(string: annotation.text, attributes: [.font: font]).size()
+            let padding = fontSize * 0.35
+            let boxSize = CGSize(width: ceil(textSize.width + padding * 2), height: ceil(NSLayoutManager().defaultLineHeight(for: font) + padding * 2))
+            let box = CALayer()
+            box.frame = CGRect(x: annotation.origin.x * renderSize.width, y: annotation.origin.y * renderSize.height, width: boxSize.width, height: boxSize.height)
+            box.backgroundColor = annotation.backgroundColor.withAlphaComponent(0.9).cgColor
+            box.cornerRadius = padding
+            let textLayer = CATextLayer()
+            textLayer.frame = CGRect(x: padding, y: padding - 1, width: boxSize.width - padding * 2, height: boxSize.height - padding * 2)
+            textLayer.string = annotation.text
+            textLayer.font = CTFontCreateWithName(font.fontName as CFString, fontSize, nil)
+            textLayer.fontSize = fontSize
+            textLayer.foregroundColor = annotation.textColor.cgColor
+            textLayer.alignmentMode = .left
+            textLayer.contentsScale = 2
+            box.addSublayer(textLayer)
+            parentLayer.addSublayer(box)
+        }
+        composition.animationTool = AVVideoCompositionCoreAnimationTool(postProcessingAsVideoLayer: videoLayer, in: parentLayer)
+        _ = videoTrack
+        return composition
+    }
+
+}
+
+private enum RecordingTextColorTarget { case text, background }
+
+private struct RecordingTextAnnotation {
+    var text: String
+    var origin: CGPoint // normalized, bottom-left corner of the text background
+    var fontRatio: CGFloat
+    var textColor: NSColor
+    var backgroundColor: NSColor
+}
+
+@MainActor
+private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
+    static let palette: [NSColor] = [.systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple, .white, .black]
+    let videoSize: CGSize
+    var textMode = false { didSet { needsDisplay = true } }
+    var textColor: NSColor = .white { didSet { updateActiveTextStyle(); recolorSelected() } }
+    var backgroundColor: NSColor = .systemRed { didSet { updateActiveTextStyle(); recolorSelected() } }
+    var textFontSize: CGFloat = 18 { didSet { updateActiveTextStyle(); resizeActiveTextView() } }
+    var onAnnotationsChanged: (() -> Void)?
+    private(set) var annotations: [RecordingTextAnnotation] = [] { didSet { needsDisplay = true; onAnnotationsChanged?() } }
+    private var selectedIndex: Int?
+    private var activeTextView: NSTextView?
+    private var activeAnchor: CGPoint?
+    private var movingIndex: Int?
+    private var moveStart: CGPoint?
+
+    init(frame: CGRect, videoSize: CGSize) {
+        self.videoSize = videoSize
+        super.init(frame: frame)
+        wantsLayer = true
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override var acceptsFirstResponder: Bool { true }
+
+    private var videoRect: CGRect {
+        let scale = min(bounds.width / max(videoSize.width, 1), bounds.height / max(videoSize.height, 1))
+        let size = CGSize(width: videoSize.width * scale, height: videoSize.height * scale)
+        return CGRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2, width: size.width, height: size.height)
+    }
+    private var fontRatio: CGFloat { textFontSize / max(videoRect.width, 1) }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard activeTextView == nil else { return }
+        if let index = annotationIndex(at: point) {
+            selectedIndex = index; movingIndex = index; moveStart = point; needsDisplay = true; return
+        }
+        guard textMode, videoRect.contains(point) else { selectedIndex = nil; needsDisplay = true; return }
+        beginTextInput(at: point)
+    }
+    override func mouseDragged(with event: NSEvent) {
+        guard let index = movingIndex, let start = moveStart else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        let dx = (point.x - start.x) / max(videoRect.width, 1)
+        let dy = (point.y - start.y) / max(videoRect.height, 1)
+        annotations[index].origin.x = min(max(0, annotations[index].origin.x + dx), 1)
+        annotations[index].origin.y = min(max(0, annotations[index].origin.y + dy), 1)
+        moveStart = point
+    }
+    override func mouseUp(with event: NSEvent) { movingIndex = nil; moveStart = nil }
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 51 || event.keyCode == 117, let selectedIndex { annotations.remove(at: selectedIndex); self.selectedIndex = nil }
+        else { super.keyDown(with: event) }
+    }
+
+    private func beginTextInput(at point: CGPoint) {
+        let textView = NSTextView(frame: CGRect(x: point.x, y: point.y, width: 24, height: 24))
+        textView.isRichText = false; textView.drawsBackground = false; textView.isHorizontallyResizable = false; textView.isVerticallyResizable = false
+        textView.textContainer?.lineFragmentPadding = 0; textView.textContainer?.maximumNumberOfLines = 1; textView.textContainer?.lineBreakMode = .byClipping
+        textView.delegate = self; textView.wantsLayer = true
+        addSubview(textView)
+        activeTextView = textView; activeAnchor = point
+        updateActiveTextStyle(); window?.makeFirstResponder(textView)
+    }
+    func textDidChange(_ notification: Notification) { resizeActiveTextView() }
+    func textDidEndEditing(_ notification: Notification) { commitActiveText() }
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) { commitActiveText(); window?.makeFirstResponder(self); return true }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) { discardActiveText(); window?.makeFirstResponder(self); return true }
+        return false
+    }
+    private func updateActiveTextStyle() {
+        guard let textView = activeTextView else { return }
+        textView.font = .systemFont(ofSize: textFontSize, weight: .semibold); textView.textColor = textColor; textView.insertionPointColor = textColor
+        textView.layer?.backgroundColor = backgroundColor.withAlphaComponent(0.9).cgColor; textView.layer?.cornerRadius = textFontSize * 0.35
+    }
+    private func resizeActiveTextView() {
+        guard let textView = activeTextView, let anchor = activeAnchor else { return }
+        let font = NSFont.systemFont(ofSize: textFontSize, weight: .semibold)
+        let width = NSAttributedString(string: textView.string, attributes: [.font: font]).size().width
+        let padding = textFontSize * 0.35
+        let height = ceil(NSLayoutManager().defaultLineHeight(for: font) + padding * 2)
+        textView.frame = CGRect(x: anchor.x, y: anchor.y, width: min(max(width + padding * 2, padding * 2 + 2), videoRect.maxX - anchor.x), height: height)
+        textView.textContainerInset = CGSize(width: padding, height: padding)
+    }
+    private func commitActiveText() {
+        guard let textView = activeTextView, let anchor = activeAnchor else { return }
+        let text = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty {
+            let origin = CGPoint(x: (anchor.x - videoRect.minX) / videoRect.width, y: (anchor.y - videoRect.minY) / videoRect.height)
+            annotations.append(RecordingTextAnnotation(text: text, origin: origin, fontRatio: fontRatio, textColor: textColor, backgroundColor: backgroundColor))
+            selectedIndex = annotations.count - 1
+        }
+        textView.removeFromSuperview(); activeTextView = nil; activeAnchor = nil
+    }
+    private func discardActiveText() { activeTextView?.removeFromSuperview(); activeTextView = nil; activeAnchor = nil }
+    private func recolorSelected() {
+        guard let selectedIndex, annotations.indices.contains(selectedIndex) else { return }
+        annotations[selectedIndex].textColor = textColor; annotations[selectedIndex].backgroundColor = backgroundColor; annotations[selectedIndex].fontRatio = fontRatio
+    }
+    private func annotationRect(_ annotation: RecordingTextAnnotation) -> CGRect {
+        let fontSize = annotation.fontRatio * videoRect.width; let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+        let textSize = NSAttributedString(string: annotation.text, attributes: [.font: font]).size(); let padding = fontSize * 0.35
+        return CGRect(x: videoRect.minX + annotation.origin.x * videoRect.width, y: videoRect.minY + annotation.origin.y * videoRect.height, width: textSize.width + padding * 2, height: NSLayoutManager().defaultLineHeight(for: font) + padding * 2)
+    }
+    private func annotationIndex(at point: CGPoint) -> Int? { annotations.indices.reversed().first { annotationRect(annotations[$0]).insetBy(dx: -8, dy: -8).contains(point) } }
+    override func draw(_ dirtyRect: NSRect) {
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        for (index, annotation) in annotations.enumerated() {
+            let rect = annotationRect(annotation); let font = NSFont.systemFont(ofSize: annotation.fontRatio * videoRect.width, weight: .semibold); let padding = font.pointSize * 0.35
+            annotation.backgroundColor.withAlphaComponent(0.9).setFill(); NSBezierPath(roundedRect: rect, xRadius: padding, yRadius: padding).fill()
+            NSAttributedString(string: annotation.text, attributes: [.font: font, .foregroundColor: annotation.textColor]).draw(at: CGPoint(x: rect.minX + padding, y: rect.minY + padding))
+            if index == selectedIndex { NSColor.systemBlue.setStroke(); let path = NSBezierPath(rect: rect.insetBy(dx: -2, dy: -2)); path.lineWidth = 1.5; path.stroke() }
+        }
+        _ = context
+    }
 }
 
 @MainActor
