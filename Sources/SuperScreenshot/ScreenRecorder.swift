@@ -17,7 +17,6 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
     let queue = DispatchQueue(label: "com.lion.superscreenshot.record.writer")
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
-    private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var audioInput: AVAssetWriterInput?
     private var started = false
     private var errorDescription: String?
@@ -27,7 +26,6 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
         // a completed writer's state into the next session.
         writer = nil
         videoInput = nil
-        pixelBufferAdaptor = nil
         audioInput = nil
         started = false
         errorDescription = nil
@@ -62,15 +60,6 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
         writer.add(video)
         self.writer = writer
         videoInput = video
-        pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: video,
-            sourcePixelBufferAttributes: [
-                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                kCVPixelBufferWidthKey as String: width,
-                kCVPixelBufferHeightKey as String: height,
-                kCVPixelBufferIOSurfacePropertiesKey as String: [:]
-            ]
-        )
         if includesAudio {
             let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -94,11 +83,11 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
         guard writer.status == .writing else { return }
         switch type {
         case .screen where videoInput?.isReadyForMoreMediaData == true:
-            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                errorDescription = "录屏帧不包含图像数据"
-                return
-            }
-            let accepted = pixelBufferAdaptor?.append(pixelBuffer, withPresentationTime: sampleBuffer.presentationTimeStamp) ?? false
+            // Preserve ScreenCaptureKit's original sample buffer instead of
+            // extracting only its pixel buffer and rebuilding it through an
+            // adaptor. This keeps the source frame's color attachments and
+            // avoids an unnecessary BGRA re-wrap before H.264 encoding.
+            let accepted = videoInput?.append(sampleBuffer) ?? false
             if !accepted {
                 errorDescription = writer.error?.localizedDescription ?? "视频编码器拒绝了屏幕帧"
             }
