@@ -4,6 +4,21 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>SuperScreenshot 2.0.43</title>
+            <pubDate>Wed, 22 Jul 2026 18:00:00 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>243</sparkle:version>
+            <sparkle:shortVersionString>2.0.43</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 2.0.43
+
+- 支持开始录屏前调整录制区域，并补齐八个调整点及鼠标命中容错。
+- 调整区域时录屏工具栏自动跟随；手动移动工具栏后保留用户位置。
+- 返回截图保留最终区域，录屏编辑时长向上取整显示。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.43/SuperScreenshot-v2.0.43-Universal.zip" length="3007134" type="application/octet-stream" sparkle:edSignature="/+C/yPsxl2DKdUOWr35rUdvgcJArnGozjtv1KIA777S0v2/FvdmPStdjgWZf1jiBsChC9HCSo/QnWOD9DMZeDg=="></enclosure>
+        </item>
+        <item>
             <title>SuperScreenshot 2.0.36</title>
             <pubDate>Wed, 22 Jul 2026 17:10:00 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -47,6 +62,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: SBG6o6oR8D51sTCkYL68uh5wZGzAexBKNyBRSTpyLYmri540CWKcjp+Xs//E4LzLSbHexQOwpmfX9vRWQMeqDg==
-length: 3307
+edSignature: XtAkcfVdDziWfuYEpOS8kffs68hZge9o2SrAMA6HAiM7rIvgTPTgYUUpBNWY+gi7YcysMFYYrhOKRQPu3BYjCA==
+length: 4394
 -->
