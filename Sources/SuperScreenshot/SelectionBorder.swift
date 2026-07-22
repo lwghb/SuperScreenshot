@@ -23,7 +23,11 @@ final class SelectionBorderController {
     func show() {
         let thickness: CGFloat = 4
         let glowInset: CGFloat = 8
-        let frame = selection.insetBy(dx: -(thickness / 2 + glowInset), dy: -(thickness / 2 + glowInset))
+        let visualInset = thickness / 2 + glowInset
+        // The editable border needs a full 20pt hit band on both sides of
+        // the visible line, matching the screenshot editor's resize handles.
+        let interactionInset: CGFloat = editable ? 20 : visualInset
+        let frame = selection.insetBy(dx: -interactionInset, dy: -interactionInset)
         let panel = NSPanel(
             contentRect: frame,
             styleMask: .borderless,
@@ -42,7 +46,7 @@ final class SelectionBorderController {
         panel.contentView = SelectionBorderView(
             frame: CGRect(origin: .zero, size: frame.size),
             thickness: thickness,
-            inset: thickness / 2 + glowInset,
+            inset: interactionInset,
             editable: editable,
             selection: selection,
             onResize: { [weak self] selection in
@@ -75,7 +79,9 @@ final class SelectionBorderController {
         (window?.contentView as? SelectionBorderView)?.setSelection(updated)
         let thickness: CGFloat = 4
         let glowInset: CGFloat = 8
-        let frame = updated.insetBy(dx: -(thickness / 2 + glowInset), dy: -(thickness / 2 + glowInset))
+        let visualInset = thickness / 2 + glowInset
+        let interactionInset: CGFloat = editable ? 20 : visualInset
+        let frame = updated.insetBy(dx: -interactionInset, dy: -interactionInset)
         window?.setFrame(frame, display: true)
         onSelectionChanged?(updated)
     }
