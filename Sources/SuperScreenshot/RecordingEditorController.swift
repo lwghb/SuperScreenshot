@@ -43,6 +43,17 @@ final class RecordingEditorController: NSObject {
         preview.videoGravity = .resizeAspect
         content.addSubview(preview)
 
+        let settingsBadge = NSTextField(labelWithString: String(format: "%d FPS · %.1f Mbps", frameRate, Double(bitRate) / 1_000_000))
+        settingsBadge.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        settingsBadge.textColor = .white
+        settingsBadge.alignment = .center
+        settingsBadge.wantsLayer = true
+        settingsBadge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.68).cgColor
+        settingsBadge.layer?.cornerRadius = 5
+        settingsBadge.layer?.masksToBounds = true
+        settingsBadge.frame = CGRect(x: 664, y: 174, width: 120, height: 22)
+        content.addSubview(settingsBadge)
+
         let caption = NSTextField(labelWithString: L("拖动起点和终点，选择需要保留的录屏片段"))
         caption.font = .systemFont(ofSize: 13)
         caption.textColor = .secondaryLabelColor

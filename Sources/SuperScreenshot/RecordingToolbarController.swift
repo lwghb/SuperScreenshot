@@ -47,6 +47,7 @@ final class RecordingToolbarController: NSObject {
     private var timer: Timer?
     private var startedAt: Date?
     private let timerLabel = NSTextField(labelWithString: "00:00")
+    private let recordingSettingsLabel = NSTextField(labelWithString: "")
     private let startButton = RecordingStopButton(title: L("开始录屏"), target: nil, action: nil)
     private weak var backButton: NSButton?
     private weak var frameRateControl: NSSegmentedControl?
@@ -133,8 +134,13 @@ final class RecordingToolbarController: NSObject {
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
         timerLabel.isHidden = true
         timerLabel.alignment = .right
-        timerLabel.frame = CGRect(x: 70, y: 17, width: 94, height: 30)
-        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(fpsLabel); content.addSubview(frameRate); content.addSubview(bitrateLabel); content.addSubview(bitrateValue); content.addSubview(bitrateEstimate); content.addSubview(bitrateSlider); content.addSubview(startButton)
+        timerLabel.frame = CGRect(x: 70, y: 23, width: 94, height: 30)
+        recordingSettingsLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        recordingSettingsLabel.textColor = .secondaryLabelColor
+        recordingSettingsLabel.alignment = .right
+        recordingSettingsLabel.isHidden = true
+        recordingSettingsLabel.frame = CGRect(x: 48, y: 10, width: 116, height: 14)
+        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(recordingSettingsLabel); content.addSubview(fpsLabel); content.addSubview(frameRate); content.addSubview(bitrateLabel); content.addSubview(bitrateValue); content.addSubview(bitrateEstimate); content.addSubview(bitrateSlider); content.addSubview(startButton)
         panel.contentView = content
         contentView = content
         self.panel = panel
@@ -175,6 +181,8 @@ final class RecordingToolbarController: NSObject {
             default: rate = .standard
             }
             let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), 6)
+            recordingSettingsLabel.stringValue = String(format: "%d FPS · %.1f Mbps", rate.rawValue, value)
+            recordingSettingsLabel.isHidden = false
             onStart?(rate, Int((value * 1_000_000).rounded()))
         } else { onStop?() }
     }
@@ -223,6 +231,7 @@ final class RecordingToolbarController: NSObject {
         startButton.usesStopStyle = false
         startButton.attributedTitle = NSAttributedString(string: L("开始录屏"))
         timerLabel.isHidden = true
+        recordingSettingsLabel.isHidden = true
         backButton?.isHidden = false
         frameRateControl?.isHidden = false
         bitRateSlider?.isHidden = false
