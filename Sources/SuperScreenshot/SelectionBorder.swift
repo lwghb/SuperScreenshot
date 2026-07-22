@@ -91,6 +91,7 @@ private final class SelectionBorderView: NSView {
     private var activeEdges = Set<ResizeEdge>()
     private var dragStartPoint: CGPoint?
     private var dragStartSelection: CGRect?
+    private var trackingAreaRef: NSTrackingArea?
 
     init(
         frame: CGRect,
@@ -122,10 +123,66 @@ private final class SelectionBorderView: NSView {
         NSColor.systemRed.setStroke()
         path.lineWidth = thickness
         path.stroke()
+
+        // Match the screenshot editor's resize affordance: a small white
+        // circular knob with a colored outline at every corner.
+        guard editable else { return }
+        let rect = bounds.insetBy(dx: inset, dy: inset)
+        for point in [
+            CGPoint(x: rect.minX, y: rect.minY),
+            CGPoint(x: rect.maxX, y: rect.minY),
+            CGPoint(x: rect.minX, y: rect.maxY),
+            CGPoint(x: rect.maxX, y: rect.maxY)
+        ] {
+            let knob = CGRect(x: point.x - 4, y: point.y - 4, width: 8, height: 8)
+            NSColor.white.setFill()
+            NSBezierPath(ovalIn: knob).fill()
+            NSColor.systemRed.setStroke()
+            let outline = NSBezierPath(ovalIn: knob.insetBy(dx: 0.5, dy: 0.5))
+            outline.lineWidth = 2
+            outline.stroke()
+        }
     }
 
     func setSelection(_ selection: CGRect) {
         self.selection = selection
+        needsDisplay = true
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingAreaRef { removeTrackingArea(trackingAreaRef) }
+        guard editable else { return }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .inVisibleRect, .mouseMoved, .cursorUpdate],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingAreaRef = area
+    }
+
+    override func cursorUpdate(with event: NSEvent) { updateCursor(for: event) }
+    override func mouseMoved(with event: NSEvent) { updateCursor(for: event) }
+
+    private func updateCursor(for event: NSEvent) {
+        guard editable, let window else { return }
+        let point = window.convertPoint(toScreen: event.locationInWindow)
+        let tolerance: CGFloat = 20
+        let nearLeft = abs(point.x - selection.minX) <= tolerance
+        let nearRight = abs(point.x - selection.maxX) <= tolerance
+        let nearBottom = abs(point.y - selection.minY) <= tolerance
+        let nearTop = abs(point.y - selection.maxY) <= tolerance
+        if (nearLeft || nearRight) && (nearBottom || nearTop) {
+            NSCursor.crosshair.set()
+        } else if nearLeft || nearRight {
+            NSCursor.resizeLeftRight.set()
+        } else if nearBottom || nearTop {
+            NSCursor.resizeUpDown.set()
+        } else {
+            NSCursor.arrow.set()
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
