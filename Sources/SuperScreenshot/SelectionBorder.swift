@@ -138,8 +138,12 @@ private final class SelectionBorderView: NSView {
         let rect = bounds.insetBy(dx: inset, dy: inset)
         for point in [
             CGPoint(x: rect.minX, y: rect.minY),
+            CGPoint(x: rect.midX, y: rect.minY),
             CGPoint(x: rect.maxX, y: rect.minY),
+            CGPoint(x: rect.minX, y: rect.midY),
+            CGPoint(x: rect.maxX, y: rect.midY),
             CGPoint(x: rect.minX, y: rect.maxY),
+            CGPoint(x: rect.midX, y: rect.maxY),
             CGPoint(x: rect.maxX, y: rect.maxY)
         ] {
             let knob = CGRect(x: point.x - 4, y: point.y - 4, width: 8, height: 8)

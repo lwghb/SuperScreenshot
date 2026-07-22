@@ -331,11 +331,17 @@ final class CaptureCoordinator: ObservableObject {
                         guard let self else { return }
                         self.recordingToolbar?.dismissForBack { [weak self] in
                             guard let self else { return }
+                            let finalSelection = self.recordingSelection ?? selection
+                            let finalImage = fullScreenImage.flatMap {
+                                ScreenCapture.crop($0, to: finalSelection, on: screen)
+                            } ?? image
                             self.recordingToolbar = nil
                             self.longSelectionBorder?.close()
                             self.longSelectionBorder = nil
                             self.recordingSelection = nil
-                            self.presentDirectAnnotation(image: image, rect: selection, screen: screen)
+                            // Return to the editor with the latest recording
+                            // rectangle, not the rectangle from before resize.
+                            self.presentDirectAnnotation(image: finalImage, rect: finalSelection, screen: screen)
                         }
                     }
                     toolbar.show(in: screen, below: selection, from: sourceFrame)
@@ -345,6 +351,7 @@ final class CaptureCoordinator: ObservableObject {
                         allowedFrame: screen.frame,
                         onSelectionChanged: { [weak self] updatedSelection in
                             self?.recordingSelection = updatedSelection
+                            self?.recordingToolbar?.followSelectionIfNeeded(updatedSelection, on: screen)
                         }
                     )
                     self.longSelectionBorder = border

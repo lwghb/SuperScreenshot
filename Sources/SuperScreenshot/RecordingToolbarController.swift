@@ -39,7 +39,13 @@ private final class RecordingStopButton: NSButton {
 }
 
 private final class DraggableRecordingToolbarView: NSVisualEffectView {
+    var onManualMoveBegan: (() -> Void)?
     override var mouseDownCanMoveWindow: Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        onManualMoveBegan?()
+        super.mouseDown(with: event)
+    }
 }
 
 @MainActor
@@ -66,9 +72,11 @@ final class RecordingToolbarController: NSObject {
     private var visibleFrame = CGRect.zero
     private var recordingPixelSize = CGSize.zero
     private var maximumBitRateMbps = 6.0
+    private var hasUserPositionedToolbar = false
 
     func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
         let size = CGSize(width: 480, height: 104)
+        hasUserPositionedToolbar = false
         visibleFrame = screen.visibleFrame
         if let displayID = ScreenCapture.displayID(for: screen) {
             let xScale = CGFloat(CGDisplayPixelsWide(displayID)) / screen.frame.width
@@ -92,6 +100,7 @@ final class RecordingToolbarController: NSObject {
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
         let content = DraggableRecordingToolbarView(frame: CGRect(origin: .zero, size: size))
+        content.onManualMoveBegan = { [weak self] in self?.hasUserPositionedToolbar = true }
         content.material = .hudWindow
         content.blendingMode = .withinWindow
         content.state = .active
@@ -180,6 +189,29 @@ final class RecordingToolbarController: NSObject {
                 panel.animator().setFrame(frame, display: true)
             }
         }
+    }
+
+    /// Follows the editable recording border until the user manually moves
+    /// this toolbar. A manual position is then respected for the session.
+    func followSelectionIfNeeded(_ selection: CGRect, on screen: NSScreen) {
+        guard !hasUserPositionedToolbar, let panel, startedAt == nil else { return }
+        visibleFrame = screen.visibleFrame
+        if let displayID = ScreenCapture.displayID(for: screen) {
+            let xScale = CGFloat(CGDisplayPixelsWide(displayID)) / screen.frame.width
+            let yScale = CGFloat(CGDisplayPixelsHigh(displayID)) / screen.frame.height
+            recordingPixelSize = CGSize(width: (selection.width * xScale).rounded(.up), height: (selection.height * yScale).rounded(.up))
+        } else {
+            recordingPixelSize = CGSize(width: (selection.width * screen.backingScaleFactor).rounded(.up), height: (selection.height * screen.backingScaleFactor).rounded(.up))
+        }
+        updateBitRateRange()
+        updateBitRateEstimate()
+        let size = panel.frame.size
+        var x = selection.midX - size.width / 2
+        x = min(max(x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8)
+        var y = selection.minY - size.height - 12
+        if y < screen.visibleFrame.minY + 8 { y = selection.maxY + 12 }
+        y = min(max(y, screen.visibleFrame.minY + 8), screen.visibleFrame.maxY - size.height - 8)
+        panel.setFrame(CGRect(x: x, y: y, width: size.width, height: size.height), display: true)
     }
 
     @objc private func toggle() {
