@@ -1,4 +1,5 @@
 import AVFoundation
+import VideoToolbox
 @preconcurrency import ScreenCaptureKit
 
 enum RecordingFrameRate: Int, CaseIterable {
@@ -48,7 +49,12 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
                 // of treating every live frame independently. Screen UI is
                 // often static, so this improves edge fidelity without
                 // changing the selected FPS or capture resolution.
-                AVVideoAllowFrameReorderingKey: true
+                AVVideoAllowFrameReorderingKey: true,
+                // These VideoToolbox properties are intentionally explicit:
+                // screen recording favours visual fidelity over encoding
+                // throughput whenever the hardware encoder permits it.
+                kVTCompressionPropertyKey_Quality as String: 0.9,
+                kVTCompressionPropertyKey_PrioritizeEncodingSpeedOverQuality as String: false
             ],
             AVVideoColorPropertiesKey: [
                 AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
