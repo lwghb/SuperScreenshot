@@ -44,7 +44,7 @@ final class RecordingEditorController: NSObject {
 
     func show() {
         duration = max(asset.duration.seconds, 0.1)
-        let size = CGSize(width: 820, height: 620)
+        let size = CGSize(width: 820, height: 680)
         let panel = NSPanel(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         panel.title = L("编辑录屏")
         panel.isReleasedWhenClosed = false
@@ -59,7 +59,7 @@ final class RecordingEditorController: NSObject {
         panel.level = .floating
 
         let content = NSView(frame: CGRect(origin: .zero, size: size))
-        let preview = AVPlayerView(frame: CGRect(x: 24, y: 194, width: 772, height: 400))
+        let preview = AVPlayerView(frame: CGRect(x: 24, y: 260, width: 772, height: 400))
         preview.player = player
         preview.controlsStyle = .none
         preview.videoGravity = .resizeAspect
@@ -72,7 +72,7 @@ final class RecordingEditorController: NSObject {
         content.addSubview(annotationOverlay)
         annotationOverlayView = annotationOverlay
 
-        let annotationToolbarBackground = NSVisualEffectView(frame: CGRect(x: 16, y: 106, width: 788, height: 78))
+        let annotationToolbarBackground = NSVisualEffectView(frame: CGRect(x: 16, y: 74, width: 788, height: 100))
         annotationToolbarBackground.material = .hudWindow
         annotationToolbarBackground.blendingMode = .withinWindow
         annotationToolbarBackground.state = .active
@@ -88,27 +88,27 @@ final class RecordingEditorController: NSObject {
         let caption = NSTextField(labelWithString: L("拖动起点和终点，选择需要保留的录屏片段"))
         caption.font = .systemFont(ofSize: 12)
         caption.textColor = .secondaryLabelColor
-        caption.frame = CGRect(x: 32, y: 48, width: 440, height: 18)
+        caption.frame = CGRect(x: 32, y: 188, width: 440, height: 18)
         content.addSubview(caption)
 
         settingsBadge.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         settingsBadge.textColor = .secondaryLabelColor
         settingsBadge.alignment = .right
-        settingsBadge.frame = CGRect(x: 518, y: 48, width: 278, height: 18)
+        settingsBadge.frame = CGRect(x: 518, y: 188, width: 278, height: 18)
         settingsBadge.autoresizingMask = [.minXMargin]
         recordingInfoLabel = settingsBadge
         content.addSubview(settingsBadge)
 
         let addAnnotation = NSButton(title: L("添加标注"), target: self, action: #selector(beginAnnotationEditing))
         addAnnotation.bezelStyle = .rounded
-        addAnnotation.frame = CGRect(x: 350, y: 145, width: 120, height: 34)
+        addAnnotation.frame = CGRect(x: 350, y: 116, width: 120, height: 34)
         content.addSubview(addAnnotation)
         addAnnotationButton = addAnnotation
 
         let textTool = NSButton(title: "T", target: self, action: #selector(useTextTool))
         textTool.bezelStyle = .texturedRounded
         textTool.font = .boldSystemFont(ofSize: 16)
-        textTool.frame = CGRect(x: 32, y: 150, width: 76, height: 26)
+        textTool.frame = CGRect(x: 180, y: 140, width: 34, height: 34)
         textTool.frame.size.width = 40
         content.addSubview(textTool)
         textToolButton = textTool
@@ -116,14 +116,14 @@ final class RecordingEditorController: NSObject {
 
         let textColor = NSButton(title: L("字色"), target: self, action: #selector(pickTextColor))
         textColor.bezelStyle = .rounded
-        textColor.frame = CGRect(x: 114, y: 150, width: 54, height: 26)
+        textColor.frame = CGRect(x: 174, y: 96, width: 54, height: 26)
         content.addSubview(textColor)
         textColorButton = textColor
         annotationToolbarViews.append(textColor)
 
         let background = NSButton(title: L("背景"), target: self, action: #selector(pickTextBackground))
         background.bezelStyle = .rounded
-        background.frame = CGRect(x: 174, y: 150, width: 54, height: 26)
+        background.frame = CGRect(x: 234, y: 96, width: 54, height: 26)
         content.addSubview(background)
         textBackgroundButton = background
         annotationToolbarViews.append(background)
@@ -131,24 +131,24 @@ final class RecordingEditorController: NSObject {
         let sizeLabel = NSTextField(labelWithString: L("字号"))
         sizeLabel.font = .systemFont(ofSize: 12)
         sizeLabel.textColor = .secondaryLabelColor
-        sizeLabel.frame = CGRect(x: 238, y: 154, width: 34, height: 18)
+        sizeLabel.frame = CGRect(x: 32, y: 100, width: 34, height: 18)
         content.addSubview(sizeLabel)
         annotationToolbarViews.append(sizeLabel)
         let fontSize = NSSlider(value: 18, minValue: 12, maxValue: 48, target: self, action: #selector(changeTextFontSize(_:)))
-        fontSize.frame = CGRect(x: 272, y: 151, width: 84, height: 22)
+        fontSize.frame = CGRect(x: 68, y: 97, width: 96, height: 22)
         content.addSubview(fontSize)
         fontSizeSlider = fontSize
         annotationToolbarViews.append(fontSize)
 
         let undo = NSButton(title: L("撤销"), target: self, action: #selector(undoText))
         undo.bezelStyle = .rounded
-        undo.frame = CGRect(x: 610, y: 150, width: 54, height: 26)
+        undo.frame = CGRect(x: 78, y: 140, width: 54, height: 34)
         content.addSubview(undo)
         undoTextButton = undo
         annotationToolbarViews.append(undo)
         let delete = NSButton(title: L("删除"), target: self, action: #selector(deleteText))
         delete.bezelStyle = .rounded
-        delete.frame = CGRect(x: 670, y: 150, width: 54, height: 26)
+        delete.frame = CGRect(x: 32, y: 140, width: 40, height: 34)
         content.addSubview(delete)
         deleteTextButton = delete
         annotationToolbarViews.append(delete)
@@ -158,7 +158,7 @@ final class RecordingEditorController: NSObject {
             let button = NSButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage(), target: self, action: #selector(useAnnotationTool(_:)))
             button.tag = mode.rawValue
             button.bezelStyle = .texturedRounded
-            button.frame = CGRect(x: 368 + CGFloat(index) * 48, y: 150, width: 40, height: 26)
+            button.frame = CGRect(x: 222 + CGFloat(index) * 42, y: 140, width: 34, height: 34)
             content.addSubview(button)
             annotationToolbarViews.append(button)
         }
@@ -168,7 +168,7 @@ final class RecordingEditorController: NSObject {
             button.tag = index
             button.bezelStyle = .regularSquare
             button.isBordered = false
-            button.frame = CGRect(x: 32 + CGFloat(index) * 34, y: 116, width: 26, height: 26)
+            button.frame = CGRect(x: 300 + CGFloat(index) * 34, y: 96, width: 26, height: 26)
             button.wantsLayer = true
             button.layer?.backgroundColor = color.cgColor
             button.layer?.cornerRadius = 5
@@ -181,13 +181,13 @@ final class RecordingEditorController: NSObject {
         }
         let customColor = NSButton(title: L("自定义颜色"), target: self, action: #selector(showCustomTextColor))
         customColor.bezelStyle = .rounded
-        customColor.frame = CGRect(x: 308, y: 116, width: 84, height: 26)
+        customColor.frame = CGRect(x: 574, y: 96, width: 84, height: 26)
         customColor.isHidden = true
         content.addSubview(customColor)
         colorPaletteButtons.append(customColor)
         annotationToolbarViews.append(customColor)
 
-        let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 76, width: 764, height: 38))
+        let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 214, width: 764, height: 38))
         trimRange.duration = duration
         trimRange.end = duration
         trimRange.autoresizingMask = [.width]
@@ -202,12 +202,12 @@ final class RecordingEditorController: NSObject {
 
         let save = NSButton(title: L("保存"), target: self, action: #selector(save))
         save.bezelStyle = .rounded
-        save.frame = CGRect(x: 558, y: 18, width: 108, height: 32)
+        save.frame = CGRect(x: 558, y: 22, width: 108, height: 32)
         save.autoresizingMask = [.minXMargin]
         let copy = NSButton(title: L("复制到剪贴板"), target: self, action: #selector(copyToPasteboard))
         copy.bezelStyle = .rounded
         copy.keyEquivalent = "\r"
-        copy.frame = CGRect(x: 678, y: 18, width: 118, height: 32)
+        copy.frame = CGRect(x: 678, y: 22, width: 118, height: 32)
         copy.autoresizingMask = [.minXMargin]
         content.addSubview(save)
         content.addSubview(copy)
@@ -218,11 +218,11 @@ final class RecordingEditorController: NSObject {
         progressLabel.alignment = .right
         progressLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         progressLabel.textColor = .secondaryLabelColor
-        progressLabel.frame = CGRect(x: 328, y: 25, width: 216, height: 18)
+        progressLabel.frame = CGRect(x: 328, y: 29, width: 216, height: 18)
         progressLabel.isHidden = true
         content.addSubview(progressLabel)
         exportProgressLabel = progressLabel
-        let progress = NSProgressIndicator(frame: CGRect(x: 328, y: 18, width: 216, height: 4))
+        let progress = NSProgressIndicator(frame: CGRect(x: 328, y: 22, width: 216, height: 4))
         progress.isIndeterminate = false
         progress.minValue = 0
         progress.maxValue = 1
