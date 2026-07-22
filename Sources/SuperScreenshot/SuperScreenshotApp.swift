@@ -67,10 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateStatusItem(recording: Bool) {
         guard let button = statusItem.button else { return }
         if recording {
-            let image = NSImage(systemSymbolName: "stop.circle.fill", accessibilityDescription: L("结束录屏"))
-            image?.isTemplate = false
-            button.image = image
-            button.contentTintColor = .systemRed
+            button.image = recordingStopImage()
+            button.contentTintColor = nil
             button.toolTip = L("结束录屏")
             button.target = self
             button.action = #selector(stopRecordingFromStatusItem)
@@ -83,6 +81,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             button.action = nil
             statusItem.menu = statusMenu
         }
+    }
+
+    private func recordingStopImage() -> NSImage {
+        let image = NSImage(size: CGSize(width: 22, height: 22))
+        image.lockFocus()
+        let circle = NSRect(x: 1, y: 1, width: 20, height: 20)
+        NSColor.systemRed.setFill()
+        NSBezierPath(ovalIn: circle).fill()
+        NSColor.white.withAlphaComponent(0.9).setStroke()
+        let outline = NSBezierPath(ovalIn: circle.insetBy(dx: 0.75, dy: 0.75))
+        outline.lineWidth = 1.5
+        outline.stroke()
+        NSColor.white.setFill()
+        NSBezierPath(roundedRect: NSRect(x: 7, y: 7, width: 8, height: 8), xRadius: 1.5, yRadius: 1.5).fill()
+        image.unlockFocus()
+        image.isTemplate = false
+        return image
     }
 
     func menuWillOpen(_ menu: NSMenu) { updateShortcutTitle() }
