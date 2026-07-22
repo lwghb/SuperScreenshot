@@ -1,7 +1,21 @@
-<?xml version="1.0" standalone="yes"?>
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>SuperScreenshot</title>
+        <item>
+            <title>SuperScreenshot 2.0.36</title>
+            <pubDate>Wed, 22 Jul 2026 17:10:00 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>236</sparkle:version>
+            <sparkle:shortVersionString>2.0.36</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 2.0.36
+
+- 修复截图编辑中撤销按钮不会随标注状态启用的问题。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.36/SuperScreenshot-v2.0.36-Universal.zip" length="2987639" type="application/octet-stream" sparkle:edSignature="4FfkAcA7spGiVGPHAM0XyomOENMijX4YfUAZ138WmU3oAuomMtm/G0iyuqLqlegIIxfBDI0+1NTnf6Ul7lb0Ag=="></enclosure>
+        </item>
         <item>
             <title>SuperScreenshot 2.0.35</title>
             <pubDate>Wed, 22 Jul 2026 16:45:00 +0800</pubDate>
@@ -14,7 +28,7 @@
 - 修复录屏裁剪或添加标注后导出可能闪退的问题。
 - 提高游戏画面录制的动态最高码率。
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.35/SuperScreenshot-v2.0.35-Universal.zip" length="2987588" type="application/octet-stream" sparkle:edSignature="FDIL8zGlGcMUWUoEW+LMgNiU2VxfoJMIeaUi5I0YcM3zguSoQKr02XYox0WGhfBimIBLvKizQgDw6SujKXNHCQ=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.35/SuperScreenshot-v2.0.35-Universal.zip" length="2987588" type="application/octet-stream" sparkle:edSignature="FDIL8zGlGcMUWUoEW+LMgNiU2VxfoJMIeaUi5I0YcM3zguSoQKr02XYox0WGhfBimIBLvKizQgDw6SujKXNHCQ=="></enclosure>
         </item>
         <item>
             <title>SuperScreenshot 2.0.21</title>
@@ -29,11 +43,10 @@
 - 可隐藏录制工具栏，并通过菜单栏或截图快捷键停止录制。
 - 改进录制状态提示与结束工具栏定位。
 ]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.21/SuperScreenshot-v2.0.21-Universal.zip" length="2930771" type="application/octet-stream" sparkle:edSignature="4vzdkq8gKQEHEVsZYGvBZMEbyiMUp+kW4oC8vCBaio8ixzO5ngRZvXAZfMvT48P3yXxkM7/4gmvWUI8NfVFECA=="/>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.21/SuperScreenshot-v2.0.21-Universal.zip" length="2930771" type="application/octet-stream" sparkle:edSignature="4vzdkq8gKQEHEVsZYGvBZMEbyiMUp+kW4oC8vCBaio8ixzO5ngRZvXAZfMvT48P3yXxkM7/4gmvWUI8NfVFECA=="></enclosure>
         </item>
     </channel>
-</rss>
-<!-- sparkle-signatures:
-edSignature: Fcdh2hxnHuCpb4XwrYqEFavd4IEDTbaZ4/LEp57m4isal0UHKwWnzY8TZ/36zLgwDI9PepGBQwh1NNi0ZUGYCQ==
-length: 2150
+</rss><!-- sparkle-signatures:
+edSignature: SBG6o6oR8D51sTCkYL68uh5wZGzAexBKNyBRSTpyLYmri540CWKcjp+Xs//E4LzLSbHexQOwpmfX9vRWQMeqDg==
+length: 3307
 -->
