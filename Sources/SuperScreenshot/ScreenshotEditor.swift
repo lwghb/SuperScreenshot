@@ -554,6 +554,8 @@ final class ColoredTitleButton: NSButton {
 final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     var mode: ScreenshotAnnotationMode = .arrow
     var showsImageBorder = true
+    var drawsWorkspace = true
+    var drawsBaseImage = true
     var pendingText: String?
     var strokeColor: NSColor = .systemRed
     var textColor: NSColor = .white { didSet { updateActiveTextFieldStyle() } }
@@ -574,6 +576,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             }
         }
     }
+    var hasAnnotations: Bool { !annotations.isEmpty }
     private var dragStart: CGPoint?
     private var dragEnd: CGPoint?
     private var movingIndex: Int?
@@ -789,24 +792,30 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        // A neutral dark workspace keeps the captured image edge visible for
-        // both light and dark screenshots.
-        NSColor(calibratedWhite: 0.10, alpha: 1).setFill()
-        bounds.fill()
+        if drawsWorkspace {
+            // A neutral dark workspace keeps the captured image edge visible for
+            // both light and dark screenshots.
+            NSColor(calibratedWhite: 0.10, alpha: 1).setFill()
+            bounds.fill()
+        }
         let imageBoundary = NSBezierPath(rect: imageRect)
-        NSGraphicsContext.saveGraphicsState()
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.85)
-        shadow.shadowBlurRadius = 16
-        shadow.shadowOffset = CGSize(width: 0, height: -4)
-        shadow.set()
-        NSColor.black.setFill()
-        imageBoundary.fill()
-        NSGraphicsContext.restoreGraphicsState()
+        if drawsWorkspace {
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.85)
+            shadow.shadowBlurRadius = 16
+            shadow.shadowOffset = CGSize(width: 0, height: -4)
+            shadow.set()
+            NSColor.black.setFill()
+            imageBoundary.fill()
+            NSGraphicsContext.restoreGraphicsState()
+        }
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
         applyImageTransform(context)
-        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        if drawsBaseImage {
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        }
         for annotation in annotations { draw(annotation, in: context) }
         if let selectedIndex, annotations.indices.contains(selectedIndex) {
             drawSelectionHandles(for: annotations[selectedIndex], in: context)
@@ -842,7 +851,9 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
-        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        if drawsBaseImage {
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        }
         for annotation in annotations { draw(annotation, in: context) }
         return context.makeImage()
     }
