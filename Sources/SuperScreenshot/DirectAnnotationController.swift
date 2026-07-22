@@ -92,8 +92,11 @@ final class DirectAnnotationController: NSObject {
         canvasView.onAnnotationDragEnded = { [weak self] point in
             self?.finishDeleteDrop(at: point) ?? false
         }
-        canvasView.onAnnotationAvailabilityChanged = { [weak self] hasAnnotations in
-            self?.deleteDropButton?.isHidden = !hasAnnotations
+        canvasView.onAnnotationAvailabilityChanged = { [weak self] _ in
+            // The shared toolbar owns both the delete and undo enabled state.
+            // Updating only the delete button here left Undo permanently
+            // disabled after the toolbar was introduced.
+            self?.updateToolState()
         }
         self.window = window
         window.makeKeyAndOrderFront(nil)
