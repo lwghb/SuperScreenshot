@@ -232,11 +232,13 @@ final class RecordingToolbarController: NSObject {
         case 2: frameRate = 120
         default: frameRate = 60
         }
-        // H.264 screen content needs about 0.14 bit per pixel per frame for
-        // a high-quality ceiling. The slider remains usable from 1 Mbps and
-        // never offers more than the recorder's 45 Mbps safety ceiling.
-        let calculated = Double(recordingPixelSize.width * recordingPixelSize.height) * frameRate * 0.14 / 1_000_000
-        maximumBitRateMbps = min(45, max(1, (calculated * 10).rounded(.up) / 10))
+        // The previous 0.14 bpppf ceiling is adequate for static desktop UI,
+        // but is too conservative for games and rapidly changing scenes.  The
+        // top slider position now uses a 0.28 bpppf ceiling, while retaining
+        // the 1 Mbps floor for compact clips.  Keep an explicit 60 Mbps cap
+        // to avoid overwhelming the real-time H.264 encoder.
+        let calculated = Double(recordingPixelSize.width * recordingPixelSize.height) * frameRate * 0.28 / 1_000_000
+        maximumBitRateMbps = min(60, max(1, (calculated * 10).rounded(.up) / 10))
         slider.maxValue = maximumBitRateMbps
         slider.doubleValue = min(max(slider.doubleValue, 1), maximumBitRateMbps)
     }
