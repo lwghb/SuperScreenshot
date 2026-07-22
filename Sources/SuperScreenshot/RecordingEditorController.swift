@@ -6,15 +6,19 @@ import AVKit
 final class RecordingEditorController: NSObject {
     private let url: URL
     private let screen: NSScreen
+    private let frameRate: Int
+    private let bitRate: Int
     private let asset: AVURLAsset
     private let player: AVPlayer
     private var panel: NSPanel?
     private var trimRangeView: RecordingTrimRangeView!
     private var duration: Double = 0
 
-    init(url: URL, screen: NSScreen) {
+    init(url: URL, screen: NSScreen, frameRate: Int = 60, bitRate: Int = 1_000_000) {
         self.url = url
         self.screen = screen
+        self.frameRate = frameRate
+        self.bitRate = bitRate
         asset = AVURLAsset(url: url)
         player = AVPlayer(url: url)
     }
@@ -76,7 +80,8 @@ final class RecordingEditorController: NSObject {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd_HHmmss"
-        dialog.nameFieldStringValue = formatter.string(from: Date()) + ".mp4"
+        let bitRateText = String(format: "%.1f", Double(bitRate) / 1_000_000)
+        dialog.nameFieldStringValue = "\(formatter.string(from: Date()))_\(frameRate)fps_\(bitRateText)Mbps.mp4"
         dialog.beginSheetModal(for: panel!) { [weak self] response in
             guard let self, response == .OK, let target = dialog.url else { return }
             self.export(to: target) { result in

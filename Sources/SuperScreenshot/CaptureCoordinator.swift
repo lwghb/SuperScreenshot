@@ -83,6 +83,8 @@ final class CaptureCoordinator: ObservableObject {
     private var screenRecorder: AnyObject?
     private var recordingSelection: CGRect?
     private var recordingScreen: NSScreen?
+    private var recordingFrameRate: RecordingFrameRate = .standard
+    private var recordingBitRate = 1_000_000
     private var recordingToolbar: RecordingToolbarController?
     private var recordingEditor: RecordingEditorController?
 
@@ -188,7 +190,12 @@ final class CaptureCoordinator: ObservableObject {
                     return
                 }
                 self.recordingSelection = nil
-                let editor = RecordingEditorController(url: url, screen: self.recordingScreen ?? NSScreen.main ?? NSScreen.screens[0])
+                let editor = RecordingEditorController(
+                    url: url,
+                    screen: self.recordingScreen ?? NSScreen.main ?? NSScreen.screens[0],
+                    frameRate: self.recordingFrameRate.rawValue,
+                    bitRate: self.recordingBitRate
+                )
                 self.recordingEditor = editor
                 editor.show()
             }
@@ -201,6 +208,8 @@ final class CaptureCoordinator: ObservableObject {
     private func startScreenRecording(on screen: NSScreen?, frameRate: RecordingFrameRate = .standard, bitRate: Int = 1_000_000) {
         guard let screen else { return }
         recordingScreen = screen
+        recordingFrameRate = frameRate
+        recordingBitRate = bitRate
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("superscreenshot-recording-\(UUID().uuidString).mp4")
         let recorder = ScreenRecorder()
