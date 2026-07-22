@@ -312,6 +312,9 @@ final class CaptureCoordinator: ObservableObject {
                     let toolbar = RecordingToolbarController()
                     self.recordingToolbar = toolbar
                     toolbar.onStart = { [weak self] frameRate, bitRate in
+                        // The red outline remains visible while recording, but
+                        // the selection is locked once capture has started.
+                        self?.longSelectionBorder?.lockEditing()
                         self?.startScreenRecording(on: screen, frameRate: frameRate, bitRate: bitRate)
                     }
                     toolbar.onStop = { [weak self, weak toolbar] in
@@ -336,7 +339,14 @@ final class CaptureCoordinator: ObservableObject {
                         }
                     }
                     toolbar.show(in: screen, below: selection, from: sourceFrame)
-                    let border = SelectionBorderController(selection: selection)
+                    let border = SelectionBorderController(
+                        selection: selection,
+                        editable: true,
+                        allowedFrame: screen.frame,
+                        onSelectionChanged: { [weak self] updatedSelection in
+                            self?.recordingSelection = updatedSelection
+                        }
+                    )
                     self.longSelectionBorder = border
                     border.show()
                 }
