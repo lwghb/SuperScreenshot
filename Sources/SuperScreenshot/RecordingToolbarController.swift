@@ -200,7 +200,9 @@ final class RecordingToolbarController: NSObject {
     private func compactForRecording() {
         guard let panel else { return }
         let size = CGSize(width: 360, height: 64)
-        var compact = CGRect(x: panel.frame.midX - size.width / 2, y: panel.frame.minY, width: size.width, height: size.height)
+        // Keep the toolbar's top edge fixed while compacting, so the stop
+        // controls stay in the same visual lane as the recording setup bar.
+        var compact = CGRect(x: panel.frame.midX - size.width / 2, y: panel.frame.maxY - size.height, width: size.width, height: size.height)
         compact.origin.x = min(max(compact.minX, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8)
         compact.origin.y = min(max(compact.minY, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
         NSAnimationContext.runAnimationGroup { context in
