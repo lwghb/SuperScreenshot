@@ -253,8 +253,10 @@ final class RecordingToolbarController: NSObject {
         // The recording controls then appear in exactly the same place,
         // without a transition that could look like an unintended jump.
         var compact = CGRect(x: panel.frame.midX - size.width / 2, y: panel.frame.midY - size.height / 2, width: size.width, height: size.height)
-        compact.origin.x = min(max(compact.minX, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8)
-        compact.origin.y = min(max(compact.minY, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
+        let panelCenter = CGPoint(x: panel.frame.midX, y: panel.frame.midY)
+        let currentScreenFrame = NSScreen.screens.first(where: { $0.frame.contains(panelCenter) })?.visibleFrame ?? visibleFrame
+        compact.origin.x = min(max(compact.minX, currentScreenFrame.minX + 8), currentScreenFrame.maxX - size.width - 8)
+        compact.origin.y = min(max(compact.minY, currentScreenFrame.minY + 8), currentScreenFrame.maxY - size.height - 8)
         panel.setFrame(compact, display: true)
     }
     private func updateTimer() { guard let startedAt else { return }; timerLabel.stringValue = String(format: "%02d:%02d", Int(Date().timeIntervalSince(startedAt)) / 60, Int(Date().timeIntervalSince(startedAt)) % 60) }
