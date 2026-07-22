@@ -42,7 +42,15 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
                 AVVideoAverageBitRateKey: bitRate,
                 AVVideoExpectedSourceFrameRateKey: frameRate,
                 AVVideoMaxKeyFrameIntervalKey: frameRate,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                // CABAC retains more detail at the same target bitrate than
+                // CAVLC, which is especially noticeable on small UI text.
+                AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC,
+                // Let the hardware encoder inspect adjacent frames instead
+                // of treating every live frame independently. Screen UI is
+                // often static, so this improves edge fidelity without
+                // changing the selected FPS or capture resolution.
+                AVVideoAllowFrameReorderingKey: true
             ],
             AVVideoColorPropertiesKey: [
                 AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
