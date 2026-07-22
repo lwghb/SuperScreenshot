@@ -170,7 +170,21 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         button.widthAnchor.constraint(equalToConstant: 34).isActive = true; button.heightAnchor.constraint(equalToConstant: 34).isActive = true
         return button
     }
-    private static func textIcon() -> NSImage { NSImage(systemSymbolName: "textformat", accessibilityDescription: L("文字标注")) ?? NSImage() }
+    private static func textIcon() -> NSImage {
+        let image = NSImage(size: CGSize(width: 18, height: 18), flipped: false) { rect in
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 18, weight: .medium),
+                .foregroundColor: NSColor.labelColor
+            ]
+            let text = NSAttributedString(string: "T", attributes: attributes)
+            let size = text.size()
+            text.draw(at: CGPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2 + 1))
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = L("文字标注")
+        return image
+    }
     private static func mosaicIcon() -> NSImage { NSImage(systemSymbolName: "square.grid.3x3.fill", accessibilityDescription: L("马赛克")) ?? NSImage() }
     private static func colorsMatch(_ lhs: NSColor, _ rhs: NSColor) -> Bool {
         guard let a = lhs.usingColorSpace(.deviceRGB), let b = rhs.usingColorSpace(.deviceRGB) else { return lhs == rhs }

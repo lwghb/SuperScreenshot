@@ -57,12 +57,15 @@ final class RecordingEditorController: NSObject {
         preview.player = player
         preview.controlsStyle = .none
         preview.videoGravity = .resizeAspect
-        preview.autoresizingMask = [.width, .height]
+        // Keep the preview's top edge fixed when the editor is resized.  The
+        // former height-autoresize behaviour anchored its bottom edge and
+        // pushed the upper part of the video out of the visible content area.
+        preview.autoresizingMask = [.width, .minYMargin]
         content.addSubview(preview)
         previewView = preview
 
         let annotationOverlay = RecordingAnnotationOverlayView(frame: preview.frame, videoSize: videoSize)
-        annotationOverlay.autoresizingMask = [.width, .height]
+        annotationOverlay.autoresizingMask = [.width, .minYMargin]
         annotationOverlay.onAnnotationsChanged = { [weak self] in self?.updateTextControls() }
         content.addSubview(annotationOverlay)
         annotationOverlayView = annotationOverlay
@@ -73,6 +76,7 @@ final class RecordingEditorController: NSObject {
             showsFinish: false
         )
         toolbar.isHidden = true
+        toolbar.autoresizingMask = [.width]
         toolbar.onDelete = { [weak self] in self?.annotationOverlayView?.deleteSelectedAnnotation() }
         toolbar.onUndo = { [weak self] in self?.annotationOverlayView?.undo() }
         toolbar.onMode = { [weak self] mode in
