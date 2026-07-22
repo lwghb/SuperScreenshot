@@ -19,8 +19,6 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
     private var audioInput: AVAssetWriterInput?
-    private var compressionSession: VTCompressionSession?
-    private let writerLock = NSLock()
     private var started = false
     private var errorDescription: String?
 
@@ -30,21 +28,38 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
         writer = nil
         videoInput = nil
         audioInput = nil
-        compressionSession = nil
         started = false
         errorDescription = nil
 
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         writer.shouldOptimizeForNetworkUse = true
-        // VideoToolbox produces H.264 sample buffers directly. Giving the
-        // writer a nil output setting prevents it from creating a second,
-        // opaque compression session that filters encoder properties.
-        let video = AVAssetWriterInput(mediaType: .video, outputSettings: nil)
+        // AVAssetWriter owns the hardware encoder. It is less configurable
+        // than a manually managed VTCompressionSession, but its completion
+        // semantics are reliable with ScreenCaptureKit's live sample queue.
+        let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: bitRate,
+                AVVideoExpectedSourceFrameRateKey: frameRate,
+                AVVideoMaxKeyFrameIntervalKey: frameRate,
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC,
+                AVVideoAllowFrameReorderingKey: true,
+                kVTCompressionPropertyKey_Quality as String: 0.9,
+                kVTCompressionPropertyKey_PrioritizeEncodingSpeedOverQuality as String: false
+            ],
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
+            ]
+        ])
         video.expectsMediaDataInRealTime = true
         writer.add(video)
         self.writer = writer
         videoInput = video
-        try configureCompressionSession(width: width, height: height, frameRate: frameRate, bitRate: bitRate)
         if includesAudio {
             let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -58,115 +73,21 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
         }
     }
 
-    private func configureCompressionSession(width: Int, height: Int, frameRate: Int, bitRate: Int) throws {
-        var session: VTCompressionSession?
-        let attributes: CFDictionary = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey as String: width,
-            kCVPixelBufferHeightKey as String: height,
-            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
-        ] as CFDictionary
-        let createStatus = VTCompressionSessionCreate(
-            allocator: nil,
-            width: Int32(width),
-            height: Int32(height),
-            codecType: kCMVideoCodecType_H264,
-            encoderSpecification: nil,
-            imageBufferAttributes: attributes,
-            compressedDataAllocator: nil,
-            outputCallback: Self.compressionOutputCallback,
-            refcon: Unmanaged.passUnretained(self).toOpaque(),
-            compressionSessionOut: &session
-        )
-        guard createStatus == noErr, let session else {
-            throw NSError(domain: "SuperScreenshot.Recording", code: Int(createStatus), userInfo: [NSLocalizedDescriptionKey: "无法创建 H.264 编码器"])
-        }
-
-        try setRequired(session, key: kVTCompressionPropertyKey_RealTime, value: kCFBooleanTrue)
-        try setRequired(session, key: kVTCompressionPropertyKey_AverageBitRate, value: NSNumber(value: bitRate))
-        try setRequired(session, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: NSNumber(value: frameRate))
-        try setRequired(session, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: NSNumber(value: frameRate))
-        try setRequired(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_H264_High_AutoLevel)
-        try setRequired(session, key: kVTCompressionPropertyKey_H264EntropyMode, value: kVTH264EntropyMode_CABAC)
-        try setRequired(session, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanTrue)
-
-        // Optional hardware-specific quality controls. They are deliberately
-        // applied here, rather than through AVAssetWriter, so unsupported
-        // keys can be ignored without changing the recording's validity.
-        setOptional(session, key: kVTCompressionPropertyKey_Quality, value: NSNumber(value: 0.9))
-        setOptional(session, key: kVTCompressionPropertyKey_PrioritizeEncodingSpeedOverQuality, value: kCFBooleanFalse)
-        setOptional(session, key: kVTCompressionPropertyKey_MaxAllowedFrameQP, value: NSNumber(value: 28))
-        if #available(macOS 15.0, *) {
-            setOptional(session, key: kVTCompressionPropertyKey_SpatialAdaptiveQPLevel, value: NSNumber(value: 1))
-        }
-
-        let prepareStatus = VTCompressionSessionPrepareToEncodeFrames(session)
-        guard prepareStatus == noErr else {
-            VTCompressionSessionInvalidate(session)
-            throw NSError(domain: "SuperScreenshot.Recording", code: Int(prepareStatus), userInfo: [NSLocalizedDescriptionKey: "无法初始化 H.264 编码器"])
-        }
-        compressionSession = session
-    }
-
-    private func setRequired(_ session: VTCompressionSession, key: CFString, value: CFTypeRef) throws {
-        let status = VTSessionSetProperty(session, key: key, value: value)
-        guard status == noErr else {
-            throw NSError(domain: "SuperScreenshot.Recording", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "无法设置 H.264 编码参数"])
-        }
-    }
-
-    private func setOptional(_ session: VTCompressionSession, key: CFString, value: CFTypeRef) {
-        _ = VTSessionSetProperty(session, key: key, value: value)
-    }
-
-    private static let compressionOutputCallback: VTCompressionOutputCallback = { refcon, _, status, _, sampleBuffer in
-        guard let refcon else { return }
-        let pipeline = Unmanaged<RecordingWriterPipeline>.fromOpaque(refcon).takeUnretainedValue()
-        pipeline.appendCompressedSample(sampleBuffer, status: status)
-    }
-
-    private func appendCompressedSample(_ sampleBuffer: CMSampleBuffer?, status: OSStatus) {
-        writerLock.lock()
-        defer { writerLock.unlock() }
-        guard status == noErr, let sampleBuffer, CMSampleBufferDataIsReady(sampleBuffer), let writer else {
-            if status != noErr { errorDescription = "H.264 编码失败 (\(status))" }
-            return
-        }
-        if !started {
+    func append(_ sampleBuffer: CMSampleBuffer, type: SCStreamOutputType) {
+        guard CMSampleBufferDataIsReady(sampleBuffer), let writer else { return }
+        if !started, type == .screen {
             writer.startWriting()
             writer.startSession(atSourceTime: sampleBuffer.presentationTimeStamp)
             started = writer.status == .writing
         }
-        guard writer.status == .writing, videoInput?.isReadyForMoreMediaData == true else { return }
-        if videoInput?.append(sampleBuffer) != true {
-            errorDescription = writer.error?.localizedDescription ?? "H.264 编码帧写入失败"
-        }
-    }
-
-    func append(_ sampleBuffer: CMSampleBuffer, type: SCStreamOutputType) {
-        guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
+        guard writer.status == .writing else { return }
         switch type {
-        case .screen:
-            guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer), let compressionSession else {
-                errorDescription = "录屏帧不包含图像数据"
-                return
+        case .screen where videoInput?.isReadyForMoreMediaData == true:
+            let accepted = videoInput?.append(sampleBuffer) ?? false
+            if !accepted {
+                errorDescription = writer.error?.localizedDescription ?? "视频编码器拒绝了屏幕帧"
             }
-            let status = VTCompressionSessionEncodeFrame(
-                compressionSession,
-                imageBuffer: imageBuffer,
-                presentationTimeStamp: sampleBuffer.presentationTimeStamp,
-                duration: CMSampleBufferGetDuration(sampleBuffer),
-                frameProperties: nil,
-                sourceFrameRefcon: nil,
-                infoFlagsOut: nil
-            )
-            if status != noErr {
-                errorDescription = "H.264 编码器拒绝了屏幕帧 (\(status))"
-            }
-        case .audio:
-            writerLock.lock()
-            defer { writerLock.unlock() }
-            guard let writer, writer.status == .writing, audioInput?.isReadyForMoreMediaData == true else { return }
+        case .audio where audioInput?.isReadyForMoreMediaData == true:
             let accepted = audioInput?.append(sampleBuffer) ?? false
             if !accepted {
                 errorDescription = writer.error?.localizedDescription ?? "音频编码器拒绝了音频帧"
@@ -179,13 +100,6 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
     func finish() async -> FinishResult {
         await withCheckedContinuation { continuation in
             queue.async {
-                if let compressionSession = self.compressionSession {
-                    VTCompressionSessionCompleteFrames(compressionSession, untilPresentationTimeStamp: .invalid)
-                    VTCompressionSessionInvalidate(compressionSession)
-                    self.compressionSession = nil
-                }
-                self.writerLock.lock()
-                defer { self.writerLock.unlock() }
                 guard let writer = self.writer, self.started, writer.status == .writing else {
                     let detail = self.errorDescription ?? self.writer?.error?.localizedDescription ?? "没有收到可写入的视频帧"
                     continuation.resume(returning: .failure(detail))
