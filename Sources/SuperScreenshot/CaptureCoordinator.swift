@@ -186,6 +186,8 @@ final class CaptureCoordinator: ObservableObject {
                 self.screenRecorder = nil
                 self.recordingToolbar?.close()
                 self.recordingToolbar = nil
+                self.longSelectionBorder?.close()
+                self.longSelectionBorder = nil
                 self.onRecordingStateChanged?(false)
                 guard let url else {
                     let alert = NSAlert()
