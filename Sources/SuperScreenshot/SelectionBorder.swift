@@ -166,6 +166,14 @@ private final class SelectionBorderView: NSView {
         activeEdges.removeAll()
         dragStartPoint = nil
         dragStartSelection = nil
+        // A cursor-update event may already be queued when recording starts.
+        // Detach the tracking area before the view can be closed so AppKit
+        // never routes that stale event back to this border.
+        if let trackingAreaRef {
+            removeTrackingArea(trackingAreaRef)
+            self.trackingAreaRef = nil
+        }
+        window?.invalidateCursorRects(for: self)
         needsDisplay = true
         NSCursor.arrow.set()
     }

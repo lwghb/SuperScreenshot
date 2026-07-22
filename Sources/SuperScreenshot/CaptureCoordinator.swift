@@ -318,10 +318,11 @@ final class CaptureCoordinator: ObservableObject {
                         self?.startScreenRecording(on: screen, frameRate: frameRate, bitRate: bitRate)
                     }
                     toolbar.onStop = { [weak self, weak toolbar] in
-                        toolbar?.close()
+                        // Keep the locked outline alive until ScreenCaptureKit
+                        // has stopped. Closing it inside the mouse action left
+                        // a queued cursor event targeting a released view.
+                        toolbar?.hideWhileRecording()
                         self?.toggleScreenRecording()
-                        self?.longSelectionBorder?.close()
-                        self?.longSelectionBorder = nil
                     }
                     toolbar.onHide = { [weak self, weak toolbar] in
                         toolbar?.hideWhileRecording()

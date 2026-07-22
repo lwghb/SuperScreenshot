@@ -73,6 +73,7 @@ final class RecordingToolbarController: NSObject {
     private var recordingPixelSize = CGSize.zero
     private var maximumBitRateMbps = 6.0
     private var hasUserPositionedToolbar = false
+    private var isStopping = false
 
     func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
         let size = CGSize(width: 480, height: 104)
@@ -249,7 +250,15 @@ final class RecordingToolbarController: NSObject {
             recordingSettingsLabel.stringValue = String(format: "%d FPS · %.1f Mbps", rate.rawValue, value)
             recordingSettingsLabel.isHidden = false
             onStart?(rate, Int((value * 1_000_000).rounded()))
-        } else { onStop?() }
+        } else {
+            // Finishing an MP4 is asynchronous. Ignore repeat clicks while
+            // the writer flushes so the stop path cannot be entered twice.
+            guard !isStopping else { return }
+            isStopping = true
+            startButton.isEnabled = false
+            startButton.title = L("正在结束…")
+            onStop?()
+        }
     }
     @objc nonisolated private func frameRateChanged(_ sender: NSSegmentedControl) {
         Task { @MainActor [weak self, weak sender] in
@@ -329,9 +338,10 @@ final class RecordingToolbarController: NSObject {
         }
     }
     func recordingDidStop() {
-        timer?.invalidate(); timer = nil; startedAt = nil
+        timer?.invalidate(); timer = nil; startedAt = nil; isStopping = false
         timerLabel.stringValue = "00:00"
         startButton.title = L("开始录屏")
+        startButton.isEnabled = true
         startButton.isBordered = true
         startButton.bezelStyle = .rounded
         startButton.bezelColor = nil
