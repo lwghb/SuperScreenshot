@@ -15,22 +15,16 @@ final class RecordingEditorController: NSObject {
     private var trimRangeView: RecordingTrimRangeView!
     private weak var recordingInfoLabel: NSTextField?
     private weak var annotationOverlayView: RecordingAnnotationOverlayView?
-    private weak var textToolButton: NSButton?
-    private weak var textColorButton: NSButton?
-    private weak var textBackgroundButton: NSButton?
-    private weak var fontSizeSlider: NSSlider?
-    private weak var deleteTextButton: NSButton?
-    private weak var undoTextButton: NSButton?
     private weak var saveButton: NSButton?
     private weak var copyButton: NSButton?
     private weak var exportProgressLabel: NSTextField?
     private weak var exportProgressIndicator: NSProgressIndicator?
-    private weak var annotationToolbarBackground: NSVisualEffectView?
+    private weak var annotationToolbar: SharedAnnotationToolbar?
     private weak var addAnnotationButton: NSButton?
-    private var annotationToolbarViews: [NSView] = []
+    private weak var previewView: AVPlayerView?
+    private weak var trimCaptionLabel: NSTextField?
     private var exportProgressTimer: Timer?
-    private var colorPaletteButtons: [NSButton] = []
-    private var colorTarget: RecordingTextColorTarget = .text
+    private var colorTarget: SharedAnnotationColorTarget = .text
     private var duration: Double = 0
 
     init(url: URL, screen: NSScreen, frameRate: Int = 60, bitRate: Int = 1_000_000) {
@@ -44,7 +38,7 @@ final class RecordingEditorController: NSObject {
 
     func show() {
         duration = max(asset.duration.seconds, 0.1)
-        let size = CGSize(width: 820, height: 680)
+        let size = CGSize(width: 820, height: 580)
         let panel = NSPanel(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         panel.title = L("编辑录屏")
         panel.isReleasedWhenClosed = false
@@ -59,12 +53,13 @@ final class RecordingEditorController: NSObject {
         panel.level = .floating
 
         let content = NSView(frame: CGRect(origin: .zero, size: size))
-        let preview = AVPlayerView(frame: CGRect(x: 24, y: 260, width: 772, height: 400))
+        let preview = AVPlayerView(frame: CGRect(x: 24, y: 160, width: 772, height: 400))
         preview.player = player
         preview.controlsStyle = .none
         preview.videoGravity = .resizeAspect
         preview.autoresizingMask = [.width, .height]
         content.addSubview(preview)
+        previewView = preview
 
         let annotationOverlay = RecordingAnnotationOverlayView(frame: preview.frame, videoSize: videoSize)
         annotationOverlay.autoresizingMask = [.width, .height]
@@ -72,122 +67,58 @@ final class RecordingEditorController: NSObject {
         content.addSubview(annotationOverlay)
         annotationOverlayView = annotationOverlay
 
-        let annotationToolbarBackground = NSVisualEffectView(frame: CGRect(x: 16, y: 74, width: 788, height: 100))
-        annotationToolbarBackground.material = .hudWindow
-        annotationToolbarBackground.blendingMode = .withinWindow
-        annotationToolbarBackground.state = .active
-        annotationToolbarBackground.wantsLayer = true
-        annotationToolbarBackground.layer?.cornerRadius = 12
-        annotationToolbarBackground.layer?.masksToBounds = true
-        annotationToolbarBackground.isHidden = true
-        content.addSubview(annotationToolbarBackground)
-        self.annotationToolbarBackground = annotationToolbarBackground
+        let toolbar = SharedAnnotationToolbar(
+            frame: CGRect(x: 16, y: 74, width: 788, height: 100),
+            showsCaptureActions: false,
+            showsFinish: false
+        )
+        toolbar.isHidden = true
+        toolbar.onDelete = { [weak self] in self?.annotationOverlayView?.deleteSelectedAnnotation() }
+        toolbar.onUndo = { [weak self] in self?.annotationOverlayView?.undo() }
+        toolbar.onMode = { [weak self] mode in
+            self?.annotationOverlayView?.mode = mode
+            self?.colorTarget = mode == .text ? .textBackground : .stroke
+            self?.updateTextControls()
+        }
+        toolbar.onColorTarget = { [weak self] target in
+            self?.annotationOverlayView?.mode = .text
+            self?.colorTarget = target
+            self?.updateTextControls()
+        }
+        toolbar.onFontSize = { [weak self] size in
+            self?.annotationOverlayView?.textFontSize = size
+            self?.updateTextControls()
+        }
+        toolbar.onColor = { [weak self] color in self?.applyAnnotationColor(color) }
+        toolbar.onCustomColor = { [weak self] in self?.showCustomTextColor() }
+        content.addSubview(toolbar)
+        annotationToolbar = toolbar
 
         let settingsBadge = NSTextField(labelWithString: "")
 
         let caption = NSTextField(labelWithString: L("拖动起点和终点，选择需要保留的录屏片段"))
         caption.font = .systemFont(ofSize: 12)
         caption.textColor = .secondaryLabelColor
-        caption.frame = CGRect(x: 32, y: 188, width: 440, height: 18)
+        caption.frame = CGRect(x: 32, y: 88, width: 440, height: 18)
         content.addSubview(caption)
+        trimCaptionLabel = caption
 
         settingsBadge.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         settingsBadge.textColor = .secondaryLabelColor
         settingsBadge.alignment = .right
-        settingsBadge.frame = CGRect(x: 518, y: 188, width: 278, height: 18)
+        settingsBadge.frame = CGRect(x: 518, y: 88, width: 278, height: 18)
         settingsBadge.autoresizingMask = [.minXMargin]
         recordingInfoLabel = settingsBadge
         content.addSubview(settingsBadge)
 
         let addAnnotation = NSButton(title: L("添加标注"), target: self, action: #selector(beginAnnotationEditing))
         addAnnotation.bezelStyle = .rounded
-        addAnnotation.frame = CGRect(x: 350, y: 116, width: 120, height: 34)
+        addAnnotation.frame = CGRect(x: 350, y: 46, width: 120, height: 34)
         content.addSubview(addAnnotation)
         addAnnotationButton = addAnnotation
 
-        let textTool = NSButton(title: "T", target: self, action: #selector(useTextTool))
-        textTool.bezelStyle = .texturedRounded
-        textTool.font = .boldSystemFont(ofSize: 16)
-        textTool.frame = CGRect(x: 180, y: 140, width: 34, height: 34)
-        textTool.frame.size.width = 40
-        content.addSubview(textTool)
-        textToolButton = textTool
-        annotationToolbarViews.append(textTool)
 
-        let textColor = NSButton(title: L("字色"), target: self, action: #selector(pickTextColor))
-        textColor.bezelStyle = .rounded
-        textColor.frame = CGRect(x: 174, y: 96, width: 54, height: 26)
-        content.addSubview(textColor)
-        textColorButton = textColor
-        annotationToolbarViews.append(textColor)
-
-        let background = NSButton(title: L("背景"), target: self, action: #selector(pickTextBackground))
-        background.bezelStyle = .rounded
-        background.frame = CGRect(x: 234, y: 96, width: 54, height: 26)
-        content.addSubview(background)
-        textBackgroundButton = background
-        annotationToolbarViews.append(background)
-
-        let sizeLabel = NSTextField(labelWithString: L("字号"))
-        sizeLabel.font = .systemFont(ofSize: 12)
-        sizeLabel.textColor = .secondaryLabelColor
-        sizeLabel.frame = CGRect(x: 32, y: 100, width: 34, height: 18)
-        content.addSubview(sizeLabel)
-        annotationToolbarViews.append(sizeLabel)
-        let fontSize = NSSlider(value: 18, minValue: 12, maxValue: 48, target: self, action: #selector(changeTextFontSize(_:)))
-        fontSize.frame = CGRect(x: 68, y: 97, width: 96, height: 22)
-        content.addSubview(fontSize)
-        fontSizeSlider = fontSize
-        annotationToolbarViews.append(fontSize)
-
-        let undo = NSButton(title: L("撤销"), target: self, action: #selector(undoText))
-        undo.bezelStyle = .rounded
-        undo.frame = CGRect(x: 78, y: 140, width: 54, height: 34)
-        content.addSubview(undo)
-        undoTextButton = undo
-        annotationToolbarViews.append(undo)
-        let delete = NSButton(title: L("删除"), target: self, action: #selector(deleteText))
-        delete.bezelStyle = .rounded
-        delete.frame = CGRect(x: 32, y: 140, width: 40, height: 34)
-        content.addSubview(delete)
-        deleteTextButton = delete
-        annotationToolbarViews.append(delete)
-
-        for (index, mode) in [ScreenshotAnnotationMode.arrow, .rectangle, .ellipse, .mosaic].enumerated() {
-            let symbol = ["arrow.down.right", "rectangle", "circle", "square.grid.3x3.fill"][index]
-            let button = NSButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage(), target: self, action: #selector(useAnnotationTool(_:)))
-            button.tag = mode.rawValue
-            button.bezelStyle = .texturedRounded
-            button.frame = CGRect(x: 222 + CGFloat(index) * 42, y: 140, width: 34, height: 34)
-            content.addSubview(button)
-            annotationToolbarViews.append(button)
-        }
-
-        for (index, color) in RecordingTextOverlayView.palette.enumerated() {
-            let button = NSButton(title: "", target: self, action: #selector(selectInlineColor(_:)))
-            button.tag = index
-            button.bezelStyle = .regularSquare
-            button.isBordered = false
-            button.frame = CGRect(x: 300 + CGFloat(index) * 34, y: 96, width: 26, height: 26)
-            button.wantsLayer = true
-            button.layer?.backgroundColor = color.cgColor
-            button.layer?.cornerRadius = 5
-            button.layer?.borderWidth = 1
-            button.layer?.borderColor = NSColor.separatorColor.cgColor
-            button.isHidden = true
-            content.addSubview(button)
-            colorPaletteButtons.append(button)
-            annotationToolbarViews.append(button)
-        }
-        let customColor = NSButton(title: L("自定义颜色"), target: self, action: #selector(showCustomTextColor))
-        customColor.bezelStyle = .rounded
-        customColor.frame = CGRect(x: 574, y: 96, width: 84, height: 26)
-        customColor.isHidden = true
-        content.addSubview(customColor)
-        colorPaletteButtons.append(customColor)
-        annotationToolbarViews.append(customColor)
-
-        let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 214, width: 764, height: 38))
+        let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 114, width: 764, height: 38))
         trimRange.duration = duration
         trimRange.end = duration
         trimRange.autoresizingMask = [.width]
@@ -250,37 +181,12 @@ final class RecordingEditorController: NSObject {
         return CGSize(width: abs(size.width), height: abs(size.height))
     }
 
-    @objc private func useTextTool() {
-        annotationOverlayView?.mode = .text
-        colorTarget = .background
-        showInlinePalette()
-        updateTextControls()
-    }
-
-    @objc private func useAnnotationTool(_ sender: NSButton) {
-        annotationOverlayView?.mode = ScreenshotAnnotationMode(rawValue: sender.tag) ?? .arrow
-        colorPaletteButtons.forEach { $0.isHidden = true }
-        updateTextControls()
-    }
-
-    @objc private func pickTextColor() {
-        colorTarget = .text
-        showInlinePalette()
-    }
-
-    @objc private func pickTextBackground() {
-        colorTarget = .background
-        showInlinePalette()
-    }
-
-    private func showInlinePalette() {
-        colorPaletteButtons.forEach { $0.isHidden = false }
-    }
-
-    @objc private func selectInlineColor(_ sender: NSButton) {
-        let color = RecordingTextOverlayView.palette[sender.tag]
-        if colorTarget == .text { annotationOverlayView?.textColor = color }
-        else { annotationOverlayView?.backgroundColor = color }
+    private func applyAnnotationColor(_ color: NSColor) {
+        switch colorTarget {
+        case .stroke: annotationOverlayView?.strokeColor = color
+        case .text: annotationOverlayView?.textColor = color
+        case .textBackground: annotationOverlayView?.backgroundColor = color
+        }
         updateTextControls()
     }
 
@@ -288,62 +194,26 @@ final class RecordingEditorController: NSObject {
         let panel = NSColorPanel.shared
         panel.setTarget(self)
         panel.setAction(#selector(customTextColorChanged(_:)))
-        panel.color = colorTarget == .text ? (annotationOverlayView?.textColor ?? .white) : (annotationOverlayView?.backgroundColor ?? .systemRed)
+        switch colorTarget {
+        case .stroke: panel.color = annotationOverlayView?.strokeColor ?? .systemRed
+        case .text: panel.color = annotationOverlayView?.textColor ?? .white
+        case .textBackground: panel.color = annotationOverlayView?.backgroundColor ?? .systemRed
+        }
         panel.makeKeyAndOrderFront(nil)
     }
 
     @objc private func customTextColorChanged(_ sender: NSColorPanel) {
-        if colorTarget == .text { annotationOverlayView?.textColor = sender.color }
-        else { annotationOverlayView?.backgroundColor = sender.color }
-        updateTextControls()
+        applyAnnotationColor(sender.color)
     }
-
-    private func showTextColorMenu(from button: NSButton?) {
-        guard let button else { return }
-        let menu = NSMenu()
-        for color in RecordingTextOverlayView.palette {
-            let item = NSMenuItem(title: "", action: #selector(selectTextColor(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = color
-            item.image = colorSwatchImage(color)
-            menu.addItem(item)
-        }
-        menu.popUp(positioning: nil, at: CGPoint(x: 0, y: button.bounds.height), in: button)
-    }
-
-    @objc private func selectTextColor(_ sender: NSMenuItem) {
-        guard let color = sender.representedObject as? NSColor else { return }
-        if colorTarget == .text { annotationOverlayView?.textColor = color }
-        else { annotationOverlayView?.backgroundColor = color }
-        updateTextControls()
-    }
-
-    @objc private func changeTextFontSize(_ sender: NSSlider) {
-        annotationOverlayView?.textFontSize = CGFloat(sender.doubleValue)
-        updateTextControls()
-    }
-
-    @objc private func undoText() { annotationOverlayView?.undo() }
-    @objc private func deleteText() { annotationOverlayView?.deleteSelectedAnnotation() }
 
     private func updateTextControls() {
         guard let annotationOverlayView else { return }
-        textToolButton?.contentTintColor = annotationOverlayView.mode == .text ? .systemBlue : .labelColor
-        textToolButton?.state = annotationOverlayView.mode == .text ? .on : .off
-        fontSizeSlider?.doubleValue = Double(annotationOverlayView.textFontSize)
-        textColorButton?.contentTintColor = annotationOverlayView.textColor
-        textBackgroundButton?.contentTintColor = annotationOverlayView.backgroundColor
-        undoTextButton?.isEnabled = annotationOverlayView.hasAnnotations
-        deleteTextButton?.isHidden = !annotationOverlayView.hasAnnotations
-    }
-
-    private func colorSwatchImage(_ color: NSColor) -> NSImage {
-        let image = NSImage(size: CGSize(width: 14, height: 14))
-        image.lockFocus()
-        color.setFill()
-        NSBezierPath(roundedRect: CGRect(x: 1, y: 1, width: 12, height: 12), xRadius: 3, yRadius: 3).fill()
-        image.unlockFocus()
-        return image
+        annotationToolbar?.update(
+            canvas: annotationOverlayView.canvas,
+            mode: annotationOverlayView.mode,
+            colorTarget: colorTarget,
+            hasAnnotations: annotationOverlayView.hasAnnotations
+        )
     }
 
     @objc private func save() {
@@ -470,16 +340,36 @@ final class RecordingEditorController: NSObject {
     }
 
     @objc private func beginAnnotationEditing() {
+        setAnnotationEditorExpanded(true)
         setAnnotationToolbarVisible(true)
         annotationOverlayView?.mode = .arrow
+        colorTarget = .stroke
         updateTextControls()
     }
 
     private func setAnnotationToolbarVisible(_ visible: Bool) {
-        annotationToolbarBackground?.isHidden = !visible
-        annotationToolbarViews.forEach { $0.isHidden = !visible }
+        annotationToolbar?.isHidden = !visible
         addAnnotationButton?.isHidden = visible
-        colorPaletteButtons.forEach { $0.isHidden = true }
+    }
+
+    /// The editor only grows when annotation controls are actually requested.
+    /// Before that it occupies one compact “添加标注” row, rather than reserving
+    /// an empty toolbar-sized hole below the trim range.
+    private func setAnnotationEditorExpanded(_ expanded: Bool) {
+        guard let panel, let preview = previewView, let overlay = annotationOverlayView,
+              let caption = trimCaptionLabel, let info = recordingInfoLabel else { return }
+        let offset: CGFloat = expanded ? 100 : 0
+        let targetSize = CGSize(width: 820, height: 580 + offset)
+        if panel.contentView?.bounds.size != targetSize {
+            let frame = panel.frame
+            panel.setContentSize(targetSize)
+            panel.setFrameOrigin(CGPoint(x: frame.minX, y: frame.maxY - targetSize.height))
+        }
+        preview.frame.origin.y = 160 + offset
+        overlay.frame = preview.frame
+        trimRangeView.frame.origin.y = 114 + offset
+        caption.frame.origin.y = 88 + offset
+        info.frame.origin.y = 88 + offset
     }
 
 }
@@ -512,6 +402,7 @@ private final class RecordingAnnotationOverlayView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     var mode: ScreenshotAnnotationMode { get { canvas.mode } set { canvas.mode = newValue } }
+    var strokeColor: NSColor { get { canvas.strokeColor } set { canvas.strokeColor = newValue } }
     var textColor: NSColor { get { canvas.textColor } set { canvas.textColor = newValue } }
     var backgroundColor: NSColor { get { canvas.textBackgroundColor } set { canvas.textBackgroundColor = newValue } }
     var textFontSize: CGFloat { get { canvas.textFontSize } set { canvas.textFontSize = newValue } }

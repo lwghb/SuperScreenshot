@@ -31,6 +31,7 @@ final class DirectAnnotationController: NSObject {
     private var finishButton: NSButton?
     private var paletteButtons: [DirectColorButton] = []
     private var customColorButton: DirectCustomColorButton?
+    private weak var sharedToolbar: SharedAnnotationToolbar?
     private weak var activeColorPanel: NSColorPanel?
     private var colorPanelClickMonitor: Any?
     private var resizeWindows: [SelectionResizeHandle: NSPanel] = [:]
@@ -352,86 +353,40 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func makeToolbarView(frame: CGRect) -> NSView {
-        let content = InstantTooltipToolbarView(frame: frame)
-        content.wantsLayer = true
-        content.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        let tools = NSStackView()
-        tools.orientation = .horizontal
-        tools.spacing = 8
-        tools.alignment = .centerY
-        tools.translatesAutoresizingMaskIntoConstraints = false
-
-        let delete = DeleteDropButton(target: self, action: #selector(deleteSelectedAnnotation))
-        delete.isHidden = true
-        deleteDropButton = delete
-        tools.addArrangedSubview(delete)
-        tools.addArrangedSubview(button(L("撤销"), action: #selector(undo), toolTip: L("撤销上一步")))
-        arrowButton = toolButton("arrow.down.right", action: #selector(useArrow), toolTip: L("箭头标注"))
-        textButton = toolButton(image: textAnnotationIcon(), action: #selector(useText), toolTip: L("文字标注"))
-        rectangleButton = toolButton("rectangle", action: #selector(useRectangle), toolTip: L("矩形标注"))
-        ellipseButton = toolButton("circle", action: #selector(useEllipse), toolTip: L("椭圆标注"))
-        mosaicButton = toolButton(image: mosaicToolIcon(), action: #selector(useMosaic), toolTip: L("马赛克"))
-        [arrowButton, textButton, rectangleButton, ellipseButton, mosaicButton].compactMap { $0 }.forEach { tools.addArrangedSubview($0) }
-        tools.addArrangedSubview(button(L("长截图"), action: #selector(longCapture), toolTip: L("长截图")))
-        tools.addArrangedSubview(button(L("录屏"), action: #selector(screenRecording), toolTip: L("录制当前区域")))
-        let finishButton = ColoredTitleButton(title: L("完成"), fillColor: .systemGreen, textColor: .white, target: self, action: #selector(finish))
-        self.finishButton = finishButton
-        finishButton.keyEquivalent = "\r"
-        finishButton.toolTip = L("完成并复制到剪贴板")
-        finishButton.translatesAutoresizingMaskIntoConstraints = false
-
-        let palette = NSStackView()
-        palette.orientation = .horizontal
-        palette.spacing = 8
-        palette.alignment = .centerY
-        palette.translatesAutoresizingMaskIntoConstraints = false
-        let textColor = button(L("字色"), action: #selector(useTextColor))
-        let textBackground = button(L("背景"), action: #selector(useTextBackground))
-        let sizeLabel = NSTextField(labelWithString: L("字号"))
-        let sizeSlider = NSSlider(
-            value: Double(canvas?.textFontSize ?? 18),
-            minValue: 12,
-            maxValue: 48,
-            target: self,
-            action: #selector(changeTextFontSize(_:))
-        )
-        sizeSlider.isContinuous = true
-        sizeSlider.widthAnchor.constraint(equalToConstant: 92).isActive = true
-        textColor.wantsLayer = true
-        textBackground.wantsLayer = true
-        textColor.layer?.cornerRadius = 6
-        textBackground.layer?.cornerRadius = 6
-        textColorButton = textColor
-        textBackgroundButton = textBackground
-        fontSizeLabel = sizeLabel
-        fontSizeSlider = sizeSlider
-        palette.addArrangedSubview(sizeLabel)
-        palette.addArrangedSubview(sizeSlider)
-        palette.addArrangedSubview(textColor)
-        palette.addArrangedSubview(textBackground)
-        let colors: [NSColor] = [.systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple, .white, .black]
-        for color in colors {
-            let swatch = DirectColorButton(color: color, target: self, action: #selector(chooseColor(_:)))
-            paletteButtons.append(swatch)
-            palette.addArrangedSubview(swatch)
+        let toolbar = SharedAnnotationToolbar(frame: frame, showsCaptureActions: true, showsFinish: true)
+        toolbar.onDelete = { [weak self] in self?.deleteSelectedAnnotation() }
+        toolbar.onUndo = { [weak self] in self?.undo() }
+        toolbar.onMode = { [weak self] mode in
+            switch mode {
+            case .arrow: self?.useArrow()
+            case .text: self?.useText()
+            case .rectangle: self?.useRectangle()
+            case .ellipse: self?.useEllipse()
+            case .mosaic: self?.useMosaic()
+            }
         }
-        let customColor = DirectCustomColorButton(target: self, action: #selector(showCustomColorPanel))
-        customColorButton = customColor
-        palette.addArrangedSubview(customColor)
-
-        content.addSubview(tools)
-        content.addSubview(palette)
-        content.addSubview(finishButton)
-        NSLayoutConstraint.activate([
-            tools.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            tools.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
-            finishButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
-            finishButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
-            palette.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            palette.topAnchor.constraint(equalTo: tools.bottomAnchor, constant: 10)
-        ])
-        content.activateInstantTooltips()
-        return content
+        toolbar.onColorTarget = { [weak self] target in
+            switch target {
+            case .text: self?.useTextColor()
+            case .textBackground: self?.useTextBackground()
+            case .stroke: self?.useArrow()
+            }
+        }
+        toolbar.onFontSize = { [weak self] size in
+            guard let self else { return }
+            self.canvas?.textFontSize = size
+            UserDefaults.standard.set(Double(size), forKey: "annotation.textFontSize")
+            self.focusCanvas()
+        }
+        toolbar.onColor = { [weak self] color in self?.applyColor(color) }
+        toolbar.onCustomColor = { [weak self] in self?.showCustomColorPanel() }
+        toolbar.onLongCapture = { [weak self] in self?.longCapture() }
+        toolbar.onScreenRecording = { [weak self] in self?.screenRecording() }
+        toolbar.onFinish = { [weak self] in self?.finish() }
+        deleteDropButton = toolbar.deleteDropButton
+        finishButton = toolbar.finishButton
+        sharedToolbar = toolbar
+        return toolbar
     }
 
     private func toolButton(_ symbol: String, action: Selector, toolTip: String) -> ToolButton {
@@ -665,6 +620,15 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func updateToolState() {
+        if let sharedToolbar {
+            sharedToolbar.update(
+                canvas: canvas,
+                mode: mode,
+                colorTarget: colorTarget == .stroke ? .stroke : (colorTarget == .text ? .text : .textBackground),
+                hasAnnotations: canvas?.hasAnnotations ?? false
+            )
+            return
+        }
         let stroke = canvas?.strokeColor ?? .systemRed
         arrowButton?.configure(top: nil, bottom: stroke, selected: mode == .arrow)
         rectangleButton?.configure(top: nil, bottom: stroke, selected: mode == .rectangle)
@@ -903,7 +867,7 @@ private final class DirectAnnotationWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 }
 
-private final class InstantTooltipToolbarView: NSView {
+class InstantTooltipToolbarView: NSView {
     private var tracking: NSTrackingArea?
     private var tooltipText: [ObjectIdentifier: String] = [:]
     private weak var currentTarget: NSView?
@@ -1038,7 +1002,7 @@ private final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
     }
 }
 
-private final class DeleteDropButton: NSButton {
+final class DeleteDropButton: NSButton {
     var isDropTarget = false { didSet { updateAppearance() } }
 
     init(target: AnyObject?, action: Selector?) {
@@ -1082,7 +1046,7 @@ private enum DirectColorTarget {
 }
 
 
-private final class ToolButton: NSButton {
+final class ToolButton: NSButton {
     private var topColor: NSColor?
     private var bottomColor: NSColor?
 
@@ -1132,7 +1096,7 @@ private final class ToolButton: NSButton {
     }
 }
 
-private final class DirectColorButton: NSButton {
+final class DirectColorButton: NSButton {
     let color: NSColor
     var isSelectedColor = false { didSet { updateGlow() } }
 
@@ -1173,7 +1137,7 @@ private final class DirectColorButton: NSButton {
     }
 }
 
-private final class DirectCustomColorButton: NSButton {
+final class DirectCustomColorButton: NSButton {
     var isSelectedColor = false { didSet { needsDisplay = true } }
 
     init(target: AnyObject?, action: Selector?) {
@@ -1224,7 +1188,7 @@ private final class DirectCustomColorButton: NSButton {
 }
 
 @MainActor
-private struct DirectGlowStyle {
+struct DirectGlowStyle {
     let color: NSColor
     let opacity: Float
     let radius: CGFloat
