@@ -12,6 +12,7 @@ final class RecordingEditorController: NSObject {
     private let player: AVPlayer
     private var panel: NSPanel?
     private var trimRangeView: RecordingTrimRangeView!
+    private weak var recordingInfoLabel: NSTextField?
     private var duration: Double = 0
 
     init(url: URL, screen: NSScreen, frameRate: Int = 60, bitRate: Int = 1_000_000) {
@@ -26,9 +27,12 @@ final class RecordingEditorController: NSObject {
     func show() {
         duration = max(asset.duration.seconds, 0.1)
         let size = CGSize(width: 820, height: 590)
-        let panel = NSPanel(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let panel = NSPanel(contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         panel.title = L("编辑录屏")
         panel.isReleasedWhenClosed = false
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.minSize = CGSize(width: 640, height: 460)
         let visible = screen.visibleFrame
         panel.setFrameOrigin(CGPoint(
             x: visible.midX - size.width / 2,
@@ -41,9 +45,10 @@ final class RecordingEditorController: NSObject {
         preview.player = player
         preview.controlsStyle = .none
         preview.videoGravity = .resizeAspect
+        preview.autoresizingMask = [.width, .height]
         content.addSubview(preview)
 
-        let settingsBadge = NSTextField(labelWithString: String(format: "%d FPS · %.1f Mbps", frameRate, Double(bitRate) / 1_000_000))
+        let settingsBadge = NSTextField(labelWithString: "")
 
         let caption = NSTextField(labelWithString: L("拖动起点和终点，选择需要保留的录屏片段"))
         caption.font = .systemFont(ofSize: 13)
@@ -54,25 +59,33 @@ final class RecordingEditorController: NSObject {
         settingsBadge.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         settingsBadge.textColor = .secondaryLabelColor
         settingsBadge.alignment = .right
-        settingsBadge.frame = CGRect(x: 620, y: 126, width: 176, height: 20)
+        settingsBadge.frame = CGRect(x: 518, y: 126, width: 278, height: 20)
+        settingsBadge.autoresizingMask = [.minXMargin]
+        recordingInfoLabel = settingsBadge
         content.addSubview(settingsBadge)
 
         let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 70, width: 764, height: 38))
         trimRange.duration = duration
         trimRange.end = duration
+        trimRange.autoresizingMask = [.width]
         trimRange.onPreview = { [weak self] seconds in
-            self?.player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+            guard let self else { return }
+            self.player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+            self.updateRecordingInfo()
         }
         trimRangeView = trimRange
         content.addSubview(trimRange)
+        updateRecordingInfo()
 
         let save = NSButton(title: L("保存"), target: self, action: #selector(save))
         save.bezelStyle = .rounded
         save.frame = CGRect(x: 558, y: 18, width: 108, height: 32)
+        save.autoresizingMask = [.minXMargin]
         let copy = NSButton(title: L("复制到剪贴板"), target: self, action: #selector(copyToPasteboard))
         copy.bezelStyle = .rounded
         copy.keyEquivalent = "\r"
         copy.frame = CGRect(x: 678, y: 18, width: 118, height: 32)
+        copy.autoresizingMask = [.minXMargin]
         content.addSubview(save)
         content.addSubview(copy)
 
@@ -80,6 +93,12 @@ final class RecordingEditorController: NSObject {
         self.panel = panel
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func updateRecordingInfo() {
+        let selectedDuration = max(0, (trimRangeView?.end ?? duration) - (trimRangeView?.start ?? 0))
+        let estimatedMegabytes = selectedDuration * Double(bitRate) / 8_000_000
+        recordingInfoLabel?.stringValue = String(format: "%d FPS · %.1f Mbps · %@ %.1f MB", frameRate, Double(bitRate) / 1_000_000, L("预计约"), estimatedMegabytes)
     }
 
     @objc private func save() {
