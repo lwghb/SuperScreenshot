@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let coordinator = CaptureCoordinator()
     private var statusItem: NSStatusItem!
     private var statusMenu: NSMenu?
+    private var recordingIndicatorTimer: Timer?
     private var shortcutItem: NSMenuItem!
     private var aboutWindowController: AboutWindowController?
     private let updaterController = SPUStandardUpdaterController(
@@ -73,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             button.target = self
             button.action = #selector(stopRecordingFromStatusItem)
             statusItem.menu = nil
+            startRecordingIndicatorPulse()
         } else {
             button.image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: L("超强截图"))
             button.contentTintColor = nil
@@ -80,6 +82,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             button.target = nil
             button.action = nil
             statusItem.menu = statusMenu
+            recordingIndicatorTimer?.invalidate()
+            recordingIndicatorTimer = nil
+            button.alphaValue = 1
+        }
+    }
+
+    private func startRecordingIndicatorPulse() {
+        guard recordingIndicatorTimer == nil, let button = statusItem.button else { return }
+        button.alphaValue = 1
+        recordingIndicatorTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { [weak button] _ in
+            guard let button else { return }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                button.animator().alphaValue = button.alphaValue > 0.8 ? 0.4 : 1
+            }
         }
     }
 
