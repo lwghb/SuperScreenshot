@@ -249,15 +249,13 @@ final class RecordingToolbarController: NSObject {
     private func compactForRecording() {
         guard let panel else { return }
         let size = CGSize(width: 460, height: 64)
-        // Keep the toolbar's top edge fixed while compacting, so the stop
-        // controls stay in the same visual lane as the recording setup bar.
-        var compact = CGRect(x: panel.frame.midX - size.width / 2, y: panel.frame.maxY - size.height, width: size.width, height: size.height)
+        // Preserve the setup toolbar's visual centre after a user drag.
+        // The recording controls then appear in exactly the same place,
+        // without a transition that could look like an unintended jump.
+        var compact = CGRect(x: panel.frame.midX - size.width / 2, y: panel.frame.midY - size.height / 2, width: size.width, height: size.height)
         compact.origin.x = min(max(compact.minX, visibleFrame.minX + 8), visibleFrame.maxX - size.width - 8)
         compact.origin.y = min(max(compact.minY, visibleFrame.minY + 8), visibleFrame.maxY - size.height - 8)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.18
-            panel.animator().setFrame(compact, display: true)
-        }
+        panel.setFrame(compact, display: true)
     }
     private func updateTimer() { guard let startedAt else { return }; timerLabel.stringValue = String(format: "%02d:%02d", Int(Date().timeIntervalSince(startedAt)) / 60, Int(Date().timeIntervalSince(startedAt)) % 60) }
     @objc private func back() { onBack?() }
