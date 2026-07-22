@@ -58,10 +58,19 @@ final class RecordingToolbarController: NSObject {
     private var supportsHighFrameRate = false
     private weak var contentView: NSView?
     private var visibleFrame = CGRect.zero
+    private var recordingPixelSize = CGSize.zero
+    private var maximumBitRateMbps = 6.0
 
     func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
         let size = CGSize(width: 480, height: 104)
         visibleFrame = screen.visibleFrame
+        if let displayID = ScreenCapture.displayID(for: screen) {
+            let xScale = CGFloat(CGDisplayPixelsWide(displayID)) / screen.frame.width
+            let yScale = CGFloat(CGDisplayPixelsHigh(displayID)) / screen.frame.height
+            recordingPixelSize = CGSize(width: (selection.width * xScale).rounded(.up), height: (selection.height * yScale).rounded(.up))
+        } else {
+            recordingPixelSize = CGSize(width: (selection.width * screen.backingScaleFactor).rounded(.up), height: (selection.height * screen.backingScaleFactor).rounded(.up))
+        }
         var x = selection.midX - size.width / 2
         x = min(max(x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8)
         var y = selection.minY - size.height - 12
@@ -130,6 +139,7 @@ final class RecordingToolbarController: NSObject {
         bitrateSlider.isContinuous = true
         bitrateSlider.frame = CGRect(x: 338, y: 61, width: 119, height: 24)
         bitRateSlider = bitrateSlider
+        updateBitRateRange()
         updateBitRateEstimate()
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
         timerLabel.isHidden = true
@@ -187,20 +197,38 @@ final class RecordingToolbarController: NSObject {
         } else { onStop?() }
     }
     @objc private func frameRateChanged(_ sender: NSSegmentedControl) {
-        guard sender.selectedSegment == 2, !supportsHighFrameRate else { return }
-        sender.selectedSegment = 1
-        let alert = NSAlert()
-        alert.messageText = L("暂不支持 120 FPS")
-        alert.informativeText = L("当前屏幕刷新率不足 120Hz，无法使用 120 FPS 录制。")
-        alert.addButton(withTitle: L("好"))
-        alert.runModal()
+        if sender.selectedSegment == 2, !supportsHighFrameRate {
+            sender.selectedSegment = 1
+            let alert = NSAlert()
+            alert.messageText = L("暂不支持 120 FPS")
+            alert.informativeText = L("当前屏幕刷新率不足 120Hz，无法使用 120 FPS 录制。")
+            alert.addButton(withTitle: L("好"))
+            alert.runModal()
+        }
+        updateBitRateRange()
     }
     @objc private func bitRateChanged(_ sender: NSSlider) {
-        sender.doubleValue = (min(max(sender.doubleValue, 1), 6) * 10).rounded() / 10
+        sender.doubleValue = (min(max(sender.doubleValue, 1), maximumBitRateMbps) * 10).rounded() / 10
         updateBitRateEstimate()
     }
+    private func updateBitRateRange() {
+        guard let slider = bitRateSlider else { return }
+        let frameRate: Double
+        switch frameRateControl?.selectedSegment {
+        case 0: frameRate = 30
+        case 2: frameRate = 120
+        default: frameRate = 60
+        }
+        // H.264 screen content needs about 0.14 bit per pixel per frame for
+        // a high-quality ceiling. The slider remains usable from 1 Mbps and
+        // never offers more than the recorder's 45 Mbps safety ceiling.
+        let calculated = Double(recordingPixelSize.width * recordingPixelSize.height) * frameRate * 0.14 / 1_000_000
+        maximumBitRateMbps = min(45, max(1, (calculated * 10).rounded(.up) / 10))
+        slider.maxValue = maximumBitRateMbps
+        slider.doubleValue = min(max(slider.doubleValue, 1), maximumBitRateMbps)
+    }
     private func updateBitRateEstimate() {
-        let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), 6)
+        let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), maximumBitRateMbps)
         let megabytesPerMinute = value * 60 / 8
         bitRateValueLabel?.stringValue = String(format: "%.1f", value)
         bitRateEstimateLabel?.stringValue = L(String(format: "1分钟约 %.0f MB", megabytesPerMinute))
