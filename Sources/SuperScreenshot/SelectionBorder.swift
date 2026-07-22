@@ -64,6 +64,7 @@ final class SelectionBorderController {
 
     func lockEditing() {
         window?.ignoresMouseEvents = true
+        (window?.contentView as? SelectionBorderView)?.lockEditing()
     }
 
     private func updateSelection(_ proposedSelection: CGRect) {
@@ -98,6 +99,7 @@ private final class SelectionBorderView: NSView {
     private var dragStartPoint: CGPoint?
     private var dragStartSelection: CGRect?
     private var trackingAreaRef: NSTrackingArea?
+    private var editingLocked = false
 
     init(
         frame: CGRect,
@@ -132,7 +134,7 @@ private final class SelectionBorderView: NSView {
 
         // Match the screenshot editor's resize affordance: a small white
         // circular knob with a colored outline at every corner.
-        guard editable else { return }
+        guard editable, !editingLocked else { return }
         let rect = bounds.insetBy(dx: inset, dy: inset)
         for point in [
             CGPoint(x: rect.minX, y: rect.minY),
@@ -155,10 +157,19 @@ private final class SelectionBorderView: NSView {
         needsDisplay = true
     }
 
+    func lockEditing() {
+        editingLocked = true
+        activeEdges.removeAll()
+        dragStartPoint = nil
+        dragStartSelection = nil
+        needsDisplay = true
+        NSCursor.arrow.set()
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let trackingAreaRef { removeTrackingArea(trackingAreaRef) }
-        guard editable else { return }
+        guard editable, !editingLocked else { return }
         let area = NSTrackingArea(
             rect: bounds,
             options: [.activeAlways, .inVisibleRect, .mouseMoved, .cursorUpdate],
@@ -173,7 +184,7 @@ private final class SelectionBorderView: NSView {
     override func mouseMoved(with event: NSEvent) { updateCursor(for: event) }
 
     private func updateCursor(for event: NSEvent) {
-        guard editable, let window else { return }
+        guard editable, !editingLocked, let window else { return }
         let point = window.convertPoint(toScreen: event.locationInWindow)
         let tolerance: CGFloat = 20
         let nearLeft = abs(point.x - selection.minX) <= tolerance
@@ -196,7 +207,7 @@ private final class SelectionBorderView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard editable, let window else { return }
+        guard editable, !editingLocked, let window else { return }
         let point = window.convertPoint(toScreen: event.locationInWindow)
         let tolerance: CGFloat = 20
         var edges = Set<ResizeEdge>()
@@ -211,7 +222,7 @@ private final class SelectionBorderView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard editable,
+        guard editable, !editingLocked,
               let window,
               let startPoint = dragStartPoint,
               let startSelection = dragStartSelection,
