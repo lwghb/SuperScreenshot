@@ -307,11 +307,19 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
             } catch { completion(.failure(error)) }
             return
         }
+        // Core Animation annotations require a composition export first.  Do not
+        // expose that export as the final file though: the preset's adaptive
+        // high bitrate was making a 1 Mbps recording balloon after editing.
+        // Render to a short-lived intermediate file and then encode it with
+        // the exact recording settings selected by the user.
+        let intermediateURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscreenshot-render-\(UUID().uuidString).mp4")
+        try? FileManager.default.removeItem(at: intermediateURL)
         guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
             completion(.failure(NSError(domain: "SuperScreenshot.Recording", code: 20, userInfo: [NSLocalizedDescriptionKey: L("无法创建视频导出器")])))
             return
         }
-        exporter.outputURL = target
+        exporter.outputURL = intermediateURL
         exporter.outputFileType = .mp4
         exporter.timeRange = CMTimeRange(
             start: CMTime(seconds: trimRangeView.start, preferredTimescale: 600),
@@ -326,13 +334,120 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
         }
         exporter.exportAsynchronously { [weak self] in
             DispatchQueue.main.async {
-                self?.endExportProgress()
                 switch exporter.status {
-                case .completed: completion(.success(target))
+                case .completed:
+                    self?.exportProgressLabel?.stringValue = L("正在按录制设置编码")
+                    self?.transcode(intermediateURL, to: target) { result in
+                        try? FileManager.default.removeItem(at: intermediateURL)
+                        DispatchQueue.main.async {
+                            self?.endExportProgress()
+                            completion(result)
+                        }
+                    }
                 default:
+                    self?.endExportProgress()
                     completion(.failure(exporter.error ?? NSError(domain: "SuperScreenshot.Recording", code: 21, userInfo: [NSLocalizedDescriptionKey: L("录屏导出失败")])))
                 }
                 _ = self
+            }
+        }
+    }
+
+    /// Re-encode the rendered edit using the FPS and bitrate used for this
+    /// recording.  AVAssetExportSession does not expose an exact bitrate knob,
+    /// so an AVAssetWriter is used for the final pass.
+    private func transcode(_ source: URL, to target: URL, completion: @escaping (Result<URL, Error>) -> Void) {
+        let requestedFrameRate = frameRate
+        let requestedBitRate = bitRate
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                if FileManager.default.fileExists(atPath: target.path) {
+                    try FileManager.default.removeItem(at: target)
+                }
+                let sourceAsset = AVURLAsset(url: source)
+                guard let videoTrack = sourceAsset.tracks(withMediaType: .video).first else {
+                    throw NSError(domain: "SuperScreenshot.Recording", code: 22, userInfo: [NSLocalizedDescriptionKey: L("找不到录屏视频轨道")])
+                }
+                let reader = try AVAssetReader(asset: sourceAsset)
+                let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                ])
+                guard reader.canAdd(videoOutput) else {
+                    throw NSError(domain: "SuperScreenshot.Recording", code: 23, userInfo: [NSLocalizedDescriptionKey: L("无法读取录屏视频")])
+                }
+                reader.add(videoOutput)
+
+                let writer = try AVAssetWriter(outputURL: target, fileType: .mp4)
+                writer.shouldOptimizeForNetworkUse = true
+                let naturalSize = videoTrack.naturalSize
+                let width = max(2, Int(abs(naturalSize.width).rounded()) & ~1)
+                let height = max(2, Int(abs(naturalSize.height).rounded()) & ~1)
+                let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
+                    AVVideoCodecKey: AVVideoCodecType.h264,
+                    AVVideoWidthKey: width,
+                    AVVideoHeightKey: height,
+                    AVVideoCompressionPropertiesKey: [
+                        AVVideoAverageBitRateKey: requestedBitRate,
+                        AVVideoExpectedSourceFrameRateKey: requestedFrameRate,
+                        AVVideoMaxKeyFrameIntervalKey: requestedFrameRate,
+                        AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+                    ],
+                    AVVideoColorPropertiesKey: [
+                        AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                        AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                        AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
+                    ]
+                ])
+                videoInput.transform = videoTrack.preferredTransform
+                guard writer.canAdd(videoInput) else {
+                    throw NSError(domain: "SuperScreenshot.Recording", code: 24, userInfo: [NSLocalizedDescriptionKey: L("无法写入录屏视频")])
+                }
+                writer.add(videoInput)
+
+                var streams: [(AVAssetReaderOutput, AVAssetWriterInput)] = [(videoOutput, videoInput)]
+                if let audioTrack = sourceAsset.tracks(withMediaType: .audio).first {
+                    let audioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: nil)
+                    let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
+                    if reader.canAdd(audioOutput), writer.canAdd(audioInput) {
+                        reader.add(audioOutput)
+                        writer.add(audioInput)
+                        streams.append((audioOutput, audioInput))
+                    }
+                }
+                guard reader.startReading() else { throw reader.error ?? NSError(domain: "SuperScreenshot.Recording", code: 25, userInfo: [NSLocalizedDescriptionKey: L("无法开始读取录屏")]) }
+                guard writer.startWriting() else { throw writer.error ?? NSError(domain: "SuperScreenshot.Recording", code: 26, userInfo: [NSLocalizedDescriptionKey: L("无法开始编码录屏")]) }
+                writer.startSession(atSourceTime: .zero)
+
+                let group = DispatchGroup()
+                let queue = DispatchQueue(label: "SuperScreenshot.RecordingTranscode", qos: .userInitiated, attributes: .concurrent)
+                for (output, input) in streams {
+                    group.enter()
+                    input.requestMediaDataWhenReady(on: queue) {
+                        while input.isReadyForMoreMediaData {
+                            guard let sample = output.copyNextSampleBuffer() else {
+                                input.markAsFinished()
+                                group.leave()
+                                return
+                            }
+                            guard input.append(sample) else {
+                                input.markAsFinished()
+                                group.leave()
+                                return
+                            }
+                        }
+                    }
+                }
+                group.notify(queue: queue) {
+                    writer.finishWriting {
+                        if writer.status == .completed {
+                            completion(.success(target))
+                        } else {
+                            completion(.failure(writer.error ?? reader.error ?? NSError(domain: "SuperScreenshot.Recording", code: 27, userInfo: [NSLocalizedDescriptionKey: L("录屏重新编码失败")])))
+                        }
+                    }
+                }
+            } catch {
+                completion(.failure(error))
             }
         }
     }
