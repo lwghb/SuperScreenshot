@@ -39,7 +39,7 @@ private final class RecordingStopButton: NSButton {
 }
 
 private final class DraggableRecordingToolbarView: NSVisualEffectView {
-    var onManualMoveBegan: (() -> Void)?
+    var onManualMoveBegan: (@MainActor () -> Void)?
     override var mouseDownCanMoveWindow: Bool { true }
 
     override func mouseDown(with event: NSEvent) {
@@ -50,10 +50,10 @@ private final class DraggableRecordingToolbarView: NSVisualEffectView {
 
 @MainActor
 final class RecordingToolbarController: NSObject {
-    var onStart: ((RecordingFrameRate, Int) -> Void)?
-    var onStop: (() -> Void)?
-    var onBack: (() -> Void)?
-    var onHide: (() -> Void)?
+    var onStart: (@MainActor (RecordingFrameRate, Int) -> Void)?
+    var onStop: (@MainActor () -> Void)?
+    var onBack: (@MainActor () -> Void)?
+    var onHide: (@MainActor () -> Void)?
     private var panel: NSPanel?
     private var timer: Timer?
     private var startedAt: Date?
