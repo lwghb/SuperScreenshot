@@ -133,8 +133,8 @@ final class RecordingToolbarController: NSObject {
         updateBitRateEstimate()
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
         timerLabel.isHidden = true
-        timerLabel.alignment = .right
-        timerLabel.frame = CGRect(x: 70, y: 23, width: 94, height: 30)
+        timerLabel.alignment = .center
+        timerLabel.frame = CGRect(x: 48, y: 23, width: 116, height: 30)
         recordingSettingsLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         recordingSettingsLabel.textColor = .secondaryLabelColor
         recordingSettingsLabel.alignment = .right

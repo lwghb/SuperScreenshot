@@ -44,21 +44,18 @@ final class RecordingEditorController: NSObject {
         content.addSubview(preview)
 
         let settingsBadge = NSTextField(labelWithString: String(format: "%d FPS · %.1f Mbps", frameRate, Double(bitRate) / 1_000_000))
-        settingsBadge.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-        settingsBadge.textColor = .white
-        settingsBadge.alignment = .center
-        settingsBadge.wantsLayer = true
-        settingsBadge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.68).cgColor
-        settingsBadge.layer?.cornerRadius = 5
-        settingsBadge.layer?.masksToBounds = true
-        settingsBadge.frame = CGRect(x: 664, y: 174, width: 120, height: 22)
-        content.addSubview(settingsBadge)
 
         let caption = NSTextField(labelWithString: L("拖动起点和终点，选择需要保留的录屏片段"))
         caption.font = .systemFont(ofSize: 13)
         caption.textColor = .secondaryLabelColor
         caption.frame = CGRect(x: 32, y: 126, width: 560, height: 20)
         content.addSubview(caption)
+
+        settingsBadge.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        settingsBadge.textColor = .secondaryLabelColor
+        settingsBadge.alignment = .right
+        settingsBadge.frame = CGRect(x: 620, y: 126, width: 176, height: 20)
+        content.addSubview(settingsBadge)
 
         let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 70, width: 764, height: 38))
         trimRange.duration = duration
