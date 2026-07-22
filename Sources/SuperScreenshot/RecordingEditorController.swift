@@ -4,7 +4,7 @@ import AVKit
 import QuartzCore
 
 @MainActor
-final class RecordingEditorController: NSObject {
+final class RecordingEditorController: NSObject, NSWindowDelegate {
     private let url: URL
     private let screen: NSScreen
     private let frameRate: Int
@@ -26,6 +26,7 @@ final class RecordingEditorController: NSObject {
     private var exportProgressTimer: Timer?
     private var colorTarget: SharedAnnotationColorTarget = .text
     private var duration: Double = 0
+    private var annotationEditorExpanded = false
 
     init(url: URL, screen: NSScreen, frameRate: Int = 60, bitRate: Int = 1_000_000) {
         self.url = url
@@ -45,6 +46,7 @@ final class RecordingEditorController: NSObject {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.minSize = CGSize(width: 640, height: 460)
+        panel.delegate = self
         let visible = screen.visibleFrame
         panel.setFrameOrigin(CGPoint(
             x: visible.midX - size.width / 2,
@@ -170,6 +172,7 @@ final class RecordingEditorController: NSObject {
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         setAnnotationToolbarVisible(false)
+        layoutEditorContent()
         updateTextControls()
     }
 
@@ -360,8 +363,8 @@ final class RecordingEditorController: NSObject {
     /// Before that it occupies one compact “添加标注” row, rather than reserving
     /// an empty toolbar-sized hole below the trim range.
     private func setAnnotationEditorExpanded(_ expanded: Bool) {
-        guard let panel, let preview = previewView, let overlay = annotationOverlayView,
-              let caption = trimCaptionLabel, let info = recordingInfoLabel else { return }
+        guard let panel else { return }
+        annotationEditorExpanded = expanded
         let offset: CGFloat = expanded ? 100 : 0
         let targetSize = CGSize(width: 820, height: 580 + offset)
         if panel.contentView?.bounds.size != targetSize {
@@ -369,11 +372,31 @@ final class RecordingEditorController: NSObject {
             panel.setContentSize(targetSize)
             panel.setFrameOrigin(CGPoint(x: frame.minX, y: frame.maxY - targetSize.height))
         }
-        preview.frame.origin.y = 160 + offset
+        layoutEditorContent()
+    }
+
+    private func layoutEditorContent() {
+        guard let content = panel?.contentView,
+              let preview = previewView,
+              let overlay = annotationOverlayView,
+              let caption = trimCaptionLabel,
+              let info = recordingInfoLabel else { return }
+        let offset: CGFloat = annotationEditorExpanded ? 100 : 0
+        let side: CGFloat = 24
+        let previewBottom: CGFloat = 160 + offset
+        // The preview always keeps a 20pt top inset.  When the user makes the
+        // panel shorter, its height shrinks instead of being clipped.
+        let previewHeight = max(150, content.bounds.height - previewBottom - 20)
+        preview.frame = CGRect(x: side, y: previewBottom, width: max(1, content.bounds.width - side * 2), height: previewHeight)
         overlay.frame = preview.frame
-        trimRangeView.frame.origin.y = 114 + offset
-        caption.frame.origin.y = 88 + offset
-        info.frame.origin.y = 88 + offset
+        trimRangeView.frame = CGRect(x: 32, y: 114 + offset, width: max(1, content.bounds.width - 64), height: 38)
+        caption.frame = CGRect(x: 32, y: 88 + offset, width: max(1, content.bounds.width * 0.58), height: 18)
+        info.frame = CGRect(x: content.bounds.width * 0.60, y: 88 + offset, width: max(1, content.bounds.width * 0.36), height: 18)
+        annotationToolbar?.frame = CGRect(x: 16, y: 74, width: max(1, content.bounds.width - 32), height: 100)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        layoutEditorContent()
     }
 
 }
