@@ -19,6 +19,13 @@ final class RecordingEditorController: NSObject {
     private weak var textColorButton: NSButton?
     private weak var textBackgroundButton: NSButton?
     private weak var fontSizeSlider: NSSlider?
+    private weak var deleteTextButton: NSButton?
+    private weak var undoTextButton: NSButton?
+    private weak var saveButton: NSButton?
+    private weak var copyButton: NSButton?
+    private weak var exportProgressLabel: NSTextField?
+    private weak var exportProgressIndicator: NSProgressIndicator?
+    private var exportProgressTimer: Timer?
     private var colorTarget: RecordingTextColorTarget = .text
     private var duration: Double = 0
 
@@ -64,16 +71,15 @@ final class RecordingEditorController: NSObject {
         let settingsBadge = NSTextField(labelWithString: "")
 
         let caption = NSTextField(labelWithString: L("拖动起点和终点，选择需要保留的录屏片段"))
-        caption.font = .systemFont(ofSize: 13)
+        caption.font = .systemFont(ofSize: 12)
         caption.textColor = .secondaryLabelColor
-        caption.frame = CGRect(x: 366, y: 126, width: 142, height: 20)
-        caption.font = .systemFont(ofSize: 11)
+        caption.frame = CGRect(x: 32, y: 48, width: 440, height: 18)
         content.addSubview(caption)
 
         settingsBadge.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         settingsBadge.textColor = .secondaryLabelColor
         settingsBadge.alignment = .right
-        settingsBadge.frame = CGRect(x: 518, y: 126, width: 278, height: 20)
+        settingsBadge.frame = CGRect(x: 518, y: 48, width: 278, height: 18)
         settingsBadge.autoresizingMask = [.minXMargin]
         recordingInfoLabel = settingsBadge
         content.addSubview(settingsBadge)
@@ -107,7 +113,18 @@ final class RecordingEditorController: NSObject {
         content.addSubview(fontSize)
         fontSizeSlider = fontSize
 
-        let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 70, width: 764, height: 38))
+        let undo = NSButton(title: L("撤销"), target: self, action: #selector(undoText))
+        undo.bezelStyle = .rounded
+        undo.frame = CGRect(x: 360, y: 120, width: 54, height: 26)
+        content.addSubview(undo)
+        undoTextButton = undo
+        let delete = NSButton(title: L("删除"), target: self, action: #selector(deleteText))
+        delete.bezelStyle = .rounded
+        delete.frame = CGRect(x: 420, y: 120, width: 54, height: 26)
+        content.addSubview(delete)
+        deleteTextButton = delete
+
+        let trimRange = RecordingTrimRangeView(frame: CGRect(x: 32, y: 76, width: 764, height: 38))
         trimRange.duration = duration
         trimRange.end = duration
         trimRange.autoresizingMask = [.width]
@@ -131,6 +148,24 @@ final class RecordingEditorController: NSObject {
         copy.autoresizingMask = [.minXMargin]
         content.addSubview(save)
         content.addSubview(copy)
+        saveButton = save
+        copyButton = copy
+
+        let progressLabel = NSTextField(labelWithString: "")
+        progressLabel.alignment = .right
+        progressLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        progressLabel.textColor = .secondaryLabelColor
+        progressLabel.frame = CGRect(x: 328, y: 25, width: 216, height: 18)
+        progressLabel.isHidden = true
+        content.addSubview(progressLabel)
+        exportProgressLabel = progressLabel
+        let progress = NSProgressIndicator(frame: CGRect(x: 328, y: 18, width: 216, height: 4))
+        progress.isIndeterminate = false
+        progress.minValue = 0
+        progress.maxValue = 1
+        progress.isHidden = true
+        content.addSubview(progress)
+        exportProgressIndicator = progress
 
         panel.contentView = content
         self.panel = panel
@@ -192,6 +227,9 @@ final class RecordingEditorController: NSObject {
         updateTextControls()
     }
 
+    @objc private func undoText() { textOverlayView?.undo() }
+    @objc private func deleteText() { textOverlayView?.deleteSelectedAnnotation() }
+
     private func updateTextControls() {
         guard let textOverlayView else { return }
         textToolButton?.contentTintColor = textOverlayView.textMode ? .systemBlue : .labelColor
@@ -199,6 +237,8 @@ final class RecordingEditorController: NSObject {
         fontSizeSlider?.doubleValue = Double(textOverlayView.textFontSize)
         textColorButton?.contentTintColor = textOverlayView.textColor
         textBackgroundButton?.contentTintColor = textOverlayView.backgroundColor
+        undoTextButton?.isEnabled = textOverlayView.canUndo
+        deleteTextButton?.isHidden = !textOverlayView.hasSelection
     }
 
     private func colorSwatchImage(_ color: NSColor) -> NSImage {
@@ -266,8 +306,15 @@ final class RecordingEditorController: NSObject {
             end: CMTime(seconds: trimRangeView.end, preferredTimescale: 600)
         )
         exporter.videoComposition = makeTextVideoComposition()
+        beginExportProgress()
+        exportProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self, weak exporter] _ in
+            guard let self, let exporter else { return }
+            self.exportProgressIndicator?.doubleValue = Double(exporter.progress)
+            self.exportProgressLabel?.stringValue = String(format: "%@ %.0f%%", L("正在导出"), exporter.progress * 100)
+        }
         exporter.exportAsynchronously { [weak self] in
             DispatchQueue.main.async {
+                self?.endExportProgress()
                 switch exporter.status {
                 case .completed: completion(.success(target))
                 default:
@@ -286,7 +333,25 @@ final class RecordingEditorController: NSObject {
         alert.beginSheetModal(for: panel!)
     }
 
-    private func close() { player.pause(); panel?.orderOut(nil); panel = nil }
+    private func beginExportProgress() {
+        saveButton?.isEnabled = false
+        copyButton?.isEnabled = false
+        exportProgressLabel?.stringValue = L("正在导出 0%")
+        exportProgressLabel?.isHidden = false
+        exportProgressIndicator?.doubleValue = 0
+        exportProgressIndicator?.isHidden = false
+    }
+
+    private func endExportProgress() {
+        exportProgressTimer?.invalidate()
+        exportProgressTimer = nil
+        exportProgressLabel?.isHidden = true
+        exportProgressIndicator?.isHidden = true
+        saveButton?.isEnabled = true
+        copyButton?.isEnabled = true
+    }
+
+    private func close() { exportProgressTimer?.invalidate(); player.pause(); panel?.orderOut(nil); panel = nil }
 
     private func makeTextVideoComposition() -> AVMutableVideoComposition? {
         guard let annotations = textOverlayView?.annotations, !annotations.isEmpty,
@@ -306,7 +371,12 @@ final class RecordingEditorController: NSObject {
             let padding = fontSize * 0.35
             let boxSize = CGSize(width: ceil(textSize.width + padding * 2), height: ceil(NSLayoutManager().defaultLineHeight(for: font) + padding * 2))
             let box = CALayer()
-            box.frame = CGRect(x: annotation.origin.x * renderSize.width, y: annotation.origin.y * renderSize.height, width: boxSize.width, height: boxSize.height)
+            box.frame = CGRect(
+                x: annotation.origin.x * renderSize.width,
+                y: annotation.origin.y * renderSize.height - boxSize.height,
+                width: boxSize.width,
+                height: boxSize.height
+            )
             box.backgroundColor = annotation.backgroundColor.withAlphaComponent(0.9).cgColor
             box.cornerRadius = padding
             let textLayer = CATextLayer()
@@ -347,7 +417,7 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
     var textFontSize: CGFloat = 18 { didSet { updateActiveTextStyle(); resizeActiveTextView() } }
     var onAnnotationsChanged: (() -> Void)?
     private(set) var annotations: [RecordingTextAnnotation] = [] { didSet { needsDisplay = true; onAnnotationsChanged?() } }
-    private var selectedIndex: Int?
+    private var selectedIndex: Int? { didSet { needsDisplay = true; onAnnotationsChanged?() } }
     private var activeTextView: NSTextView?
     private var activeAnchor: CGPoint?
     private var movingIndex: Int?
@@ -360,6 +430,8 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override var acceptsFirstResponder: Bool { true }
+    var canUndo: Bool { !annotations.isEmpty }
+    var hasSelection: Bool { selectedIndex != nil }
 
     private var videoRect: CGRect {
         let scale = min(bounds.width / max(videoSize.width, 1), bounds.height / max(videoSize.height, 1))
@@ -370,7 +442,11 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        guard activeTextView == nil else { return }
+        if activeTextView != nil {
+            commitActiveText()
+            window?.makeFirstResponder(self)
+            return
+        }
         if let index = annotationIndex(at: point) {
             selectedIndex = index; movingIndex = index; moveStart = point; needsDisplay = true; return
         }
@@ -388,8 +464,23 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
     }
     override func mouseUp(with event: NSEvent) { movingIndex = nil; moveStart = nil }
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 51 || event.keyCode == 117, let selectedIndex { annotations.remove(at: selectedIndex); self.selectedIndex = nil }
+        if event.keyCode == 51 || event.keyCode == 117 { deleteSelectedAnnotation() }
         else { super.keyDown(with: event) }
+    }
+
+    func undo() {
+        commitActiveText()
+        guard !annotations.isEmpty else { return }
+        annotations.removeLast()
+        selectedIndex = annotations.isEmpty ? nil : annotations.count - 1
+        onAnnotationsChanged?()
+    }
+
+    func deleteSelectedAnnotation() {
+        guard let selectedIndex, annotations.indices.contains(selectedIndex) else { return }
+        annotations.remove(at: selectedIndex)
+        self.selectedIndex = annotations.isEmpty ? nil : min(selectedIndex, annotations.count - 1)
+        onAnnotationsChanged?()
     }
 
     private func beginTextInput(at point: CGPoint) {
@@ -419,7 +510,12 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
         let width = NSAttributedString(string: textView.string, attributes: [.font: font]).size().width
         let padding = textFontSize * 0.35
         let height = ceil(NSLayoutManager().defaultLineHeight(for: font) + padding * 2)
-        textView.frame = CGRect(x: anchor.x, y: anchor.y, width: min(max(width + padding * 2, padding * 2 + 2), videoRect.maxX - anchor.x), height: height)
+        textView.frame = CGRect(
+            x: anchor.x,
+            y: anchor.y - height,
+            width: min(max(width + padding * 2, padding * 2 + 2), max(padding * 2 + 2, videoRect.maxX - anchor.x)),
+            height: height
+        )
         textView.textContainerInset = CGSize(width: padding, height: padding)
     }
     private func commitActiveText() {
@@ -440,7 +536,8 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
     private func annotationRect(_ annotation: RecordingTextAnnotation) -> CGRect {
         let fontSize = annotation.fontRatio * videoRect.width; let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
         let textSize = NSAttributedString(string: annotation.text, attributes: [.font: font]).size(); let padding = fontSize * 0.35
-        return CGRect(x: videoRect.minX + annotation.origin.x * videoRect.width, y: videoRect.minY + annotation.origin.y * videoRect.height, width: textSize.width + padding * 2, height: NSLayoutManager().defaultLineHeight(for: font) + padding * 2)
+        let height = NSLayoutManager().defaultLineHeight(for: font) + padding * 2
+        return CGRect(x: videoRect.minX + annotation.origin.x * videoRect.width, y: videoRect.minY + annotation.origin.y * videoRect.height - height, width: textSize.width + padding * 2, height: height)
     }
     private func annotationIndex(at point: CGPoint) -> Int? { annotations.indices.reversed().first { annotationRect(annotations[$0]).insetBy(dx: -8, dy: -8).contains(point) } }
     override func draw(_ dirtyRect: NSRect) {
