@@ -127,7 +127,7 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
 
 struct ScreenRecordingOptions {
     var frameRate: RecordingFrameRate = .standard
-    var bitRate = 2_300_000
+    var bitRate = 1_000_000
     var capturesSystemAudio = false
 }
 

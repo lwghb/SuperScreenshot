@@ -52,10 +52,10 @@ final class RecordingToolbarController: NSObject {
     private weak var frameRateControl: NSSegmentedControl?
     private weak var bitRateSlider: NSSlider?
     private weak var bitRateLabel: NSTextField?
+    private weak var bitRateRangeLabel: NSTextField?
     private var supportsHighFrameRate = false
     private weak var contentView: NSView?
     private var visibleFrame = CGRect.zero
-    private let bitRates = [1_500_000, 2_300_000, 4_000_000, 6_000_000, 8_000_000]
 
     func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
         let size = CGSize(width: 480, height: 104)
@@ -108,22 +108,26 @@ final class RecordingToolbarController: NSObject {
         fpsLabel.frame = CGRect(x: 102, y: 66, width: 28, height: 18)
         frameRate.frame = CGRect(x: 130, y: 61, width: 102, height: 28)
         frameRateControl = frameRate
-        let bitrateLabel = NSTextField(labelWithString: "")
+        let bitrateLabel = NSTextField(labelWithString: L("码率 (Mbps)"))
         bitrateLabel.font = .systemFont(ofSize: 12, weight: .medium)
         bitrateLabel.alignment = .right
-        bitrateLabel.frame = CGRect(x: 242, y: 66, width: 96, height: 18)
+        bitrateLabel.frame = CGRect(x: 242, y: 66, width: 88, height: 18)
         bitRateLabel = bitrateLabel
-        let bitrateSlider = NSSlider(value: 1, minValue: 0, maxValue: Double(bitRates.count - 1), target: self, action: #selector(bitRateChanged(_:)))
-        bitrateSlider.numberOfTickMarks = bitRates.count
-        bitrateSlider.allowsTickMarkValuesOnly = true
-        bitrateSlider.frame = CGRect(x: 345, y: 62, width: 112, height: 24)
+        let bitrateRange = NSTextField(labelWithString: "1–6")
+        bitrateRange.font = .systemFont(ofSize: 10, weight: .medium)
+        bitrateRange.textColor = .secondaryLabelColor
+        bitrateRange.frame = CGRect(x: 338, y: 85, width: 32, height: 14)
+        bitRateRangeLabel = bitrateRange
+        let bitrateSlider = NSSlider(value: 1, minValue: 1, maxValue: 6, target: self, action: #selector(bitRateChanged(_:)))
+        bitrateSlider.isContinuous = true
+        bitrateSlider.frame = CGRect(x: 338, y: 61, width: 119, height: 24)
         bitRateSlider = bitrateSlider
-        updateBitRateLabel()
+        updateBitRateEstimate()
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
         timerLabel.isHidden = true
         timerLabel.alignment = .right
         timerLabel.frame = CGRect(x: 70, y: 17, width: 94, height: 30)
-        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(fpsLabel); content.addSubview(frameRate); content.addSubview(bitrateLabel); content.addSubview(bitrateSlider); content.addSubview(startButton)
+        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(fpsLabel); content.addSubview(frameRate); content.addSubview(bitrateLabel); content.addSubview(bitrateRange); content.addSubview(bitrateSlider); content.addSubview(startButton)
         panel.contentView = content
         contentView = content
         self.panel = panel
@@ -153,7 +157,7 @@ final class RecordingToolbarController: NSObject {
             startButton.usesStopStyle = true
             startButton.attributedTitle = NSAttributedString(string: L("结束录屏"))
             timerLabel.isHidden = false; backButton?.isHidden = true; frameRateControl?.isHidden = true
-            bitRateSlider?.isHidden = true; bitRateLabel?.isHidden = true
+            bitRateSlider?.isHidden = true; bitRateLabel?.isHidden = true; bitRateRangeLabel?.isHidden = true
             startButton.frame.origin.x = 176
             compactForRecording()
             timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
@@ -163,8 +167,8 @@ final class RecordingToolbarController: NSObject {
             case 2: rate = .high
             default: rate = .standard
             }
-            let index = min(max(Int(bitRateSlider?.integerValue ?? 1), 0), bitRates.count - 1)
-            onStart?(rate, bitRates[index])
+            let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), 6)
+            onStart?(rate, Int((value * 1_000_000).rounded()))
         } else { onStop?() }
     }
     @objc private func frameRateChanged(_ sender: NSSegmentedControl) {
@@ -177,12 +181,14 @@ final class RecordingToolbarController: NSObject {
         alert.runModal()
     }
     @objc private func bitRateChanged(_ sender: NSSlider) {
-        sender.integerValue = min(max(sender.integerValue, 0), bitRates.count - 1)
-        updateBitRateLabel()
+        sender.doubleValue = (min(max(sender.doubleValue, 1), 6) * 10).rounded() / 10
+        updateBitRateEstimate()
     }
-    private func updateBitRateLabel() {
-        let index = min(max(Int(bitRateSlider?.integerValue ?? 1), 0), bitRates.count - 1)
-        bitRateLabel?.stringValue = String(format: "%.1f Mbps", Double(bitRates[index]) / 1_000_000)
+    private func updateBitRateEstimate() {
+        let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), 6)
+        let megabytesPerMinute = value * 60 / 8
+        bitRateRangeLabel?.stringValue = String(format: "1–6     %@", L(String(format: "1分钟约 %.0f MB", megabytesPerMinute)))
+        bitRateRangeLabel?.frame.size.width = 119
     }
     private func compactForRecording() {
         guard let panel else { return }
@@ -212,6 +218,7 @@ final class RecordingToolbarController: NSObject {
         frameRateControl?.isHidden = false
         bitRateSlider?.isHidden = false
         bitRateLabel?.isHidden = false
+        bitRateRangeLabel?.isHidden = false
         if let contentView { startButton.frame.origin.x = (contentView.bounds.width - startButton.frame.width) / 2 }
     }
     func dismissForBack(completion: @escaping () -> Void) {

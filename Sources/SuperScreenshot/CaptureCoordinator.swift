@@ -198,7 +198,7 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     @available(macOS 13.0, *)
-    private func startScreenRecording(on screen: NSScreen?, frameRate: RecordingFrameRate = .standard, bitRate: Int = 2_300_000) {
+    private func startScreenRecording(on screen: NSScreen?, frameRate: RecordingFrameRate = .standard, bitRate: Int = 1_000_000) {
         guard let screen else { return }
         recordingScreen = screen
         let url = FileManager.default.temporaryDirectory
