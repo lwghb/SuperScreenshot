@@ -186,7 +186,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
     private func updateRecordingInfo() {
         let selectedDuration = max(0, (trimRangeView?.end ?? duration) - (trimRangeView?.start ?? 0))
         let estimatedMegabytes = selectedDuration * Double(bitRate) / 8_000_000
-        let wholeSeconds = Int(selectedDuration.rounded(.down))
+        let wholeSeconds = Int(selectedDuration.rounded(.up))
         let durationText = String(format: "%02d:%02d", wholeSeconds / 60, wholeSeconds % 60)
         recordingInfoLabel?.stringValue = String(
             format: "%@ %@ · %d FPS · %.1f Mbps · %@ %.1f MB",
