@@ -91,13 +91,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func startRecordingIndicatorPulse() {
         guard recordingIndicatorTimer == nil, let button = statusItem.button else { return }
         button.alphaValue = 1
-        recordingIndicatorTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { [weak button] _ in
-            guard let button else { return }
+        recordingIndicatorTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.toggleRecordingIndicatorPulse() }
+        }
+    }
+
+    private func toggleRecordingIndicatorPulse() {
+        guard let button = statusItem.button, recordingIndicatorTimer != nil else { return }
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.18
                 button.animator().alphaValue = button.alphaValue > 0.8 ? 0.4 : 1
             }
-        }
     }
 
     private func recordingStopImage() -> NSImage {
