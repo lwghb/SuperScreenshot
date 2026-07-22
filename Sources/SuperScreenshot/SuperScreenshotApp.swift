@@ -7,6 +7,7 @@ import Sparkle
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let coordinator = CaptureCoordinator()
     private var statusItem: NSStatusItem!
+    private var statusMenu: NSMenu?
     private var shortcutItem: NSMenuItem!
     private var aboutWindowController: AboutWindowController?
     private let updaterController = SPUStandardUpdaterController(
@@ -26,8 +27,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
         installStatusMenu()
         coordinator.installHotKeyMonitor { [weak self] in
-            self?.coordinator.beginSelection()
-            self?.statusItem.menu?.cancelTrackingWithoutAnimation()
+            guard let self else { return }
+            if self.coordinator.isRecordingOrStarting {
+                if #available(macOS 13.0, *) { self.coordinator.toggleScreenRecording() }
+            } else {
+                self.coordinator.beginSelection()
+            }
+            self.statusItem.menu?.cancelTrackingWithoutAnimation()
+        }
+        coordinator.onRecordingStateChanged = { [weak self] recording in
+            self?.updateStatusItem(recording: recording)
         }
     }
 
@@ -50,8 +59,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(withTitle: L("退出超强截图"), action: #selector(quit), keyEquivalent: "")
         for item in menu.items { item.target = self }
         updateItem.target = updaterController
+        statusMenu = menu
         statusItem.menu = menu
         updateShortcutTitle()
+    }
+
+    private func updateStatusItem(recording: Bool) {
+        guard let button = statusItem.button else { return }
+        if recording {
+            let image = NSImage(systemSymbolName: "stop.circle.fill", accessibilityDescription: L("结束录屏"))
+            image?.isTemplate = false
+            button.image = image
+            button.contentTintColor = .systemRed
+            button.toolTip = L("结束录屏")
+            button.target = self
+            button.action = #selector(stopRecordingFromStatusItem)
+            statusItem.menu = nil
+        } else {
+            button.image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: L("超强截图"))
+            button.contentTintColor = nil
+            button.toolTip = L("超强截图")
+            button.target = nil
+            button.action = nil
+            statusItem.menu = statusMenu
+        }
     }
 
     func menuWillOpen(_ menu: NSMenu) { updateShortcutTitle() }
@@ -59,6 +90,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         shortcutItem?.title = LF("设置快捷键…  %@", coordinator.shortcut.title)
     }
     @objc private func beginCapture() { coordinator.beginSelection() }
+    @objc private func stopRecordingFromStatusItem() {
+        if #available(macOS 13.0, *) { coordinator.toggleScreenRecording() }
+    }
     @objc private func showShortcut() { coordinator.showShortcutSettings() }
     @objc private func checkPermissions() { coordinator.requestPermissions() }
     @objc private func showAbout() {

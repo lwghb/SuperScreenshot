@@ -57,6 +57,7 @@ struct CaptureShortcut: Equatable {
 
 @MainActor
 final class CaptureCoordinator: ObservableObject {
+    var onRecordingStateChanged: ((Bool) -> Void)?
     @Published var shortcut: CaptureShortcut {
         didSet {
             UserDefaults.standard.set(Int(shortcut.keyCode), forKey: "shortcutKeyCode")
@@ -87,6 +88,8 @@ final class CaptureCoordinator: ObservableObject {
     private var recordingBitRate = 1_000_000
     private var recordingToolbar: RecordingToolbarController?
     private var recordingEditor: RecordingEditorController?
+
+    var isRecordingOrStarting: Bool { screenRecorder != nil }
 
     init() {
         if let label = UserDefaults.standard.string(forKey: "shortcutKeyLabel") {
@@ -181,6 +184,9 @@ final class CaptureCoordinator: ObservableObject {
             Task { @MainActor in
                 let url = try? await recorder.stop()
                 self.screenRecorder = nil
+                self.recordingToolbar?.close()
+                self.recordingToolbar = nil
+                self.onRecordingStateChanged?(false)
                 guard let url else {
                     let alert = NSAlert()
                     alert.messageText = L("录屏保存失败")
@@ -222,8 +228,10 @@ final class CaptureCoordinator: ObservableObject {
                     options: ScreenRecordingOptions(frameRate: frameRate, bitRate: bitRate),
                     outputURL: url
                 )
+                self.onRecordingStateChanged?(true)
             } catch {
                 self.screenRecorder = nil
+                self.onRecordingStateChanged?(false)
             }
         }
     }
@@ -309,6 +317,10 @@ final class CaptureCoordinator: ObservableObject {
                         self?.toggleScreenRecording()
                         self?.longSelectionBorder?.close()
                         self?.longSelectionBorder = nil
+                    }
+                    toolbar.onHide = { [weak self, weak toolbar] in
+                        toolbar?.hideWhileRecording()
+                        self?.onRecordingStateChanged?(true)
                     }
                     toolbar.onBack = { [weak self] in
                         guard let self else { return }
