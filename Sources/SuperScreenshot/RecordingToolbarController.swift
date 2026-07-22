@@ -38,6 +38,10 @@ private final class RecordingStopButton: NSButton {
     }
 }
 
+private final class DraggableRecordingToolbarView: NSVisualEffectView {
+    override var mouseDownCanMoveWindow: Bool { true }
+}
+
 @MainActor
 final class RecordingToolbarController: NSObject {
     var onStart: ((RecordingFrameRate, Int) -> Void)?
@@ -86,7 +90,8 @@ final class RecordingToolbarController: NSObject {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        let content = NSVisualEffectView(frame: CGRect(origin: .zero, size: size))
+        panel.isMovableByWindowBackground = true
+        let content = DraggableRecordingToolbarView(frame: CGRect(origin: .zero, size: size))
         content.material = .hudWindow
         content.blendingMode = .withinWindow
         content.state = .active
