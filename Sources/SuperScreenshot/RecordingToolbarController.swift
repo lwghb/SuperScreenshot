@@ -214,7 +214,17 @@ final class RecordingToolbarController: NSObject {
         panel.setFrame(CGRect(x: x, y: y, width: size.width, height: size.height), display: true)
     }
 
-    @objc private func toggle() {
+    // AppKit actions enter through Objective-C. On macOS 26 the runtime's
+    // executor check can crash when an @MainActor method itself is used as an
+    // Objective-C selector. Keep the selector nonisolated, then hop to the
+    // actor before touching any UI state.
+    @objc nonisolated private func toggle() {
+        Task { @MainActor [weak self] in
+            self?.toggleOnMainActor()
+        }
+    }
+
+    private func toggleOnMainActor() {
         if startedAt == nil {
             startedAt = Date(); startButton.title = L("结束录屏")
             startButton.isBordered = true
@@ -241,7 +251,14 @@ final class RecordingToolbarController: NSObject {
             onStart?(rate, Int((value * 1_000_000).rounded()))
         } else { onStop?() }
     }
-    @objc private func frameRateChanged(_ sender: NSSegmentedControl) {
+    @objc nonisolated private func frameRateChanged(_ sender: NSSegmentedControl) {
+        Task { @MainActor [weak self, weak sender] in
+            guard let sender else { return }
+            self?.frameRateChangedOnMainActor(sender)
+        }
+    }
+
+    private func frameRateChangedOnMainActor(_ sender: NSSegmentedControl) {
         if sender.selectedSegment == 2, !supportsHighFrameRate {
             sender.selectedSegment = 1
             let alert = NSAlert()
@@ -252,7 +269,14 @@ final class RecordingToolbarController: NSObject {
         }
         updateBitRateRange()
     }
-    @objc private func bitRateChanged(_ sender: NSSlider) {
+    @objc nonisolated private func bitRateChanged(_ sender: NSSlider) {
+        Task { @MainActor [weak self, weak sender] in
+            guard let sender else { return }
+            self?.bitRateChangedOnMainActor(sender)
+        }
+    }
+
+    private func bitRateChangedOnMainActor(_ sender: NSSlider) {
         sender.doubleValue = (min(max(sender.doubleValue, 1), maximumBitRateMbps) * 10).rounded() / 10
         updateBitRateEstimate()
     }
@@ -294,8 +318,16 @@ final class RecordingToolbarController: NSObject {
         panel.setFrame(compact, display: true)
     }
     private func updateTimer() { guard let startedAt else { return }; timerLabel.stringValue = String(format: "%02d:%02d", Int(Date().timeIntervalSince(startedAt)) / 60, Int(Date().timeIntervalSince(startedAt)) % 60) }
-    @objc private func back() { onBack?() }
-    @objc private func hideToolbar() { panel?.orderOut(nil); onHide?() }
+    @objc nonisolated private func back() {
+        Task { @MainActor [weak self] in self?.onBack?() }
+    }
+
+    @objc nonisolated private func hideToolbar() {
+        Task { @MainActor [weak self] in
+            self?.panel?.orderOut(nil)
+            self?.onHide?()
+        }
+    }
     func recordingDidStop() {
         timer?.invalidate(); timer = nil; startedAt = nil
         timerLabel.stringValue = "00:00"
