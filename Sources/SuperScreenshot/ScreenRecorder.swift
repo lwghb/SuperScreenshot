@@ -1,5 +1,4 @@
 import AVFoundation
-import VideoToolbox
 @preconcurrency import ScreenCaptureKit
 
 enum RecordingFrameRate: Int, CaseIterable {
@@ -18,24 +17,28 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
     let queue = DispatchQueue(label: "com.lion.superscreenshot.record.writer")
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
+    private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var audioInput: AVAssetWriterInput?
     private var started = false
     private var errorDescription: String?
+    private var hasLoggedFirstVideoFrame = false
 
     func prepare(url: URL, width: Int, height: Int, frameRate: Int, bitRate: Int, includesAudio: Bool) throws {
         // The recorder instance is reused for later recordings. Do not carry
         // a completed writer's state into the next session.
         writer = nil
         videoInput = nil
+        pixelBufferAdaptor = nil
         audioInput = nil
         started = false
         errorDescription = nil
+        hasLoggedFirstVideoFrame = false
 
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         writer.shouldOptimizeForNetworkUse = true
-        // AVAssetWriter owns the hardware encoder. It is less configurable
-        // than a manually managed VTCompressionSession, but its completion
-        // semantics are reliable with ScreenCaptureKit's live sample queue.
+        CaptureDiagnostics.recording(
+            "prepare target=\(width)x\(height) fps=\(frameRate) bitrate=\(bitRate) audio=\(includesAudio)"
+        )
         let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: width,
@@ -44,11 +47,7 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
                 AVVideoAverageBitRateKey: bitRate,
                 AVVideoExpectedSourceFrameRateKey: frameRate,
                 AVVideoMaxKeyFrameIntervalKey: frameRate,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
-                AVVideoH264EntropyModeKey: AVVideoH264EntropyModeCABAC,
-                AVVideoAllowFrameReorderingKey: true,
-                kVTCompressionPropertyKey_Quality as String: 0.9,
-                kVTCompressionPropertyKey_PrioritizeEncodingSpeedOverQuality as String: false
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
             ],
             AVVideoColorPropertiesKey: [
                 AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
@@ -60,6 +59,20 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
         writer.add(video)
         self.writer = writer
         videoInput = video
+        // ScreenCaptureKit can provide sample buffers whose compressed-data
+        // attachments are not acceptable to AVAssetWriter on some macOS
+        // releases (FigAssetWriter -16122).  Feed the underlying BGRA image
+        // buffer through an adaptor instead; this was the previously stable
+        // recording path and makes the writer encode its own video samples.
+        pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: video,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: width,
+                kCVPixelBufferHeightKey as String: height,
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+            ]
+        )
         if includesAudio {
             let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -76,16 +89,31 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
     func append(_ sampleBuffer: CMSampleBuffer, type: SCStreamOutputType) {
         guard CMSampleBufferDataIsReady(sampleBuffer), let writer else { return }
         if !started, type == .screen {
-            writer.startWriting()
+            let didStart = writer.startWriting()
             writer.startSession(atSourceTime: sampleBuffer.presentationTimeStamp)
             started = writer.status == .writing
+            CaptureDiagnostics.recording(
+                "startWriting accepted=\(didStart) status=\(writer.status.rawValue) pts=\(sampleBuffer.presentationTimeStamp.seconds)"
+            )
         }
         guard writer.status == .writing else { return }
         switch type {
         case .screen where videoInput?.isReadyForMoreMediaData == true:
-            let accepted = videoInput?.append(sampleBuffer) ?? false
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                errorDescription = "录屏帧不包含图像数据"
+                CaptureDiagnostics.recording("reject frame: no pixel buffer")
+                return
+            }
+            if !hasLoggedFirstVideoFrame {
+                hasLoggedFirstVideoFrame = true
+                CaptureDiagnostics.recording(
+                    "first frame=\(CVPixelBufferGetWidth(pixelBuffer))x\(CVPixelBufferGetHeight(pixelBuffer)) pts=\(sampleBuffer.presentationTimeStamp.seconds)"
+                )
+            }
+            let accepted = pixelBufferAdaptor?.append(pixelBuffer, withPresentationTime: sampleBuffer.presentationTimeStamp) ?? false
             if !accepted {
                 errorDescription = writer.error?.localizedDescription ?? "视频编码器拒绝了屏幕帧"
+                CaptureDiagnostics.recording("append rejected status=\(writer.status.rawValue) error=\(errorDescription ?? "unknown")")
             }
         case .audio where audioInput?.isReadyForMoreMediaData == true:
             let accepted = audioInput?.append(sampleBuffer) ?? false
@@ -102,6 +130,7 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
             queue.async {
                 guard let writer = self.writer, self.started, writer.status == .writing else {
                     let detail = self.errorDescription ?? self.writer?.error?.localizedDescription ?? "没有收到可写入的视频帧"
+                    CaptureDiagnostics.recording("finish refused started=\(self.started) status=\(self.writer?.status.rawValue ?? -1) detail=\(detail)")
                     continuation.resume(returning: .failure(detail))
                     return
                 }
@@ -109,9 +138,12 @@ private final class RecordingWriterPipeline: @unchecked Sendable {
                 self.audioInput?.markAsFinished()
                 writer.finishWriting {
                     if writer.status == .completed {
+                        CaptureDiagnostics.recording("finish completed")
                         continuation.resume(returning: .success)
                     } else {
-                        continuation.resume(returning: .failure(writer.error?.localizedDescription ?? "视频文件收尾失败"))
+                        let detail = writer.error?.localizedDescription ?? "视频文件收尾失败"
+                        CaptureDiagnostics.recording("finish failed status=\(writer.status.rawValue) detail=\(detail)")
+                        continuation.resume(returning: .failure(detail))
                     }
                 }
             }

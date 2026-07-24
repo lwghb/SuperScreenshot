@@ -18,4 +18,8 @@ enum CaptureDiagnostics {
     static func selection(_ message: String) {
         logger.notice("selection \(message, privacy: .public)")
     }
+
+    static func recording(_ message: String) {
+        logger.notice("recording \(message, privacy: .public)")
+    }
 }
