@@ -291,7 +291,12 @@ private final class SelectionView: NSView {
             updateHoveredWindow(at: convert(event.locationInWindow, from: nil))
             return
         }
-        selection = ScreenCapture.pixelAligned(selection, scale: window?.backingScaleFactor ?? 1)
+        let rawSelection = selection
+        let scale = window?.backingScaleFactor ?? 1
+        selection = ScreenCapture.pixelAligned(selection, scale: scale)
+        CaptureDiagnostics.selection(
+            "mouseUp raw=\(rawSelection.debugDescription) aligned=\(selection.debugDescription) overlayScale=\(scale)"
+        )
         needsDisplay = true
         isLocked = true
         onSelection?(selection)

@@ -99,6 +99,10 @@ final class DirectAnnotationController: NSObject {
             self?.updateToolState()
         }
         self.window = window
+        let backingFrame = window.convertToBacking(CGRect(origin: .zero, size: selection.size))
+        CaptureDiagnostics.selection(
+            "editor selection=\(selection.debugDescription) image=\(initialImage.width)x\(initialImage.height) window=\(window.frame.debugDescription) backing=\(backingFrame.debugDescription) windowScale=\(window.backingScaleFactor)"
+        )
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         window.makeFirstResponder(canvasView)

@@ -29,6 +29,9 @@ final class LongCaptureEngine: @unchecked Sendable {
         let initial = try await session.capture()
         var frames: [CGImage] = [initial]
         var motions: [EdgeMotion] = []
+        CaptureDiagnostics.longCapture(
+            "start source=\(session.sourceRect.debugDescription) scale=\(session.scale) frame=\(initial.width)x\(initial.height)"
+        )
         onPreviewUpdated(initial)
         var candidate: CGImage?
         var candidateMotion: EdgeMotion?
@@ -81,6 +84,9 @@ final class LongCaptureEngine: @unchecked Sendable {
                 ? ImageStitcher.detectAutomaticMotion(previous: frames.last!, next: current)
                 : ImageStitcher.detectEdgeMotion(previous: frames.last!, next: current)
             guard let motion = detectedMotion else {
+                if candidate != nil {
+                    CaptureDiagnostics.longCapture("discard pending frame: no reliable motion")
+                }
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 continue
             }
@@ -89,12 +95,18 @@ final class LongCaptureEngine: @unchecked Sendable {
             // inserting them at the beginning of the stitched document.
             if status.isAutoScrolling,
                !Self.isPlausibleAutomaticMotion(motion) {
+                CaptureDiagnostics.longCapture(
+                    "reject automatic motion direction=\(motion.direction) shift=\(motion.shift) score=\(motion.score)"
+                )
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 continue
             }
             if status.isAutoScrolling {
                 frames.append(current)
                 motions.append(motion)
+                CaptureDiagnostics.longCapture(
+                    "accept automatic frame=\(frames.count - 1) size=\(current.width)x\(current.height) shift=\(motion.shift) score=\(motion.score)"
+                )
                 let now = ProcessInfo.processInfo.systemUptime
                 if now - lastPreviewTime >= previewInterval {
                     onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
@@ -107,11 +119,15 @@ final class LongCaptureEngine: @unchecked Sendable {
             }
             if let pending = candidate,
                candidateMotion?.direction == motion.direction,
+               abs((candidateMotion?.shift ?? motion.shift) - motion.shift) <= 1,
                ImageStitcher.relevantEdgeIsStable(pending, current, direction: motion.direction) {
                 candidateStableSamples += 1
                 if candidateStableSamples >= 1 {
                     frames.append(current)
                     motions.append(motion)
+                    CaptureDiagnostics.longCapture(
+                        "accept manual frame=\(frames.count - 1) size=\(current.width)x\(current.height) shift=\(motion.shift) score=\(motion.score) neighbours=\(ImageStitcher.manualMotionDiagnostics(previous: frames[frames.count - 2], next: current, motion: motion))"
+                    )
                     let now = ProcessInfo.processInfo.systemUptime
                     if now - lastPreviewTime >= previewInterval {
                         onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
@@ -122,6 +138,12 @@ final class LongCaptureEngine: @unchecked Sendable {
                     automaticPulseTime = nil
                 }
             } else {
+                if let pendingMotion = candidateMotion,
+                   (pendingMotion.direction != motion.direction || abs(pendingMotion.shift - motion.shift) > 1) {
+                    CaptureDiagnostics.longCapture(
+                        "replace pending motion old=\(pendingMotion.direction)/\(pendingMotion.shift)/\(pendingMotion.score) new=\(motion.direction)/\(motion.shift)/\(motion.score)"
+                    )
+                }
                 candidate = current
                 candidateMotion = motion
                 candidateStableSamples = 0

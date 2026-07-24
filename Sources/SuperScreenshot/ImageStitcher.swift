@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 enum ScrollDirection: Equatable {
     case contentMovesUp
@@ -154,8 +155,12 @@ enum ImageStitcher {
 
     static func detectEdgeMotion(previous: CGImage, next: CGImage) -> EdgeMotion? {
         let height = min(previous.height, next.height)
-        let width = min(128, min(previous.width, next.width))
-        let anchorHeight = min(50, height)
+        // Keep the original vertical pixel grid while sampling enough of the
+        // horizontal content to distinguish repeated list rows.  The older
+        // 128px sample could choose a neighbouring row on game UIs, which
+        // produced a visible one-pixel seam in a manually stitched capture.
+        let width = min(256, min(previous.width, next.width))
+        let anchorHeight = min(72, height)
         guard anchorHeight >= 10,
               let previousPixels = verticalSample(previous, width: width, height: height),
               let nextPixels = verticalSample(next, width: width, height: height) else { return nil }
@@ -193,8 +198,54 @@ enum ImageStitcher {
                 }
             }
         }
-        guard let best, best.score < 10 else { return nil }
+        // A manual frame must have a strong pixel match.  A loose match is
+        // much worse than waiting for the next stable frame: it creates a
+        // permanent horizontal line or drops content in the output.
+        guard let best, best.score < 4 else { return nil }
         return best
+    }
+
+    /// Diagnostic-only score neighbourhood around an accepted manual shift.
+    /// It lets us distinguish a ScreenCaptureKit pixel-grid drift from an
+    /// ambiguous image match without changing the stitching decision.
+    static func manualMotionDiagnostics(
+        previous: CGImage,
+        next: CGImage,
+        motion: EdgeMotion
+    ) -> String {
+        let height = min(previous.height, next.height)
+        let width = min(256, min(previous.width, next.width))
+        let anchorHeight = min(72, height)
+        guard anchorHeight >= 10,
+              let previousPixels = verticalSample(previous, width: width, height: height),
+              let nextPixels = verticalSample(next, width: width, height: height) else {
+            return "unavailable"
+        }
+        let values = (-2...2).compactMap { offset -> String? in
+            let shift = motion.shift + offset
+            guard shift > 0 else { return nil }
+            let anchorStart: Int
+            let candidateStart: Int
+            switch motion.direction {
+            case .contentMovesUp:
+                anchorStart = height - anchorHeight
+                candidateStart = height - anchorHeight - shift
+            case .contentMovesDown:
+                anchorStart = 0
+                candidateStart = shift
+            }
+            guard candidateStart >= 0, candidateStart + anchorHeight <= height else { return nil }
+            let score = anchorScore(
+                anchorImage: previousPixels,
+                candidateImage: nextPixels,
+                width: width,
+                anchorStartRow: anchorStart,
+                candidateStartRow: candidateStart,
+                anchorHeight: anchorHeight
+            )
+            return "\(shift):\(String(format: "%.3f", score))"
+        }
+        return values.joined(separator: ",")
     }
 
     static func detectAutomaticMotion(previous: CGImage, next: CGImage) -> EdgeMotion? {

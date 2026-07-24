@@ -269,9 +269,13 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     private func showActions(for rect: CGRect, on screen: NSScreen) {
+        CaptureDiagnostics.selection(
+            "actions selection=\(rect.debugDescription) screen=\(screen.frame.debugDescription) backingScale=\(screen.backingScaleFactor)"
+        )
         if let displayID = ScreenCapture.displayID(for: screen),
            let snapshot = selectionSnapshots[displayID],
            let image = ScreenCapture.crop(snapshot, to: rect, on: screen) {
+            CaptureDiagnostics.selection("actions image=\(image.width)x\(image.height) source=snapshot")
             presentDirectAnnotation(image: image, rect: rect, screen: screen)
             return
         }

@@ -40,6 +40,26 @@ struct ImageStitcherTests {
         #expect(ScreenCapture.pixelSize(for: capture, scale: 2).height == Int(aligned.height * 2))
     }
 
+    @Test func expandsFractionalSelectionToWholeBackingPixels() {
+        let aligned = ScreenCapture.pixelAligned(
+            CGRect(x: 100.24, y: 200.26, width: 300.51, height: 180.49),
+            scale: 2
+        )
+        #expect(aligned.minX == 100)
+        #expect(aligned.minY == 200)
+        #expect(aligned.maxX == 401)
+        #expect(aligned.maxY == 381)
+    }
+
+    @Test func preservesRetinaEdgesAfterDisplayCoordinateConversion() {
+        let screen = CGRect(x: 0, y: 0, width: 1728, height: 1117)
+        let selection = CGRect(x: 358.5, y: 312.5, width: 920, height: 656.5)
+        let capture = ScreenCapture.displayRect(for: selection, screenFrame: screen, scale: 2)
+        #expect(capture == CGRect(x: 358.5, y: 148, width: 920, height: 656.5))
+        #expect(ScreenCapture.pixelSize(for: capture, scale: 2).width == 1840)
+        #expect(ScreenCapture.pixelSize(for: capture, scale: 2).height == 1313)
+    }
+
     @Test func cropsAdjustedSelectionAtDisplayPixelScale() throws {
         let context = try #require(CGContext(
             data: nil,

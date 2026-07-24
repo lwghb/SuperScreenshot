@@ -74,6 +74,9 @@ enum ScreenCapture {
             height: sourceRect.height * scaleY
         ).integral.intersection(CGRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height))
         guard !pixelRect.isNull, pixelRect.width > 0, pixelRect.height > 0 else { return nil }
+        CaptureDiagnostics.selection(
+            "crop screen=\(screenFrame.debugDescription) selection=\(rect.debugDescription) source=\(sourceRect.debugDescription) snapshot=\(snapshot.width)x\(snapshot.height) scale=\(scaleX)x\(scaleY) pixels=\(pixelRect.debugDescription)"
+        )
         return snapshot.cropping(to: pixelRect)
     }
 
@@ -93,10 +96,19 @@ enum ScreenCapture {
     }
     static func pixelAligned(_ rect: CGRect, scale: CGFloat) -> CGRect {
         let scale = max(1, scale)
-        let minX = (rect.minX * scale).rounded() / scale
-        let minY = (rect.minY * scale).rounded() / scale
-        let maxX = (rect.maxX * scale).rounded() / scale
-        let maxY = (rect.maxY * scale).rounded() / scale
+        // CGRect arithmetic (especially the AppKit ↔ display Y flip) can turn
+        // an exact 0.5-point Retina edge into 0.499999999… .  Without this
+        // tiny tolerance, a second alignment floors that edge to the previous
+        // backing pixel while the editor window rounds it to the next one.
+        let epsilon: CGFloat = 0.000_001
+        // A selection can land between backing pixels on Retina displays.  Do
+        // not round each edge independently: that makes the captured region
+        // randomly jump one pixel inward or outward.  Cover the entire
+        // requested rectangle on the backing-pixel grid instead.
+        let minX = floor(rect.minX * scale + epsilon) / scale
+        let minY = floor(rect.minY * scale + epsilon) / scale
+        let maxX = ceil(rect.maxX * scale - epsilon) / scale
+        let maxY = ceil(rect.maxY * scale - epsilon) / scale
         return CGRect(x: minX, y: minY, width: max(0, maxX - minX), height: max(0, maxY - minY))
     }
     static func pixelSize(for sourceRect: CGRect, scale: CGFloat) -> (width: Int, height: Int) {
