@@ -64,15 +64,21 @@ enum ScreenCapture {
 
     static func crop(_ snapshot: CGImage, to rect: CGRect, on screenFrame: CGRect) -> CGImage? {
         guard screenFrame.width > 0, screenFrame.height > 0 else { return nil }
-        let sourceRect = displayRect(for: rect, screenFrame: screenFrame)
         let scaleX = CGFloat(snapshot.width) / screenFrame.width
         let scaleY = CGFloat(snapshot.height) / screenFrame.height
+        // The snapshot, rather than NSScreen, is the source of truth here.
+        // On a Retina display a half-point selection maps to an odd number of
+        // pixels.  Aligning this conversion at 1× expanded 513.5pt to 514pt,
+        // while the editor window correctly used 1027 backing pixels.
+        let alignmentScale = max(1, max(scaleX, scaleY))
+        let sourceRect = displayRect(for: rect, screenFrame: screenFrame, scale: alignmentScale)
+        let epsilon: CGFloat = 0.000_001
         let pixelRect = CGRect(
-            x: sourceRect.minX * scaleX,
-            y: sourceRect.minY * scaleY,
-            width: sourceRect.width * scaleX,
-            height: sourceRect.height * scaleY
-        ).integral.intersection(CGRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height))
+            x: floor(sourceRect.minX * scaleX + epsilon),
+            y: floor(sourceRect.minY * scaleY + epsilon),
+            width: ceil(sourceRect.maxX * scaleX - epsilon) - floor(sourceRect.minX * scaleX + epsilon),
+            height: ceil(sourceRect.maxY * scaleY - epsilon) - floor(sourceRect.minY * scaleY + epsilon)
+        ).intersection(CGRect(x: 0, y: 0, width: snapshot.width, height: snapshot.height))
         guard !pixelRect.isNull, pixelRect.width > 0, pixelRect.height > 0 else { return nil }
         CaptureDiagnostics.selection(
             "crop screen=\(screenFrame.debugDescription) selection=\(rect.debugDescription) source=\(sourceRect.debugDescription) snapshot=\(snapshot.width)x\(snapshot.height) scale=\(scaleX)x\(scaleY) pixels=\(pixelRect.debugDescription)"
