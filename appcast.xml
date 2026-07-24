@@ -6,6 +6,20 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.60</title>
+            <pubDate>Fri, 24 Jul 2026 21:50:11 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>260</sparkle:version>
+            <sparkle:shortVersionString>2.0.60</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 2.0.60
+
+- 修复 AVAssetWriter 首帧写入失败导致录屏无法保存的问题。
+- 恢复稳定的像素缓冲写入路径，并补充诊断日志。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.60/SuperScreenshot-v2.0.60-Universal.zip" length="3035047" type="application/octet-stream" sparkle:edSignature="WZA7bvI0EszMyosheWtp2xtXEFm1Ma9UuWr+sl7jUfejrBjSFN+xtMS+nWByJHvxhEeXbAzrOkmUX1eQuLz5Ag=="/>
+        </item>
+        <item>
             <title>2.0.59</title>
             <pubDate>Fri, 24 Jul 2026 13:34:50 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -79,6 +93,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: Ci6vghFJj986WkVIyfF3RgCsMyJX67i88T1mw7jX8dnM1p49cRELGCti9P6WItPLQCHf7WYxnrgBM0WM2drlDA==
-length: 5337
+edSignature: gL8bFC6jWFv9ocs4dTaOvfxF0hopyja5tIpiGxhj2N5ty6O/TkQJcCCo+Z9PwL9I+GSeqLTYFdcUaqIzMBDmCQ==
+length: 6283
 -->
