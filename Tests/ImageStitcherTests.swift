@@ -60,6 +60,11 @@ struct ImageStitcherTests {
         #expect(ScreenCapture.pixelSize(for: capture, scale: 2).height == 1313)
     }
 
+    @Test func expandsHalfPointSelectionToTheEditorWindowGrid() {
+        let selection = CGRect(x: 421.5, y: 378.5, width: 694, height: 494)
+        #expect(ScreenCapture.editorAligned(selection) == CGRect(x: 421, y: 378, width: 695, height: 495))
+    }
+
     @Test func cropsAdjustedSelectionAtDisplayPixelScale() throws {
         let context = try #require(CGContext(
             data: nil,

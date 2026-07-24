@@ -294,6 +294,11 @@ private final class SelectionView: NSView {
         let rawSelection = selection
         let scale = window?.backingScaleFactor ?? 1
         selection = ScreenCapture.pixelAligned(selection, scale: scale)
+        // The overlay can draw at half points on Retina, but the borderless
+        // annotation window itself is positioned by AppKit on whole points.
+        // Canonicalize once here so the shown border, crop and editor share
+        // exactly the same origin instead of differing by one backing pixel.
+        selection = ScreenCapture.editorAligned(selection)
         CaptureDiagnostics.selection(
             "mouseUp raw=\(rawSelection.debugDescription) aligned=\(selection.debugDescription) overlayScale=\(scale)"
         )

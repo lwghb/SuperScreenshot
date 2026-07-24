@@ -117,6 +117,14 @@ enum ScreenCapture {
         let maxY = ceil(rect.maxY * scale - epsilon) / scale
         return CGRect(x: minX, y: minY, width: max(0, maxX - minX), height: max(0, maxY - minY))
     }
+
+    /// AppKit's borderless editor window is placed on the logical-point grid,
+    /// even on a Retina screen.  A half-point selection can therefore produce
+    /// a correctly cropped image but a window shifted by one backing pixel.
+    /// Expand to the window grid before handing a selection to the editor.
+    static func editorAligned(_ rect: CGRect) -> CGRect {
+        pixelAligned(rect, scale: 1)
+    }
     static func pixelSize(for sourceRect: CGRect, scale: CGFloat) -> (width: Int, height: Int) {
         (
             width: max(1, Int((sourceRect.width * scale).rounded())),
