@@ -22,7 +22,7 @@ final class LongCaptureEngine: @unchecked Sendable {
         // overlap, then stitch once.  Constrain the detected result around the
         // requested displacement so a repeated row cannot be mistaken for a
         // distant match and silently drop content.
-        let tolerance = max(24, expectedShift / 20)
+        let tolerance = max(80, expectedShift / 4)
         return motion.direction == .contentMovesUp
             && motion.shift <= maximumShift
             && abs(motion.shift - expectedShift) <= tolerance

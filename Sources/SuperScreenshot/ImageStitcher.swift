@@ -266,9 +266,11 @@ enum ImageStitcher {
 
         let candidateShifts: ClosedRange<Int>
         if let expectedShift {
-            // Scroll-wheel deltas are deterministic enough that a local search
-            // is both faster and safer than scanning every possible repeated row.
-            let tolerance = max(24, expectedShift / 20)
+            // Applications may quantise a pixel wheel event differently from
+            // the requested displacement.  Keep the search local, but allow
+            // a realistic 25% deviation before treating the changed frame as
+            // unusable.
+            let tolerance = max(80, expectedShift / 4)
             candidateShifts = max(8, expectedShift - tolerance)...min(maximumShift, expectedShift + tolerance)
         } else {
             candidateShifts = 8...min(160, maximumShift)
@@ -300,7 +302,15 @@ enum ImageStitcher {
                 bestShift = shift
             }
         }
-        guard bestShift > 0, bestScore < 10 else { return nil }
+        let acceptedScore = expectedShift == nil ? 10.0 : 18.0
+        guard bestShift > 0, bestScore < acceptedScore else {
+            if let expectedShift {
+                CaptureDiagnostics.longCapture(
+                    "automatic match rejected expected=\(expectedShift) bestShift=\(bestShift) score=\(bestScore) threshold=\(acceptedScore)"
+                )
+            }
+            return nil
+        }
         return EdgeMotion(direction: .contentMovesUp, shift: bestShift, score: bestScore)
     }
 
