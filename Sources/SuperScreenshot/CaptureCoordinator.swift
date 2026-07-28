@@ -444,6 +444,16 @@ final class CaptureCoordinator: ObservableObject {
         guard let displayID = ScreenCapture.displayID(for: screen) else { return }
         let displayRect = ScreenCapture.displayRect(for: rect, on: screen)
         let scale = screen.backingScaleFactor
+        // Preserve only a small raster overlap.  The scroll event uses display
+        // points, while stitching measures captured pixels, so keep both values
+        // explicit to avoid Retina-specific step errors.
+        let overlapPixels = 20
+        let frameHeightPixels = max(1, Int((rect.height * scale).rounded()))
+        let automaticExpectedShift = max(8, frameHeightPixels - overlapPixels)
+        let automaticScrollDistance = max(1, Int((CGFloat(automaticExpectedShift) / scale).rounded(.down)))
+        CaptureDiagnostics.longCapture(
+            "automatic step selectionHeight=\(rect.height) scale=\(scale) frameHeight=\(frameHeightPixels) overlap=\(overlapPixels) expectedShift=\(automaticExpectedShift) scrollPoints=\(automaticScrollDistance)"
+        )
         closeOverlays()
         let border = SelectionBorderController(selection: rect)
         longSelectionBorder = border
@@ -474,9 +484,9 @@ final class CaptureCoordinator: ObservableObject {
                 let image = try await longCapture.capture(
                     session: session,
                     control: control,
+                    automaticExpectedShift: automaticExpectedShift,
                     onAutoScrollStep: {
-                        let distance = max(1, Int((80 / max(1, scale)).rounded()))
-                        await performAutomaticScrollStep(distance: distance)
+                        await performAutomaticScrollStep(distance: automaticScrollDistance)
                     }
                 ) { preview in
                     Task { @MainActor in status.update(preview: preview) }

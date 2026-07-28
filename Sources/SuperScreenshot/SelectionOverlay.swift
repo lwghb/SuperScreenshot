@@ -19,7 +19,12 @@ final class SelectionOverlayController {
 
     func show() {
         for screen in screens {
-            let window = CaptureOverlayWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+            let window = CaptureOverlayWindow(
+                contentRect: screen.frame,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
             window.level = .screenSaver
             window.sharingType = .none
             window.backgroundColor = .clear
@@ -53,7 +58,10 @@ final class SelectionOverlayController {
                 view.updatePointer(at: mouse)
             }
         }
-        NSApp.activate(ignoringOtherApps: true)
+        // Do not activate this process merely to draw the selection overlay.
+        // Some host applications (notably Photoshop plug-in panels) hide
+        // themselves whenever their host loses focus.  A non-activating panel
+        // still receives the pointer and Escape without disturbing that state.
         let mouse = NSEvent.mouseLocation
         let activeWindow = windows.first(where: { $0.frame.contains(mouse) }) ?? windows.first
         activeWindow?.makeKeyAndOrderFront(nil)
@@ -162,7 +170,7 @@ private struct WindowCandidate {
     }
 }
 
-private final class CaptureOverlayWindow: NSWindow {
+private final class CaptureOverlayWindow: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
     override func cancelOperation(_ sender: Any?) {

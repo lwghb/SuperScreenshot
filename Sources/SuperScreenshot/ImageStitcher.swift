@@ -248,37 +248,53 @@ enum ImageStitcher {
         return values.joined(separator: ",")
     }
 
-    static func detectAutomaticMotion(previous: CGImage, next: CGImage) -> EdgeMotion? {
+    static func detectAutomaticMotion(
+        previous: CGImage,
+        next: CGImage,
+        expectedShift: Int? = nil
+    ) -> EdgeMotion? {
         let height = min(previous.height, next.height)
         let width = min(128, min(previous.width, next.width))
-        let bandHeight = min(40, max(12, height / 12))
-        let maximumShift = min(160, height - bandHeight - 1)
+        // Keep roughly 20 output pixels visible at the bottom of the old frame.
+        // That is enough continuity for a web page while allowing one capture
+        // per nearly-full selection height instead of one per 80 pixels.
+        let minimumOverlap = 20
+        let maximumShift = height - minimumOverlap
         guard maximumShift >= 8,
               let previousPixels = verticalSample(previous, width: width, height: height),
               let nextPixels = verticalSample(next, width: width, height: height) else { return nil }
 
-        let anchors = [0.28, 0.46, 0.64, 0.82].map {
-            min(height - bandHeight, Int(Double(height - bandHeight) * $0))
+        let candidateShifts: ClosedRange<Int>
+        if let expectedShift {
+            // Scroll-wheel deltas are deterministic enough that a local search
+            // is both faster and safer than scanning every possible repeated row.
+            let tolerance = max(24, expectedShift / 20)
+            candidateShifts = max(8, expectedShift - tolerance)...min(maximumShift, expectedShift + tolerance)
+        } else {
+            candidateShifts = 8...min(160, maximumShift)
         }
         var bestShift = 0
         var bestScore = Double.greatestFiniteMagnitude
-        for shift in 8...maximumShift {
+        for shift in candidateShifts {
+            let overlap = height - shift
+            let bandHeight = min(40, overlap)
+            guard bandHeight >= minimumOverlap else { continue }
+            let offsets = [0, max(0, (overlap - bandHeight) / 2), max(0, overlap - bandHeight)]
             var scores: [Double] = []
-            for anchor in anchors where anchor - shift >= 0 {
+            for offset in offsets {
                 scores.append(anchorScore(
                     anchorImage: previousPixels,
                     candidateImage: nextPixels,
                     width: width,
-                    anchorStartRow: anchor,
-                    candidateStartRow: anchor - shift,
+                    anchorStartRow: shift + offset,
+                    candidateStartRow: offset,
                     anchorHeight: bandHeight
                 ))
             }
-            guard scores.count >= 3 else { continue }
             scores.sort()
             // Ignore the worst band so one fixed overlay or animation cannot
             // dictate the displacement for the whole frame.
-            let consensus = scores.dropLast().reduce(0, +) / Double(scores.count - 1)
+            let consensus = scores.dropLast().reduce(0, +) / Double(max(1, scores.count - 1))
             if consensus < bestScore {
                 bestScore = consensus
                 bestShift = shift

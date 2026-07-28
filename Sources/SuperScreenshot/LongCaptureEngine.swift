@@ -13,16 +13,25 @@ enum LongCaptureError: LocalizedError {
 }
 
 final class LongCaptureEngine: @unchecked Sendable {
-    static func isPlausibleAutomaticMotion(_ motion: EdgeMotion) -> Bool {
-        // Automatic scroll distance is normalized to about 80 captured pixels
-        // on every display. A much larger match is a false overlap that would
-        // skip the content between the two frames.
-        return motion.direction == .contentMovesUp && motion.shift <= 160
+    static func isPlausibleAutomaticMotion(
+        _ motion: EdgeMotion,
+        expectedShift: Int,
+        maximumShift: Int
+    ) -> Bool {
+        // An automatic step is deliberately large: retain only a narrow bottom
+        // overlap, then stitch once.  Constrain the detected result around the
+        // requested displacement so a repeated row cannot be mistaken for a
+        // distant match and silently drop content.
+        let tolerance = max(24, expectedShift / 20)
+        return motion.direction == .contentMovesUp
+            && motion.shift <= maximumShift
+            && abs(motion.shift - expectedShift) <= tolerance
     }
 
     func capture(
         session: ScreenCaptureSession,
         control: LongCaptureControl,
+        automaticExpectedShift: Int,
         onAutoScrollStep: @escaping @Sendable () async -> Void,
         onPreviewUpdated: @escaping @Sendable (CGImage) -> Void
     ) async throws -> CGImage {
@@ -81,7 +90,11 @@ final class LongCaptureEngine: @unchecked Sendable {
                 continue
             }
             let detectedMotion = status.isAutoScrolling
-                ? ImageStitcher.detectAutomaticMotion(previous: frames.last!, next: current)
+                ? ImageStitcher.detectAutomaticMotion(
+                    previous: frames.last!,
+                    next: current,
+                    expectedShift: automaticExpectedShift
+                )
                 : ImageStitcher.detectEdgeMotion(previous: frames.last!, next: current)
             guard let motion = detectedMotion else {
                 if candidate != nil {
@@ -94,7 +107,11 @@ final class LongCaptureEngine: @unchecked Sendable {
             // ambiguous reverse matches and implausibly large jumps instead of
             // inserting them at the beginning of the stitched document.
             if status.isAutoScrolling,
-               !Self.isPlausibleAutomaticMotion(motion) {
+               !Self.isPlausibleAutomaticMotion(
+                    motion,
+                    expectedShift: automaticExpectedShift,
+                    maximumShift: frames.last!.height - 20
+               ) {
                 CaptureDiagnostics.longCapture(
                     "reject automatic motion direction=\(motion.direction) shift=\(motion.shift) score=\(motion.score)"
                 )

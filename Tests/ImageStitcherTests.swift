@@ -148,22 +148,34 @@ struct ImageStitcherTests {
 
     @Test func rejectsWrongOrExcessiveAutomaticScrollMotion() {
         #expect(LongCaptureEngine.isPlausibleAutomaticMotion(
-            EdgeMotion(direction: .contentMovesUp, shift: 40, score: 0)
+            EdgeMotion(direction: .contentMovesUp, shift: 40, score: 0),
+            expectedShift: 40,
+            maximumShift: 100
         ))
         #expect(!LongCaptureEngine.isPlausibleAutomaticMotion(
-            EdgeMotion(direction: .contentMovesDown, shift: 40, score: 0)
+            EdgeMotion(direction: .contentMovesDown, shift: 40, score: 0),
+            expectedShift: 40,
+            maximumShift: 100
         ))
         #expect(!LongCaptureEngine.isPlausibleAutomaticMotion(
-            EdgeMotion(direction: .contentMovesUp, shift: 300, score: 0)
+            EdgeMotion(direction: .contentMovesUp, shift: 300, score: 0),
+            expectedShift: 80,
+            maximumShift: 300
         ))
         #expect(LongCaptureEngine.isPlausibleAutomaticMotion(
-            EdgeMotion(direction: .contentMovesUp, shift: 160, score: 0)
+            EdgeMotion(direction: .contentMovesUp, shift: 160, score: 0),
+            expectedShift: 160,
+            maximumShift: 200
         ))
         #expect(!LongCaptureEngine.isPlausibleAutomaticMotion(
-            EdgeMotion(direction: .contentMovesUp, shift: 320, score: 0)
+            EdgeMotion(direction: .contentMovesUp, shift: 320, score: 0),
+            expectedShift: 160,
+            maximumShift: 400
         ))
         #expect(!LongCaptureEngine.isPlausibleAutomaticMotion(
-            EdgeMotion(direction: .contentMovesDown, shift: 320, score: 0)
+            EdgeMotion(direction: .contentMovesDown, shift: 320, score: 0),
+            expectedShift: 320,
+            maximumShift: 400
         ))
     }
 
