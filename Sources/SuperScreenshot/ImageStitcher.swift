@@ -279,7 +279,10 @@ enum ImageStitcher {
         var bestScore = Double.greatestFiniteMagnitude
         for shift in candidateShifts {
             let overlap = height - shift
-            let bandHeight = min(40, overlap)
+            // The automatic path retains at least 64px of overlap; sample a
+            // correspondingly sized band.  Keeping the old 40px cap here
+            // meant every automatic candidate was skipped before scoring.
+            let bandHeight = min(96, overlap)
             guard bandHeight >= minimumOverlap else { continue }
             let offsets = [0, max(0, (overlap - bandHeight) / 2), max(0, overlap - bandHeight)]
             var scores: [Double] = []
