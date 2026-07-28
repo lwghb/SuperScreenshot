@@ -74,12 +74,15 @@ final class LongCaptureStatusController: NSObject {
         ])
         panel.contentView = content
         window = panel
-        targetFrame = panel.frame
+        // NSPanel may initially constrain itself to the screen that owns the
+        // app's active window.  Keep the explicit global frame calculated
+        // from the selection instead of reading that transient panel frame.
+        targetFrame = frame
         CaptureDiagnostics.longCapture(
             "preview target screen=\(screenFrame.debugDescription) visible=\(visibleFrame.debugDescription) selection=\(selection.debugDescription) frame=\(frame.debugDescription)"
         )
+        panel.setFrame(frame, display: true)
         panel.orderFrontRegardless()
-        panel.setFrame(panel.frame, display: true)
 
         escapeHotKey.onPressed = { [weak self] in self?.onCancel?() }
         escapeHotKey.register(keyCode: 53, modifiersRaw: 0)
