@@ -450,11 +450,13 @@ final class CaptureCoordinator: ObservableObject {
         guard let displayID = ScreenCapture.displayID(for: targetScreen) else { return }
         let displayRect = ScreenCapture.displayRect(for: rect, on: targetScreen)
         let scale = targetScreen.backingScaleFactor
-        // Preserve only a small raster overlap.  The scroll event uses display
-        // points, while stitching measures captured pixels, so keep both values
-        // explicit to avoid Retina-specific step errors.
-        let overlapPixels = 20
         let frameHeightPixels = max(1, Int((rect.height * scale).rounded()))
+        // Preserve a substantial raster overlap.  Twenty pixels was enough to
+        // keep content on screen, but not enough for a reliable image match on
+        // flat or repeating UI.  Sixty-four pixels still takes near-full-page
+        // steps while giving the stitcher enough evidence to commit one frame
+        // before another wheel pulse is sent.
+        let overlapPixels = min(64, max(20, frameHeightPixels / 4))
         let automaticExpectedShift = max(8, frameHeightPixels - overlapPixels)
         let automaticScrollDistance = max(1, Int((CGFloat(automaticExpectedShift) / scale).rounded(.down)))
         CaptureDiagnostics.longCapture(

@@ -254,11 +254,11 @@ enum ImageStitcher {
         expectedShift: Int? = nil
     ) -> EdgeMotion? {
         let height = min(previous.height, next.height)
+        // Keep the established horizontal sampling density.  For the explicit
+        // automatic-step path we require a 64px overlap; the generic helper
+        // still supports small shifts for manual and diagnostic callers.
         let width = min(128, min(previous.width, next.width))
-        // Keep roughly 20 output pixels visible at the bottom of the old frame.
-        // That is enough continuity for a web page while allowing one capture
-        // per nearly-full selection height instead of one per 80 pixels.
-        let minimumOverlap = 20
+        let minimumOverlap = expectedShift == nil ? 20 : 64
         let maximumShift = height - minimumOverlap
         guard maximumShift >= 8,
               let previousPixels = verticalSample(previous, width: width, height: height),

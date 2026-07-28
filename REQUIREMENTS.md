@@ -3,7 +3,7 @@
 ## Long capture
 
 - Automatic long capture calculates the scroll step from the selected region.
-- Each automatic step keeps approximately 20 output pixels of overlap at the bottom of the selected region, then captures and stitches one frame.
+- Each automatic step retains at least 64 output pixels of overlap for reliable matching, then captures and stitches one frame. It should still use a near-full-region step rather than small incremental scrolling.
 - The implementation must validate the detected displacement against the requested step so repeated content cannot cause skipped sections.
 - The long-capture preview must stay on the display containing the selected region, including when the selection overlay is non-activating.
 - Automatic scrolling must wait until the current frame has been stitched and its preview committed before starting the next scroll step.

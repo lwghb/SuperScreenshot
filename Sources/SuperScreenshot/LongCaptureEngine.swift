@@ -46,7 +46,12 @@ final class LongCaptureEngine: @unchecked Sendable {
         var candidateMotion: EdgeMotion?
         var candidateStableSamples = 0
         var waitingForAutomaticFrame = false
-        var automaticPulseTime: TimeInterval?
+        // A wheel pulse is a transaction: it may be committed only after the
+        // resulting frame has been matched and appended.  Retrying a pulse on
+        // a timer was unsafe: on slower pages the second pulse could arrive
+        // before the first one had produced a recognisable frame, so the page
+        // kept moving while the preview stopped growing.
+        var automaticWaitSamples = 0
 
         while true {
             let status = await control.status
@@ -66,16 +71,14 @@ final class LongCaptureEngine: @unchecked Sendable {
             }
 
             if status.isAutoScrolling {
-                let now = ProcessInfo.processInfo.systemUptime
-                let needsRetry = automaticPulseTime.map { now - $0 >= 0.4 } ?? false
-                if !waitingForAutomaticFrame || needsRetry {
+                if !waitingForAutomaticFrame {
                     await onAutoScrollStep()
                     waitingForAutomaticFrame = true
-                    automaticPulseTime = ProcessInfo.processInfo.systemUptime
+                    automaticWaitSamples = 0
                 }
             } else {
                 waitingForAutomaticFrame = false
-                automaticPulseTime = nil
+                automaticWaitSamples = 0
             }
 
             // The wheel pulse animation completes before this point.  Do not
@@ -86,6 +89,12 @@ final class LongCaptureEngine: @unchecked Sendable {
             let current = try await session.capture()
             if ImageStitcher.isNearlyIdentical(frames.last!, current) {
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
+                if status.isAutoScrolling, waitingForAutomaticFrame {
+                    automaticWaitSamples += 1
+                    if automaticWaitSamples % 5 == 0 {
+                        CaptureDiagnostics.longCapture("automatic waiting: unchanged samples=\(automaticWaitSamples); holding next pulse")
+                    }
+                }
                 continue
             }
             let detectedMotion = status.isAutoScrolling
@@ -96,6 +105,12 @@ final class LongCaptureEngine: @unchecked Sendable {
                 )
                 : ImageStitcher.detectEdgeMotion(previous: frames.last!, next: current)
             guard let motion = detectedMotion else {
+                if status.isAutoScrolling, waitingForAutomaticFrame {
+                    automaticWaitSamples += 1
+                    if automaticWaitSamples % 5 == 0 {
+                        CaptureDiagnostics.longCapture("automatic waiting: no reliable match samples=\(automaticWaitSamples); holding next pulse")
+                    }
+                }
                 if candidate != nil {
                     CaptureDiagnostics.longCapture("discard pending frame: no reliable motion")
                 }
@@ -131,7 +146,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                 await Task.yield()
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 waitingForAutomaticFrame = false
-                automaticPulseTime = nil
+                automaticWaitSamples = 0
                 continue
             }
             if let pending = candidate,
@@ -148,7 +163,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                     await onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     waitingForAutomaticFrame = false
-                    automaticPulseTime = nil
+                    automaticWaitSamples = 0
                 }
             } else {
                 if let pendingMotion = candidateMotion,
