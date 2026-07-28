@@ -495,7 +495,7 @@ final class CaptureCoordinator: ObservableObject {
                         await performAutomaticScrollStep(distance: automaticScrollDistance)
                     }
                 ) { preview in
-                    Task { @MainActor in status.update(preview: preview) }
+                    await MainActor.run { status.update(preview: preview) }
                 }
                 await MainActor.run {
                     self.closeLongCaptureStatus()

@@ -33,7 +33,7 @@ final class LongCaptureEngine: @unchecked Sendable {
         control: LongCaptureControl,
         automaticExpectedShift: Int,
         onAutoScrollStep: @escaping @Sendable () async -> Void,
-        onPreviewUpdated: @escaping @Sendable (CGImage) -> Void
+        onPreviewUpdated: @escaping @Sendable (CGImage) async -> Void
     ) async throws -> CGImage {
         let initial = try await session.capture()
         var frames: [CGImage] = [initial]
@@ -41,14 +41,12 @@ final class LongCaptureEngine: @unchecked Sendable {
         CaptureDiagnostics.longCapture(
             "start source=\(session.sourceRect.debugDescription) scale=\(session.scale) frame=\(initial.width)x\(initial.height)"
         )
-        onPreviewUpdated(initial)
+        await onPreviewUpdated(initial)
         var candidate: CGImage?
         var candidateMotion: EdgeMotion?
         var candidateStableSamples = 0
         var waitingForAutomaticFrame = false
         var automaticPulseTime: TimeInterval?
-        var lastPreviewTime = ProcessInfo.processInfo.systemUptime
-        let previewInterval: TimeInterval = 0.25
 
         while true {
             let status = await control.status
@@ -59,7 +57,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if let candidate, let candidateMotion {
                     frames.append(candidate)
                     motions.append(candidateMotion)
-                    onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? candidate)
+                    await onPreviewUpdated(ImageStitcher.stitch(frames, motions: motions) ?? candidate)
                 }
                 if frames.count == 1 { return frames[0] }
                 return ImageStitcher.stitch(frames, motions: motions) ?? frames[0]
@@ -80,9 +78,10 @@ final class LongCaptureEngine: @unchecked Sendable {
                 automaticPulseTime = nil
             }
 
-            // The automatic 80 px animation has completed before this point.
-            // Leave a short compositor settling window, then sample only once.
-            let captureDelay: UInt64 = status.isAutoScrolling ? 40_000_000 : 16_000_000
+            // The wheel pulse animation completes before this point.  Do not
+            // sample its intermediate compositor state: a large automatic step
+            // must settle fully before its only candidate frame is evaluated.
+            let captureDelay: UInt64 = status.isAutoScrolling ? 120_000_000 : 16_000_000
             try await Task.sleep(nanoseconds: captureDelay)
             let current = try await session.capture()
             if ImageStitcher.isNearlyIdentical(frames.last!, current) {
@@ -124,11 +123,12 @@ final class LongCaptureEngine: @unchecked Sendable {
                 CaptureDiagnostics.longCapture(
                     "accept automatic frame=\(frames.count - 1) size=\(current.width)x\(current.height) shift=\(motion.shift) score=\(motion.score)"
                 )
-                let now = ProcessInfo.processInfo.systemUptime
-                if now - lastPreviewTime >= previewInterval {
-                    onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
-                    lastPreviewTime = now
-                }
+                // This is the commit barrier for automatic capture.  Build and
+                // display the new stitched preview before allowing the next
+                // wheel step; otherwise a busy UI can look as if it skipped a
+                // frame and a delayed compositor update can be captured next.
+                await onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
+                await Task.yield()
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 waitingForAutomaticFrame = false
                 automaticPulseTime = nil
@@ -145,11 +145,7 @@ final class LongCaptureEngine: @unchecked Sendable {
                     CaptureDiagnostics.longCapture(
                         "accept manual frame=\(frames.count - 1) size=\(current.width)x\(current.height) shift=\(motion.shift) score=\(motion.score) neighbours=\(ImageStitcher.manualMotionDiagnostics(previous: frames[frames.count - 2], next: current, motion: motion))"
                     )
-                    let now = ProcessInfo.processInfo.systemUptime
-                    if now - lastPreviewTime >= previewInterval {
-                        onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
-                        lastPreviewTime = now
-                    }
+                    await onPreviewUpdated(ImageStitcher.preview(frames, motions: motions) ?? current)
                     candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                     waitingForAutomaticFrame = false
                     automaticPulseTime = nil

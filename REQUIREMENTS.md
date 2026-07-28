@@ -6,6 +6,7 @@
 - Each automatic step keeps approximately 20 output pixels of overlap at the bottom of the selected region, then captures and stitches one frame.
 - The implementation must validate the detected displacement against the requested step so repeated content cannot cause skipped sections.
 - The long-capture preview must stay on the display containing the selected region, including when the selection overlay is non-activating.
+- Automatic scrolling must wait until the current frame has been stitched and its preview committed before starting the next scroll step.
 
 ## Capture consistency
 
