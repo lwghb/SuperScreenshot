@@ -27,6 +27,10 @@ final class SelectionOverlayController {
             )
             window.level = .screenSaver
             window.sharingType = .none
+            // A screen-sized borderless panel otherwise receives AppKit's
+            // default utility-window presentation animation, which reads as a
+            // brief zoom of the entire captured background on every display.
+            window.animationBehavior = .none
             window.backgroundColor = .clear
             window.isOpaque = false
             window.hasShadow = false
@@ -52,7 +56,11 @@ final class SelectionOverlayController {
             }
             window.contentView = view
             windows.append(window)
-            window.orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0
+                context.allowsImplicitAnimation = false
+                window.orderFrontRegardless()
+            }
             let mouse = window.convertPoint(fromScreen: NSEvent.mouseLocation)
             if view.bounds.contains(mouse) {
                 view.updatePointer(at: mouse)

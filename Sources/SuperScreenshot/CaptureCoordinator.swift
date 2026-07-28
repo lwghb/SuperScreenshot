@@ -441,9 +441,15 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     private func startLongCapture(rect: CGRect, screen: NSScreen) {
-        guard let displayID = ScreenCapture.displayID(for: screen) else { return }
-        let displayRect = ScreenCapture.displayRect(for: rect, on: screen)
-        let scale = screen.backingScaleFactor
+        // The selection overlay is non-activating and AppKit may report its
+        // former screen while it transitions across displays.  Resolve the
+        // target from the selection's global centre instead of trusting that
+        // transient window screen, so the preview and capture stay together.
+        let selectionCenter = CGPoint(x: rect.midX, y: rect.midY)
+        let targetScreen = NSScreen.screens.first(where: { $0.frame.contains(selectionCenter) }) ?? screen
+        guard let displayID = ScreenCapture.displayID(for: targetScreen) else { return }
+        let displayRect = ScreenCapture.displayRect(for: rect, on: targetScreen)
+        let scale = targetScreen.backingScaleFactor
         // Preserve only a small raster overlap.  The scroll event uses display
         // points, while stitching measures captured pixels, so keep both values
         // explicit to avoid Retina-specific step errors.
@@ -460,7 +466,7 @@ final class CaptureCoordinator: ObservableObject {
         border.show()
         let control = LongCaptureControl()
         longCaptureControl = control
-        let status = LongCaptureStatusController(selection: rect, screen: screen)
+        let status = LongCaptureStatusController(selection: rect, screen: targetScreen)
         longStatusController = status
         status.onFinish = { [weak self] in
             self?.stopAutoScroll()

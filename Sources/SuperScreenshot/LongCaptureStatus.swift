@@ -19,20 +19,22 @@ final class LongCaptureStatusController: NSObject {
     }
 
     func show() {
+        let screenFrame = screen.frame
+        let visibleFrame = screen.visibleFrame.intersection(screenFrame)
         let width: CGFloat = 300
-        let height = min(CGFloat(600), screen.visibleFrame.height - 40)
+        let height = min(CGFloat(600), visibleFrame.height - 40)
         let size = CGSize(width: width, height: height)
         let rightX = selection.maxX + 12
         let leftX = selection.minX - width - 12
         let x: CGFloat
-        if rightX + width <= screen.visibleFrame.maxX {
+        if rightX + width <= visibleFrame.maxX {
             x = rightX
-        } else if leftX >= screen.visibleFrame.minX {
+        } else if leftX >= visibleFrame.minX {
             x = leftX
         } else {
-            x = screen.visibleFrame.maxX - width - 12
+            x = max(visibleFrame.minX + 12, visibleFrame.maxX - width - 12)
         }
-        let y = min(max(selection.midY - height / 2, screen.visibleFrame.minY + 12), screen.visibleFrame.maxY - height - 12)
+        let y = min(max(selection.midY - height / 2, visibleFrame.minY + 12), visibleFrame.maxY - height - 12)
 
         let frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
         let panel = NSPanel(
@@ -73,6 +75,9 @@ final class LongCaptureStatusController: NSObject {
         panel.contentView = content
         window = panel
         targetFrame = panel.frame
+        CaptureDiagnostics.longCapture(
+            "preview target screen=\(screenFrame.debugDescription) visible=\(visibleFrame.debugDescription) selection=\(selection.debugDescription) frame=\(frame.debugDescription)"
+        )
         panel.orderFrontRegardless()
         panel.setFrame(panel.frame, display: true)
 
@@ -83,6 +88,10 @@ final class LongCaptureStatusController: NSObject {
     func update(preview: CGImage) {
         imageView.image = NSImage(cgImage: preview, size: NSSize(width: preview.width, height: preview.height))
         if let targetFrame, window?.frame != targetFrame {
+            let currentFrameDescription = window.map { $0.frame.debugDescription } ?? "nil"
+            CaptureDiagnostics.longCapture(
+                "preview reassert frame current=\(currentFrameDescription) target=\(targetFrame.debugDescription)"
+            )
             window?.setFrame(targetFrame, display: true)
         }
     }
