@@ -254,10 +254,12 @@ enum ImageStitcher {
         expectedShift: Int? = nil
     ) -> EdgeMotion? {
         let height = min(previous.height, next.height)
-        // Keep the established horizontal sampling density.  For the explicit
-        // automatic-step path we require a 64px overlap; the generic helper
-        // still supports small shifts for manual and diagnostic callers.
-        let width = min(128, min(previous.width, next.width))
+        // Automatic capture must distinguish repeated cards and list rows.
+        // Preserve far more horizontal detail there (titles, version numbers
+        // and metadata), while the generic helper keeps the lightweight
+        // sampling used by manual and diagnostic callers.
+        let sourceWidth = min(previous.width, next.width)
+        let width = expectedShift == nil ? min(128, sourceWidth) : min(512, sourceWidth)
         let minimumOverlap = expectedShift == nil ? 20 : 64
         let maximumShift = height - minimumOverlap
         guard maximumShift >= 8,
