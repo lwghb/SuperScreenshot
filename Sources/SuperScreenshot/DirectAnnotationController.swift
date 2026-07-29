@@ -120,6 +120,11 @@ final class DirectAnnotationController: NSObject {
         toolbarPanel.isOpaque = false
         toolbarPanel.backgroundColor = .clear
         toolbarPanel.hasShadow = true
+        // The toolbar can cover the selected region when there is no free
+        // vertical space around a tall capture.  Let its empty background drag
+        // the panel so the user can move it out of the way without cancelling
+        // the current annotations.
+        toolbarPanel.isMovableByWindowBackground = true
         toolbarPanel.acceptsMouseMovedEvents = true
         toolbarPanel.setFrame(toolbarFrame, display: false)
         let toolbar = makeToolbarView(frame: CGRect(origin: .zero, size: toolbarFrame.size))
@@ -901,6 +906,8 @@ class InstantTooltipToolbarView: NSView {
         super.init(frame: frameRect)
         addSubview(tooltipLabel)
     }
+
+    override var mouseDownCanMoveWindow: Bool { true }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")

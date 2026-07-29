@@ -13,3 +13,7 @@
 - The selection background and the final capture should represent the same visible screen state; transient window visibility differences must not cause surprising content to appear only in the final image.
 - The selection overlay must not activate SuperScreenshot or cause another application's focus-sensitive plug-in window to hide.
 - Opening the selection overlay must be immediate, without a screen zoom or scale animation on any display.
+
+## Annotation toolbar
+
+- The screenshot annotation toolbar must be draggable by its empty background so it can be moved away from a tall or near-full-screen selected region.
