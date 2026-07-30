@@ -6,6 +6,15 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.70</title>
+            <pubDate>Thu, 30 Jul 2026 17:41:13 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>270</sparkle:version>
+            <sparkle:shortVersionString>2.0.70</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.70/SuperScreenshot-v2.0.70-Universal.zip" length="3042558" type="application/octet-stream" sparkle:edSignature="gUeEJSGNZR/ZBPAycnpt4NyN6gi2yaLwf+T6kkd04bYjcHonVva1YqAJiK8VCZDMtjZO1r0Bcs6min9hTV1+BQ=="/>
+        </item>
+        <item>
             <title>2.0.69</title>
             <pubDate>Wed, 29 Jul 2026 23:05:46 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -23,23 +32,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
             <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.68/SuperScreenshot-v2.0.68-Universal.zip" length="3042375" type="application/octet-stream" sparkle:edSignature="5TSPxOy3nJcUI07fv5pSwUaXOULxGgJz/HNMMQJ6zNcH4MPlzCChF4iaFNVdVL2deon/CtZeUox95om1lI6tBQ=="/>
         </item>
-        <item>
-            <title>2.0.60</title>
-            <pubDate>Fri, 24 Jul 2026 21:50:11 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>260</sparkle:version>
-            <sparkle:shortVersionString>2.0.60</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# SuperScreenshot 2.0.60
-
-- 修复 AVAssetWriter 首帧写入失败导致录屏无法保存的问题。
-- 恢复稳定的像素缓冲写入路径，并补充诊断日志。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.60/SuperScreenshot-v2.0.60-Universal.zip" length="3035047" type="application/octet-stream" sparkle:edSignature="WZA7bvI0EszMyosheWtp2xtXEFm1Ma9UuWr+sl7jUfejrBjSFN+xtMS+nWByJHvxhEeXbAzrOkmUX1eQuLz5Ag=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: bA013aYNykEvcNleCUFIDibV9OkYF9Obcl3H+GtzwkXjPsjPaMfHxe+8OOXTlSxeulsybC0dFsFrNPe/qapuAw==
-length: 2775
+edSignature: jEmwW5OHmD3EMiw7j/ye860Pc4lSbLtF65GPEwJvJGeVXi/qfwRhP0LnqsbZWm86tvLBh9b9m0BWiiXWjFKiCA==
+length: 2524
 -->
