@@ -390,11 +390,17 @@ private final class SelectionView: NSView {
         NSBezierPath(roundedRect: panel, xRadius: 7, yRadius: 7).fill()
         color.setFill()
         NSBezierPath(roundedRect: CGRect(x: panel.minX + 7, y: panel.minY + 27, width: 16, height: 16), xRadius: 4, yRadius: 4).fill()
+        // On a few macOS font cascades `monospacedSystemFont` can return a nil Obj-C
+        // object despite its Swift non-null annotation.  That nil reaches AppKit's
+        // attributes dictionary and aborts the process. Use a genuinely optional
+        // named font with a guaranteed system-font fallback instead.
+        let valueFont = NSFont(name: "Menlo", size: 12)
+            ?? NSFont.systemFont(ofSize: 12, weight: .medium)
         value.draw(
             at: CGPoint(x: panel.minX + 30, y: panel.minY + 27),
             withAttributes: [
                 .foregroundColor: NSColor.white,
-                .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
+                .font: valueFont
             ]
         )
         hint.draw(at: CGPoint(x: panel.minX + 7, y: panel.minY + 7), withAttributes: hintAttributes)

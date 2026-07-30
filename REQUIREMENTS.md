@@ -17,3 +17,7 @@
 ## Annotation toolbar
 
 - The screenshot annotation toolbar must be draggable by its empty background so it can be moved away from a tall or near-full-screen selected region.
+
+## Selection color readout
+
+- Rendering the cursor color readout must tolerate unavailable system fonts and must never crash the capture overlay.
