@@ -31,3 +31,4 @@
 - The recording toolbar provides a system-audio option beside the start button.
 - System audio is disabled by default, and the user's latest choice is saved locally and restored the next time the recording toolbar opens.
 - Audio recording captures only audio played by the system and never captures microphone input.
+- The estimated recording size includes the 192 Kbps AAC audio track whenever system audio is enabled and updates immediately when the option changes.

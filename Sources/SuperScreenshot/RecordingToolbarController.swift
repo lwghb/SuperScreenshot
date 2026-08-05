@@ -302,9 +302,10 @@ final class RecordingToolbarController: NSObject {
         updateBitRateEstimate()
     }
     @objc nonisolated private func systemAudioChanged(_ sender: NSButton) {
-        Task { @MainActor [weak sender] in
-            guard let sender else { return }
+        Task { @MainActor [weak self, weak sender] in
+            guard let self, let sender else { return }
             UserDefaults.standard.set(sender.state == .on, forKey: "recording.capturesSystemAudio")
+            self.updateBitRateEstimate()
         }
     }
     private func updateBitRateRange() {
@@ -327,7 +328,8 @@ final class RecordingToolbarController: NSObject {
     }
     private func updateBitRateEstimate() {
         let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), maximumBitRateMbps)
-        let megabytesPerMinute = value * 60 / 8
+        let audioBitRateMbps = systemAudioButton?.state == .on ? 0.192 : 0
+        let megabytesPerMinute = (value + audioBitRateMbps) * 60 / 8
         bitRateValueLabel?.stringValue = String(format: "%.1f", value)
         bitRateEstimateLabel?.stringValue = L(String(format: "1分钟约 %.0f MB", megabytesPerMinute))
     }
