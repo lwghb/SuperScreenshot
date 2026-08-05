@@ -6,8 +6,8 @@ ARM="$ROOT/work/arm"
 INTEL="$ROOT/work/intel"
 APP="$ROOT/outputs/SuperScreenshot.app"
 PLIST="$ROOT/AppBundle/Info.plist"
-mkdir -p "$CACHE/home" "$CACHE/clang" "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-export HOME="$CACHE/home" CLANG_MODULE_CACHE_PATH="$CACHE/clang" SWIFTPM_MODULECACHE_OVERRIDE="$CACHE/clang"
+mkdir -p "$CACHE/clang" "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
+export CLANG_MODULE_CACHE_PATH="$CACHE/clang" SWIFTPM_MODULECACHE_OVERRIDE="$CACHE/clang"
 cd "$ROOT"
 
 # Every packaged release gets a new patch version and build number.
