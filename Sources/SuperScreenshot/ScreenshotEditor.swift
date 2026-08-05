@@ -551,7 +551,7 @@ final class ColoredTitleButton: NSButton {
     }
 }
 
-final class ScreenshotEditorView: NSView, NSTextViewDelegate {
+final class ScreenshotEditorView: NSView, NSTextViewDelegate, @preconcurrency NSTextStorageDelegate {
     var mode: ScreenshotAnnotationMode = .arrow
     var showsImageBorder = true
     var drawsWorkspace = true
@@ -884,12 +884,15 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         textView.importsGraphics = false
         textView.isEditable = true
         textView.isSelectable = true
-        textView.isHorizontallyResizable = false
+        textView.isHorizontallyResizable = true
         textView.isVerticallyResizable = false
         textView.drawsBackground = false
         textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.containerSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: 20)
         textView.textContainer?.maximumNumberOfLines = 1
         textView.textContainer?.lineBreakMode = .byClipping
+        textView.textStorage?.delegate = self
         textView.delegate = self
         textView.wantsLayer = true
         addSubview(textView)
@@ -908,6 +911,16 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     }
 
     func textDidChange(_ notification: Notification) {
+        resizeActiveTextField()
+    }
+
+    func textStorage(
+        _ textStorage: NSTextStorage,
+        didProcessEditing editedMask: NSTextStorageEditActions,
+        range editedRange: NSRange,
+        changeInLength delta: Int
+    ) {
+        guard textStorage === activeTextView?.textStorage else { return }
         resizeActiveTextField()
     }
 
@@ -938,6 +951,10 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         let height = ceil(textHeight + padding * 2)
         textView.frame = CGRect(x: anchor.x, y: anchor.y - height, width: width, height: height)
         textView.textContainerInset = CGSize(width: padding, height: padding)
+        textView.textContainer?.containerSize = CGSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: max(1, height - padding * 2)
+        )
     }
 
     private func updateActiveTextFieldStyle() {
@@ -959,6 +976,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             selectedIndex = annotations.count - 1
         }
         textView.removeFromSuperview()
+        textView.textStorage?.delegate = nil
         activeTextView = nil
         activeTextOrigin = nil
         activeTextAnchor = nil
@@ -966,6 +984,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     }
 
     private func discardActiveText() {
+        activeTextView?.textStorage?.delegate = nil
         activeTextView?.removeFromSuperview()
         activeTextView = nil
         activeTextOrigin = nil

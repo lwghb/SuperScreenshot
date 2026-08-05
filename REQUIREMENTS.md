@@ -18,6 +18,10 @@
 
 - The screenshot annotation toolbar must be draggable by its empty background so it can be moved away from a tall or near-full-screen selected region.
 
+## Text annotation
+
+- While text is being entered, the text background and editing box must expand in real time to fit the current content, including input-method marked text before candidate selection.
+
 ## Selection color readout
 
 - Rendering the cursor color readout must tolerate unavailable system fonts and must never crash the capture overlay.

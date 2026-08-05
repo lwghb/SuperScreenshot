@@ -517,7 +517,7 @@ private struct RecordingTextAnnotation {
 }
 
 @MainActor
-private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
+private final class RecordingTextOverlayView: NSView, NSTextViewDelegate, @preconcurrency NSTextStorageDelegate {
     static let palette: [NSColor] = [.systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple, .white, .black]
     let videoSize: CGSize
     var textMode = false { didSet { needsDisplay = true } }
@@ -594,14 +594,21 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
 
     private func beginTextInput(at point: CGPoint) {
         let textView = NSTextView(frame: CGRect(x: point.x, y: point.y, width: 24, height: 24))
-        textView.isRichText = false; textView.drawsBackground = false; textView.isHorizontallyResizable = false; textView.isVerticallyResizable = false
-        textView.textContainer?.lineFragmentPadding = 0; textView.textContainer?.maximumNumberOfLines = 1; textView.textContainer?.lineBreakMode = .byClipping
+        textView.isRichText = false; textView.drawsBackground = false; textView.isHorizontallyResizable = true; textView.isVerticallyResizable = false
+        textView.textContainer?.lineFragmentPadding = 0; textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.containerSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: 24)
+        textView.textContainer?.maximumNumberOfLines = 1; textView.textContainer?.lineBreakMode = .byClipping
+        textView.textStorage?.delegate = self
         textView.delegate = self; textView.wantsLayer = true
         addSubview(textView)
         activeTextView = textView; activeAnchor = point
         updateActiveTextStyle(); window?.makeFirstResponder(textView)
     }
     func textDidChange(_ notification: Notification) { resizeActiveTextView() }
+    func textStorage(_ textStorage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions, range editedRange: NSRange, changeInLength delta: Int) {
+        guard textStorage === activeTextView?.textStorage else { return }
+        resizeActiveTextView()
+    }
     func textDidEndEditing(_ notification: Notification) { commitActiveText() }
     func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) { commitActiveText(); window?.makeFirstResponder(self); return true }
@@ -626,6 +633,7 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
             height: height
         )
         textView.textContainerInset = CGSize(width: padding, height: padding)
+        textView.textContainer?.containerSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: max(1, height - padding * 2))
     }
     private func commitActiveText() {
         guard let textView = activeTextView, let anchor = activeAnchor else { return }
@@ -635,9 +643,9 @@ private final class RecordingTextOverlayView: NSView, NSTextViewDelegate {
             annotations.append(RecordingTextAnnotation(text: text, origin: origin, fontRatio: fontRatio, textColor: textColor, backgroundColor: backgroundColor))
             selectedIndex = annotations.count - 1
         }
-        textView.removeFromSuperview(); activeTextView = nil; activeAnchor = nil
+        textView.textStorage?.delegate = nil; textView.removeFromSuperview(); activeTextView = nil; activeAnchor = nil
     }
-    private func discardActiveText() { activeTextView?.removeFromSuperview(); activeTextView = nil; activeAnchor = nil }
+    private func discardActiveText() { activeTextView?.textStorage?.delegate = nil; activeTextView?.removeFromSuperview(); activeTextView = nil; activeAnchor = nil }
     private func recolorSelected() {
         guard let selectedIndex, annotations.indices.contains(selectedIndex) else { return }
         annotations[selectedIndex].textColor = textColor; annotations[selectedIndex].backgroundColor = backgroundColor; annotations[selectedIndex].fontRatio = fontRatio
