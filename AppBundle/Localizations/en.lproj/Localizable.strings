@@ -68,3 +68,5 @@
 "版权与许可证" = "Copyright & License";
 "截图内容仅在本机处理，不会上传到服务器。" = "Screenshots are processed only on your Mac and are never uploaded.";
 "检查更新…" = "Check for Updates…";
+"系统声音" = "System Audio";
+"录制电脑播放的声音，不录制麦克风" = "Record audio played by your Mac, without recording the microphone";

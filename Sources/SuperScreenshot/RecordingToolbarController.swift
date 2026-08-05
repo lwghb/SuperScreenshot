@@ -50,7 +50,7 @@ private final class DraggableRecordingToolbarView: NSVisualEffectView {
 
 @MainActor
 final class RecordingToolbarController: NSObject {
-    var onStart: (@MainActor (RecordingFrameRate, Int) -> Void)?
+    var onStart: (@MainActor (RecordingFrameRate, Int, Bool) -> Void)?
     var onStop: (@MainActor () -> Void)?
     var onBack: (@MainActor () -> Void)?
     var onHide: (@MainActor () -> Void)?
@@ -67,6 +67,7 @@ final class RecordingToolbarController: NSObject {
     private weak var bitRateLabel: NSTextField?
     private weak var bitRateValueLabel: NSTextField?
     private weak var bitRateEstimateLabel: NSTextField?
+    private weak var systemAudioButton: NSButton?
     private var supportsHighFrameRate = false
     private weak var contentView: NSView?
     private var visibleFrame = CGRect.zero
@@ -122,6 +123,16 @@ final class RecordingToolbarController: NSObject {
         hideToolbarButton.bezelStyle = .rounded
         hideToolbarButton.isHidden = true
         hideToolbarButton.frame = CGRect(x: 312, y: 14, width: 112, height: 36)
+        let systemAudio = NSButton(
+            checkboxWithTitle: L("系统声音"),
+            target: self,
+            action: #selector(systemAudioChanged(_:))
+        )
+        systemAudio.font = .systemFont(ofSize: 12, weight: .medium)
+        systemAudio.toolTip = L("录制电脑播放的声音，不录制麦克风")
+        systemAudio.state = UserDefaults.standard.bool(forKey: "recording.capturesSystemAudio") ? .on : .off
+        systemAudio.frame = CGRect(x: 350, y: 17, width: 108, height: 28)
+        systemAudioButton = systemAudio
         let frameRate = NSSegmentedControl(labels: ["30", "60", "120"], trackingMode: .selectOne, target: self, action: #selector(frameRateChanged(_:)))
         frameRate.selectedSegment = 1
         frameRate.toolTip = L("录制帧率（FPS）")
@@ -172,7 +183,7 @@ final class RecordingToolbarController: NSObject {
         recordingSettingsLabel.alignment = .right
         recordingSettingsLabel.isHidden = true
         recordingSettingsLabel.frame = CGRect(x: 48, y: 10, width: 116, height: 14)
-        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(recordingSettingsLabel); content.addSubview(fpsLabel); content.addSubview(frameRate); content.addSubview(bitrateLabel); content.addSubview(bitrateValue); content.addSubview(bitrateEstimate); content.addSubview(bitrateSlider); content.addSubview(startButton); content.addSubview(hideToolbarButton)
+        content.addSubview(back); content.addSubview(timerLabel); content.addSubview(recordingSettingsLabel); content.addSubview(fpsLabel); content.addSubview(frameRate); content.addSubview(bitrateLabel); content.addSubview(bitrateValue); content.addSubview(bitrateEstimate); content.addSubview(bitrateSlider); content.addSubview(startButton); content.addSubview(hideToolbarButton); content.addSubview(systemAudio)
         panel.contentView = content
         contentView = content
         self.panel = panel
@@ -236,6 +247,7 @@ final class RecordingToolbarController: NSObject {
             startButton.attributedTitle = NSAttributedString(string: L("结束录屏"))
             timerLabel.isHidden = false; backButton?.isHidden = true; frameRateControl?.isHidden = true
             bitRateSlider?.isHidden = true; bitRateLabel?.isHidden = true; bitRateValueLabel?.isHidden = true; bitRateEstimateLabel?.isHidden = true
+            systemAudioButton?.isHidden = true
             startButton.frame.origin.x = 188
             hideToolbarButton.isHidden = false
             compactForRecording()
@@ -249,7 +261,7 @@ final class RecordingToolbarController: NSObject {
             let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), maximumBitRateMbps)
             recordingSettingsLabel.stringValue = String(format: "%d FPS · %.1f Mbps", rate.rawValue, value)
             recordingSettingsLabel.isHidden = false
-            onStart?(rate, Int((value * 1_000_000).rounded()))
+            onStart?(rate, Int((value * 1_000_000).rounded()), systemAudioButton?.state == .on)
         } else {
             // Finishing an MP4 is asynchronous. Ignore repeat clicks while
             // the writer flushes so the stop path cannot be entered twice.
@@ -288,6 +300,12 @@ final class RecordingToolbarController: NSObject {
     private func bitRateChangedOnMainActor(_ sender: NSSlider) {
         sender.doubleValue = (min(max(sender.doubleValue, 1), maximumBitRateMbps) * 10).rounded() / 10
         updateBitRateEstimate()
+    }
+    @objc nonisolated private func systemAudioChanged(_ sender: NSButton) {
+        Task { @MainActor [weak sender] in
+            guard let sender else { return }
+            UserDefaults.standard.set(sender.state == .on, forKey: "recording.capturesSystemAudio")
+        }
     }
     private func updateBitRateRange() {
         guard let slider = bitRateSlider else { return }
@@ -357,6 +375,7 @@ final class RecordingToolbarController: NSObject {
         bitRateLabel?.isHidden = false
         bitRateValueLabel?.isHidden = false
         bitRateEstimateLabel?.isHidden = false
+        systemAudioButton?.isHidden = false
         if let contentView { startButton.frame.origin.x = (contentView.bounds.width - startButton.frame.width) / 2 }
     }
     func hideWhileRecording() { panel?.orderOut(nil) }

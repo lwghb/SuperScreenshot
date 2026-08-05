@@ -213,7 +213,12 @@ final class CaptureCoordinator: ObservableObject {
     }
 
     @available(macOS 13.0, *)
-    private func startScreenRecording(on screen: NSScreen?, frameRate: RecordingFrameRate = .standard, bitRate: Int = 1_000_000) {
+    private func startScreenRecording(
+        on screen: NSScreen?,
+        frameRate: RecordingFrameRate = .standard,
+        bitRate: Int = 1_000_000,
+        capturesSystemAudio: Bool = false
+    ) {
         guard let screen else { return }
         recordingScreen = screen
         recordingFrameRate = frameRate
@@ -227,7 +232,11 @@ final class CaptureCoordinator: ObservableObject {
                 try await recorder.start(
                     screen: screen,
                     selection: self.recordingSelection,
-                    options: ScreenRecordingOptions(frameRate: frameRate, bitRate: bitRate),
+                    options: ScreenRecordingOptions(
+                        frameRate: frameRate,
+                        bitRate: bitRate,
+                        capturesSystemAudio: capturesSystemAudio
+                    ),
                     outputURL: url
                 )
                 self.onRecordingStateChanged?(true)
@@ -315,11 +324,16 @@ final class CaptureCoordinator: ObservableObject {
                 if #available(macOS 13.0, *) {
                     let toolbar = RecordingToolbarController()
                     self.recordingToolbar = toolbar
-                    toolbar.onStart = { [weak self] frameRate, bitRate in
+                    toolbar.onStart = { [weak self] frameRate, bitRate, capturesSystemAudio in
                         // The red outline remains visible while recording, but
                         // the selection is locked once capture has started.
                         self?.longSelectionBorder?.lockEditing()
-                        self?.startScreenRecording(on: screen, frameRate: frameRate, bitRate: bitRate)
+                        self?.startScreenRecording(
+                            on: screen,
+                            frameRate: frameRate,
+                            bitRate: bitRate,
+                            capturesSystemAudio: capturesSystemAudio
+                        )
                     }
                     toolbar.onStop = { [weak self, weak toolbar] in
                         // Keep the locked outline alive until ScreenCaptureKit

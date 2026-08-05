@@ -25,3 +25,9 @@
 ## Selection color readout
 
 - Rendering the cursor color readout must tolerate unavailable system fonts and must never crash the capture overlay.
+
+## Screen recording audio
+
+- The recording toolbar provides a system-audio option beside the start button.
+- System audio is disabled by default, and the user's latest choice is saved locally and restored the next time the recording toolbar opens.
+- Audio recording captures only audio played by the system and never captures microphone input.
