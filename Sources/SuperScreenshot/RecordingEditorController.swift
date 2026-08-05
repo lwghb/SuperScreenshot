@@ -23,6 +23,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
     private weak var addAnnotationButton: NSButton?
     private weak var previewView: AVPlayerView?
     private weak var trimCaptionLabel: NSTextField?
+    private weak var retainSystemAudioButton: NSButton?
     private var exportProgressTimer: Timer?
     private var colorTarget: SharedAnnotationColorTarget = .text
     private var duration: Double = 0
@@ -158,6 +159,22 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
         saveButton = save
         copyButton = copy
 
+        let hasSystemAudio = !asset.tracks(withMediaType: .audio).isEmpty
+        let retainSystemAudio = NSButton(
+            checkboxWithTitle: L("保留系统声音"),
+            target: self,
+            action: #selector(retainSystemAudioChanged(_:))
+        )
+        retainSystemAudio.font = .systemFont(ofSize: 12, weight: .medium)
+        retainSystemAudio.state = hasSystemAudio ? .on : .off
+        retainSystemAudio.isEnabled = hasSystemAudio
+        retainSystemAudio.toolTip = hasSystemAudio
+            ? L("取消勾选后，导出的视频将不包含声音")
+            : L("当前录屏不包含系统声音")
+        retainSystemAudio.frame = CGRect(x: 32, y: 24, width: 160, height: 26)
+        content.addSubview(retainSystemAudio)
+        retainSystemAudioButton = retainSystemAudio
+
         let progressLabel = NSTextField(labelWithString: "")
         progressLabel.alignment = .right
         progressLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
@@ -185,7 +202,8 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
 
     private func updateRecordingInfo() {
         let selectedDuration = max(0, (trimRangeView?.end ?? duration) - (trimRangeView?.start ?? 0))
-        let estimatedMegabytes = selectedDuration * Double(bitRate) / 8_000_000
+        let audioBitRate = retainSystemAudioButton?.state == .on ? 192_000 : 0
+        let estimatedMegabytes = selectedDuration * Double(bitRate + audioBitRate) / 8_000_000
         let wholeSeconds = Int(selectedDuration.rounded(.up))
         let durationText = String(format: "%02d:%02d", wholeSeconds / 60, wholeSeconds % 60)
         recordingInfoLabel?.stringValue = String(
@@ -197,6 +215,10 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
             L("预计约"),
             estimatedMegabytes
         )
+    }
+
+    @objc private func retainSystemAudioChanged(_ sender: NSButton) {
+        updateRecordingInfo()
     }
 
     private var videoSize: CGSize {
@@ -310,7 +332,12 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
         if FileManager.default.fileExists(atPath: target.path) { try? FileManager.default.removeItem(at: target) }
         // Keeping the entire recording must not introduce a second encode.
         // This preserves the original capture's exact dimensions and bitrate.
-        if trimRangeView.start <= 0.001, trimRangeView.end >= duration - 0.001, annotationOverlayView?.hasAnnotations != true {
+        let retainsSystemAudio = retainSystemAudioButton?.state == .on
+        let sourceHasAudio = !asset.tracks(withMediaType: .audio).isEmpty
+        if (retainsSystemAudio || !sourceHasAudio),
+           trimRangeView.start <= 0.001,
+           trimRangeView.end >= duration - 0.001,
+           annotationOverlayView?.hasAnnotations != true {
             do {
                 try FileManager.default.copyItem(at: url, to: target)
                 completion(.success(target))
@@ -321,14 +348,21 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
             start: CMTime(seconds: trimRangeView.start, preferredTimescale: 600),
             end: CMTime(seconds: trimRangeView.end, preferredTimescale: 600)
         )
-        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+        let exportAsset: AVAsset
+        do {
+            exportAsset = retainsSystemAudio ? asset : try makeVideoOnlyAsset()
+        } catch {
+            completion(.failure(error))
+            return
+        }
+        guard let exporter = AVAssetExportSession(asset: exportAsset, presetName: AVAssetExportPresetHighestQuality) else {
             completion(.failure(NSError(domain: "SuperScreenshot.Recording", code: 20, userInfo: [NSLocalizedDescriptionKey: L("无法创建视频导出器")])))
             return
         }
         exporter.outputURL = target
         exporter.outputFileType = .mp4
         exporter.timeRange = timeRange
-        exporter.videoComposition = makeAnnotationVideoComposition()
+        exporter.videoComposition = makeAnnotationVideoComposition(for: exportAsset)
         beginExportProgress()
         exportProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self, weak exporter] _ in
             guard let self, let exporter else { return }
@@ -375,10 +409,30 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
 
     private func close() { exportProgressTimer?.invalidate(); player.pause(); panel?.orderOut(nil); panel = nil }
 
-    private func makeAnnotationVideoComposition() -> AVMutableVideoComposition? {
+    private func makeVideoOnlyAsset() throws -> AVAsset {
+        let composition = AVMutableComposition()
+        for sourceTrack in asset.tracks(withMediaType: .video) {
+            guard let destinationTrack = composition.addMutableTrack(
+                withMediaType: .video,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            ) else { continue }
+            try destinationTrack.insertTimeRange(sourceTrack.timeRange, of: sourceTrack, at: sourceTrack.timeRange.start)
+            destinationTrack.preferredTransform = sourceTrack.preferredTransform
+        }
+        guard !composition.tracks(withMediaType: .video).isEmpty else {
+            throw NSError(
+                domain: "SuperScreenshot.Recording",
+                code: 22,
+                userInfo: [NSLocalizedDescriptionKey: L("录屏文件不包含可导出的视频轨道")]
+            )
+        }
+        return composition
+    }
+
+    private func makeAnnotationVideoComposition(for exportAsset: AVAsset) -> AVMutableVideoComposition? {
         guard let overlayImage = annotationOverlayView?.renderedOverlay(),
               annotationOverlayView?.hasAnnotations == true else { return nil }
-        let composition = AVMutableVideoComposition(propertiesOf: asset)
+        let composition = AVMutableVideoComposition(propertiesOf: exportAsset)
         let renderSize = composition.renderSize
         guard renderSize.width > 0, renderSize.height > 0 else { return nil }
         let parentLayer = CALayer()

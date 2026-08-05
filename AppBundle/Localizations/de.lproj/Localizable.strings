@@ -70,3 +70,7 @@
 "检查更新…" = "Nach Updates suchen…";
 "系统声音" = "Systemaudio";
 "录制电脑播放的声音，不录制麦克风" = "Vom Mac abgespielte Töne aufnehmen, ohne das Mikrofon aufzuzeichnen";
+"保留系统声音" = "Systemaudio behalten";
+"取消勾选后，导出的视频将不包含声音" = "Deaktivieren, um das Video ohne Ton zu exportieren";
+"当前录屏不包含系统声音" = "Diese Aufnahme enthält kein Systemaudio";
+"录屏文件不包含可导出的视频轨道" = "Die Aufnahme enthält keine exportierbare Videospur";

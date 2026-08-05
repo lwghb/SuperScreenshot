@@ -70,3 +70,7 @@
 "检查更新…" = "Check for Updates…";
 "系统声音" = "System Audio";
 "录制电脑播放的声音，不录制麦克风" = "Record audio played by your Mac, without recording the microphone";
+"保留系统声音" = "Keep System Audio";
+"取消勾选后，导出的视频将不包含声音" = "Uncheck to export the video without audio";
+"当前录屏不包含系统声音" = "This recording does not contain system audio";
+"录屏文件不包含可导出的视频轨道" = "The recording does not contain an exportable video track";

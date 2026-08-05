@@ -32,3 +32,5 @@
 - System audio is disabled by default, and the user's latest choice is saved locally and restored the next time the recording toolbar opens.
 - Audio recording captures only audio played by the system and never captures microphone input.
 - The estimated recording size includes the 192 Kbps AAC audio track whenever system audio is enabled and updates immediately when the option changes.
+- When a captured recording contains system audio, the recording editor enables a keep-system-audio option by default. Turning it off removes the audio track from both saved and clipboard-exported videos and updates the size estimate.
+- When the source recording has no audio track, the editor's keep-system-audio option is off and disabled.
