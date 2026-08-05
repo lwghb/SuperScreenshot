@@ -551,7 +551,21 @@ final class ColoredTitleButton: NSButton {
     }
 }
 
-final class ScreenshotEditorView: NSView, NSTextViewDelegate, @preconcurrency NSTextStorageDelegate {
+final class LiveSizingTextView: NSTextView {
+    var onContentChange: (() -> Void)?
+
+    override func didChangeText() {
+        super.didChangeText()
+        onContentChange?()
+    }
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        onContentChange?()
+    }
+}
+
+final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     var mode: ScreenshotAnnotationMode = .arrow
     var showsImageBorder = true
     var drawsWorkspace = true
@@ -879,7 +893,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate, @preconcurrency NS
     }
 
     private func beginTextInput(at imagePoint: CGPoint, viewPoint: CGPoint) {
-        let textView = NSTextView(frame: CGRect(x: viewPoint.x, y: viewPoint.y, width: 20, height: 20))
+        let textView = LiveSizingTextView(frame: CGRect(x: viewPoint.x, y: viewPoint.y, width: 20, height: 20))
         textView.isRichText = false
         textView.importsGraphics = false
         textView.isEditable = true
@@ -892,8 +906,11 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate, @preconcurrency NS
         textView.textContainer?.containerSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: 20)
         textView.textContainer?.maximumNumberOfLines = 1
         textView.textContainer?.lineBreakMode = .byClipping
-        textView.textStorage?.delegate = self
         textView.delegate = self
+        textView.onContentChange = { [weak self, weak textView] in
+            guard textView === self?.activeTextView else { return }
+            self?.resizeActiveTextField()
+        }
         textView.wantsLayer = true
         addSubview(textView)
         activeTextView = textView
@@ -911,16 +928,6 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate, @preconcurrency NS
     }
 
     func textDidChange(_ notification: Notification) {
-        resizeActiveTextField()
-    }
-
-    func textStorage(
-        _ textStorage: NSTextStorage,
-        didProcessEditing editedMask: NSTextStorageEditActions,
-        range editedRange: NSRange,
-        changeInLength delta: Int
-    ) {
-        guard textStorage === activeTextView?.textStorage else { return }
         resizeActiveTextField()
     }
 
@@ -976,7 +983,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate, @preconcurrency NS
             selectedIndex = annotations.count - 1
         }
         textView.removeFromSuperview()
-        textView.textStorage?.delegate = nil
+        (textView as? LiveSizingTextView)?.onContentChange = nil
         activeTextView = nil
         activeTextOrigin = nil
         activeTextAnchor = nil
@@ -984,7 +991,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate, @preconcurrency NS
     }
 
     private func discardActiveText() {
-        activeTextView?.textStorage?.delegate = nil
+        (activeTextView as? LiveSizingTextView)?.onContentChange = nil
         activeTextView?.removeFromSuperview()
         activeTextView = nil
         activeTextOrigin = nil
