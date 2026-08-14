@@ -695,10 +695,17 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         }
         let viewPoint = convert(event.locationInWindow, from: nil)
         let point = imagePoint(from: viewPoint)
-        // Text placement is an explicit tool action. Give it priority over
-        // selecting or resizing annotations so a click inside a large shape
-        // starts text input instead of moving the shape underneath it.
+        // Existing text remains directly manipulable while the text tool is
+        // active. Other annotation types must not block placing new text.
         if mode == .text {
+            if let index = hitTextAnnotation(point) {
+                movingIndex = index
+                selectedIndex = index
+                lastMovePoint = point
+                onAnnotationDragLocation?(nil)
+                window?.makeFirstResponder(self)
+                return
+            }
             selectedIndex = nil
             beginTextInput(at: point, viewPoint: viewPoint)
             return
@@ -1192,6 +1199,16 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
                 if textRect(text, at: origin, fontSize: fontSize).insetBy(dx: -8, dy: -8).contains(point) { return index }
             case let .mosaic(points, brushWidth):
                 if polyline(points, contains: point, tolerance: brushWidth / 2 + 8) { return index }
+            }
+        }
+        return nil
+    }
+
+    private func hitTextAnnotation(_ point: CGPoint) -> Int? {
+        for (index, annotation) in annotations.enumerated().reversed() {
+            guard case let .text(text, origin, fontSize, _, _) = annotation else { continue }
+            if textRect(text, at: origin, fontSize: fontSize).insetBy(dx: -8, dy: -8).contains(point) {
+                return index
             }
         }
         return nil
