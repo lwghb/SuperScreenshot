@@ -606,6 +606,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     private var activeTextView: NSTextView?
     private var activeTextOrigin: CGPoint?
     private var activeTextAnchor: CGPoint?
+    private var activeTextEditingIndex: Int?
     private var suppressNextTextMouseDown = false
     private var activeMosaicPoints: [CGPoint]?
     private var lastMosaicSampleTime: TimeInterval = 0
@@ -699,6 +700,10 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         // active. Other annotation types must not block placing new text.
         if mode == .text {
             if let index = hitTextAnnotation(point) {
+                if event.clickCount >= 2 {
+                    beginEditingText(at: index)
+                    return
+                }
                 movingIndex = index
                 selectedIndex = index
                 lastMovePoint = point
@@ -845,7 +850,9 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         if drawsBaseImage {
             context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         }
-        for annotation in annotations { draw(annotation, in: context) }
+        for (index, annotation) in annotations.enumerated() where index != activeTextEditingIndex {
+            draw(annotation, in: context)
+        }
         if let selectedIndex, annotations.indices.contains(selectedIndex) {
             drawSelectionHandles(for: annotations[selectedIndex], in: context)
         }
@@ -935,6 +942,21 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         window?.makeFirstResponder(textView)
     }
 
+    private func beginEditingText(at index: Int) {
+        guard annotations.indices.contains(index),
+              case let .text(text, origin, fontSize, existingTextColor, existingBackgroundColor) = annotations[index]
+        else { return }
+        activeTextEditingIndex = index
+        textFontSize = fontSize * imageToViewScale
+        textColor = existingTextColor
+        textBackgroundColor = existingBackgroundColor
+        beginTextInput(at: origin, viewPoint: viewPoint(from: origin))
+        activeTextView?.string = text
+        resizeActiveTextField()
+        activeTextView?.setSelectedRange(NSRange(location: text.utf16.count, length: 0))
+        needsDisplay = true
+    }
+
     func textDidEndEditing(_ notification: Notification) {
         if activeTextView != nil {
             suppressNextTextMouseDown = true
@@ -992,16 +1014,32 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     private func commitActiveText() {
         guard let textView = activeTextView else { return }
         let text = textView.string
-        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let origin = activeTextOrigin {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedText.isEmpty, let origin = activeTextOrigin {
             let imageFontSize = textFontSize * CGFloat(image.width) / imageRect.width
-            annotations.append(.text(text, origin: origin, fontSize: imageFontSize, textColor: textColor, backgroundColor: textBackgroundColor))
-            selectedIndex = annotations.count - 1
+            let annotation = ScreenshotAnnotation.text(
+                text,
+                origin: origin,
+                fontSize: imageFontSize,
+                textColor: textColor,
+                backgroundColor: textBackgroundColor
+            )
+            if let index = activeTextEditingIndex, annotations.indices.contains(index) {
+                annotations[index] = annotation
+                selectedIndex = index
+            } else {
+                annotations.append(annotation)
+                selectedIndex = annotations.count - 1
+            }
+        } else if let index = activeTextEditingIndex, annotations.indices.contains(index) {
+            removeAnnotation(at: index)
         }
         textView.removeFromSuperview()
         (textView as? LiveSizingTextView)?.onContentChange = nil
         activeTextView = nil
         activeTextOrigin = nil
         activeTextAnchor = nil
+        activeTextEditingIndex = nil
         needsDisplay = true
     }
 
@@ -1011,6 +1049,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         activeTextView = nil
         activeTextOrigin = nil
         activeTextAnchor = nil
+        activeTextEditingIndex = nil
         suppressNextTextMouseDown = false
         needsDisplay = true
     }
