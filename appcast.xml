@@ -6,6 +6,23 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.78</title>
+            <pubDate>Fri, 14 Aug 2026 15:21:26 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>278</sparkle:version>
+            <sparkle:shortVersionString>2.0.78</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[优化截图文本标注的点击优先级：文本工具可在大矩形等已有标注内部直接插入文字，同时点击已有文本仍会优先选中并移动。
+
+新增文本双击原位编辑，可保留原位置、字号、文字颜色和背景色继续修改；按 Esc 可取消编辑并保留原内容。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.78/SuperScreenshot-v2.0.78-Universal.zip" length="3061461" type="application/octet-stream" sparkle:edSignature="fCnHj38IqzHJcZzsmzjsekxSMCSolYopDoAukm1CesQHK1RFcCOdEpJUtUaN8p+YubZgtnnnyzBwe5AdKV36DA=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.78/SuperScreenshot278-277.delta" sparkle:deltaFrom="277" length="99070" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977616" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="OlwFJ2x4HoDsfKPX1IXidkzVomw7WbKaUG/ssnmeIc10/vuLxKs2CbG/EeHbdFkmNdbEf0I1VtYdl/MTmLPxAw=="/>
+                <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.78/SuperScreenshot278-276.delta" sparkle:deltaFrom="276" length="103422" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977616" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="tcIEFIGql2DDhfE2dHdgbz8nHR0N7ZpUXBiV4XvADsmS07yuIFCC4AkBMmUyTKeKLwDbNuYvfddrWgxhJr45Bw=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>2.0.75</title>
             <pubDate>Wed, 05 Aug 2026 17:58:23 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -28,18 +45,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
             <description sparkle:format="markdown"><![CDATA[修复中文输入法组合输入期间，文本标注框不会随拼音内容实时扩展的问题。英文和数字输入行为保持不变，截图标注与录屏标注均已同步修复。]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.71/SuperScreenshot-v2.0.71-Universal.zip" length="3047192" type="application/octet-stream" sparkle:edSignature="RMVAPGTg6txAJadyYDrp1G8Gyo+yOGKLiHlg9UBShRNubsHz/GFRnSlisgICfFgsVlUTOE3xzSb9Qp53pWFZCw=="/>
         </item>
-        <item>
-            <title>2.0.70</title>
-            <pubDate>Thu, 30 Jul 2026 17:41:13 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>270</sparkle:version>
-            <sparkle:shortVersionString>2.0.70</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.70/SuperScreenshot-v2.0.70-Universal.zip" length="3042558" type="application/octet-stream" sparkle:edSignature="gUeEJSGNZR/ZBPAycnpt4NyN6gi2yaLwf+T6kkd04bYjcHonVva1YqAJiK8VCZDMtjZO1r0Bcs6min9hTV1+BQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: U+fZmEH52CRLa7lXjT9QIAEYVGjUa5LtrIMIM4tU1hTRw9nIeKW5prWGgNTQLQdlZjlJSHsDzK9CnXEgDin2AQ==
-length: 3186
+edSignature: jlX+c3WnGO3Gl2D2gNZpTQ1Ovcw9QC0GkMRnaDeOO1rJVD4c0LhUpFxyGXWgKqYnTkSo5DMyn+2SO0LCxd5YBQ==
+length: 4473
 -->
