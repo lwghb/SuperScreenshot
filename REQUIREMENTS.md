@@ -21,6 +21,7 @@
 ## Text annotation
 
 - While text is being entered, the text background and editing box must expand in real time to fit the current content, including input-method marked text before candidate selection.
+- While the text tool is active, clicking the canvas must start text input even when the click is inside an existing large annotation; text insertion takes priority over selecting or resizing annotations.
 
 ## Selection color readout
 

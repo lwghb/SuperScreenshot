@@ -695,6 +695,14 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         }
         let viewPoint = convert(event.locationInWindow, from: nil)
         let point = imagePoint(from: viewPoint)
+        // Text placement is an explicit tool action. Give it priority over
+        // selecting or resizing annotations so a click inside a large shape
+        // starts text input instead of moving the shape underneath it.
+        if mode == .text {
+            selectedIndex = nil
+            beginTextInput(at: point, viewPoint: viewPoint)
+            return
+        }
         if let index = selectedIndex,
            let handle = hitResizeHandle(at: point, annotation: annotations[index]) {
             resizingHandle = handle
@@ -713,7 +721,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         selectedIndex = nil
         switch mode {
         case .text:
-            beginTextInput(at: point, viewPoint: viewPoint)
+            break
         case .arrow, .rectangle, .ellipse:
             dragStart = point
             dragEnd = point
