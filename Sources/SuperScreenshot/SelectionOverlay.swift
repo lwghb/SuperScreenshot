@@ -360,9 +360,22 @@ private final class SelectionView: NSView {
         }
         NSGraphicsContext.current?.saveGraphicsState()
         NSBezierPath(rect: highlighted).addClip()
-        // Keep a minimally non-transparent hit surface. Fully transparent pixels in a
-        // borderless window allow clicks to pass through to the window underneath.
-        NSColor.black.withAlphaComponent(0.002).setFill(); highlighted.fill(using: .copy)
+        if let backgroundSnapshot {
+            // Restore the captured pixels inside the selection instead of
+            // punching through to the live desktop underneath the overlay.
+            // This keeps the screenshot frozen until a live capture mode takes over.
+            NSImage(cgImage: backgroundSnapshot, size: bounds.size).draw(
+                in: bounds,
+                from: .zero,
+                operation: .copy,
+                fraction: 1
+            )
+        } else {
+            // Keep a minimally non-transparent hit surface. Fully transparent
+            // pixels in a borderless window allow clicks to pass through.
+            NSColor.black.withAlphaComponent(0.002).setFill()
+            highlighted.fill(using: .copy)
+        }
         NSGraphicsContext.current?.restoreGraphicsState()
         NSColor.systemBlue.setStroke(); let border = NSBezierPath(rect: highlighted); border.lineWidth = 2; border.stroke()
         let size = "\(Int(highlighted.width)) × \(Int(highlighted.height))"
