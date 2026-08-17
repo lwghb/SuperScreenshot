@@ -247,7 +247,7 @@ final class DirectAnnotationController: NSObject {
 
     private func resizeHandle(at point: CGPoint) -> SelectionResizeHandle? {
         let outerTolerance: CGFloat = 20
-        let innerTolerance: CGFloat = 10
+        let innerTolerance: CGFloat = 5
         let nearLeft = point.x >= selection.minX - outerTolerance && point.x <= selection.minX + innerTolerance
         let nearRight = point.x >= selection.maxX - innerTolerance && point.x <= selection.maxX + outerTolerance
         let nearBottom = point.y >= selection.minY - outerTolerance && point.y <= selection.minY + innerTolerance
@@ -311,7 +311,7 @@ final class DirectAnnotationController: NSObject {
 
     private func updateResizeHandleFrames() {
         let outerTolerance: CGFloat = 20
-        let innerTolerance: CGFloat = 10
+        let innerTolerance: CGFloat = 5
         let hitThickness = outerTolerance + innerTolerance
         for (handle, panel) in resizeWindows {
             let frame: CGRect
@@ -807,7 +807,7 @@ private final class SelectionResizeHandleView: NSView {
         bounds.fill(using: .copy)
         let size: CGFloat = 8
         let outerTolerance: CGFloat = 20
-        let innerTolerance: CGFloat = 10
+        let innerTolerance: CGFloat = 5
         let center = CGPoint(
             x: handle.movesLeft ? outerTolerance : (handle.movesRight ? innerTolerance : bounds.midX),
             y: handle.movesBottom ? outerTolerance : (handle.movesTop ? innerTolerance : bounds.midY)
