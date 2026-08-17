@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.82</title>
+            <pubDate>Mon, 17 Aug 2026 10:58:04 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>282</sparkle:version>
+            <sparkle:shortVersionString>2.0.82</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[修复冻结截图蒙层位于标注画布上方、导致箭头、文字、形状和马赛克绘制后不可见的问题，标注现在会在绘制过程中即时显示。
+
+优化原位标注界面的选区边缘操作：外侧缩放容错保持 20 pt，内侧缩至 5 pt，减少对画布标注操作的干扰。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.82/SuperScreenshot-v2.0.82-Universal.zip" length="3062414" type="application/octet-stream" sparkle:edSignature="uqekvFw3QwtXc76Ou2s38opV/3weduyD/gLFz5CMxHlF1NGjQsAsliLAg1Ao2eJJAzcrMfTMKMR/PbPd0srSCw=="/>
+        </item>
+        <item>
             <title>2.0.80</title>
             <pubDate>Mon, 17 Aug 2026 10:20:48 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -35,22 +48,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
                 <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.78/SuperScreenshot278-276.delta" sparkle:deltaFrom="276" length="103422" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977616" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="tcIEFIGql2DDhfE2dHdgbz8nHR0N7ZpUXBiV4XvADsmS07yuIFCC4AkBMmUyTKeKLwDbNuYvfddrWgxhJr45Bw=="/>
             </sparkle:deltas>
         </item>
-        <item>
-            <title>2.0.75</title>
-            <pubDate>Wed, 05 Aug 2026 17:58:23 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>275</sparkle:version>
-            <sparkle:shortVersionString>2.0.75</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[新增录屏系统声音开关，可选择录制 Mac 正在播放的声音，并会记住上次设置；不会采集麦克风。文件大小预估现在会计入音频码率。
-
-录屏编辑器新增“保留系统声音”选项，保存或复制视频前可以移除系统音轨，预估大小会同步更新。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.75/SuperScreenshot-v2.0.75-Universal.zip" length="3057312" type="application/octet-stream" sparkle:edSignature="r6veoaWc6/K4O3w5rwuVvAPGp0KCjzo9kTYiWFINIKADy7sAV3bdJWdCZD3N+bPdxA1Hqd7/9KPlZy48yvBaAw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 2AvxMrZdRluHp+JcnUGXIXGFQvCxlW2F9Z9X8ySLQlWEfG0qk5EdF5xoRqvDNfUF3Xkj/czGR9IfDGEGmPDCBw==
+edSignature: K7OKbXNk6nX6JjXx0LihuZz5+6SFkrdDTvLiGnFyKNs83iqXW2MURczAIDqq6q72faLZcutADSYaNiJBMerPAw==
 length: 4545
 -->
