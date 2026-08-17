@@ -246,11 +246,12 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func resizeHandle(at point: CGPoint) -> SelectionResizeHandle? {
-        let tolerance: CGFloat = 20
-        let nearLeft = abs(point.x - selection.minX) <= tolerance
-        let nearRight = abs(point.x - selection.maxX) <= tolerance
-        let nearBottom = abs(point.y - selection.minY) <= tolerance
-        let nearTop = abs(point.y - selection.maxY) <= tolerance
+        let outerTolerance: CGFloat = 20
+        let innerTolerance: CGFloat = 10
+        let nearLeft = point.x >= selection.minX - outerTolerance && point.x <= selection.minX + innerTolerance
+        let nearRight = point.x >= selection.maxX - innerTolerance && point.x <= selection.maxX + outerTolerance
+        let nearBottom = point.y >= selection.minY - outerTolerance && point.y <= selection.minY + innerTolerance
+        let nearTop = point.y >= selection.maxY - innerTolerance && point.y <= selection.maxY + outerTolerance
         if nearLeft && nearBottom { return .bottomLeft }
         if nearRight && nearBottom { return .bottomRight }
         if nearLeft && nearTop { return .topLeft }
@@ -309,35 +310,36 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func updateResizeHandleFrames() {
-        let edge: CGFloat = 40
-        let corner: CGFloat = 40
+        let outerTolerance: CGFloat = 20
+        let innerTolerance: CGFloat = 10
+        let hitThickness = outerTolerance + innerTolerance
         for (handle, panel) in resizeWindows {
             let frame: CGRect
             switch handle {
             case .left:
-                frame = CGRect(x: selection.minX - edge / 2, y: selection.minY + corner / 2,
-                               width: edge, height: max(edge, selection.height - corner))
+                frame = CGRect(x: selection.minX - outerTolerance, y: selection.minY + innerTolerance,
+                               width: hitThickness, height: max(1, selection.height - innerTolerance * 2))
             case .right:
-                frame = CGRect(x: selection.maxX - edge / 2, y: selection.minY + corner / 2,
-                               width: edge, height: max(edge, selection.height - corner))
+                frame = CGRect(x: selection.maxX - innerTolerance, y: selection.minY + innerTolerance,
+                               width: hitThickness, height: max(1, selection.height - innerTolerance * 2))
             case .bottom:
-                frame = CGRect(x: selection.minX + corner / 2, y: selection.minY - edge / 2,
-                               width: max(edge, selection.width - corner), height: edge)
+                frame = CGRect(x: selection.minX + innerTolerance, y: selection.minY - outerTolerance,
+                               width: max(1, selection.width - innerTolerance * 2), height: hitThickness)
             case .top:
-                frame = CGRect(x: selection.minX + corner / 2, y: selection.maxY - edge / 2,
-                               width: max(edge, selection.width - corner), height: edge)
+                frame = CGRect(x: selection.minX + innerTolerance, y: selection.maxY - innerTolerance,
+                               width: max(1, selection.width - innerTolerance * 2), height: hitThickness)
             case .bottomLeft:
-                frame = CGRect(x: selection.minX - corner / 2, y: selection.minY - corner / 2,
-                               width: corner, height: corner)
+                frame = CGRect(x: selection.minX - outerTolerance, y: selection.minY - outerTolerance,
+                               width: hitThickness, height: hitThickness)
             case .bottomRight:
-                frame = CGRect(x: selection.maxX - corner / 2, y: selection.minY - corner / 2,
-                               width: corner, height: corner)
+                frame = CGRect(x: selection.maxX - innerTolerance, y: selection.minY - outerTolerance,
+                               width: hitThickness, height: hitThickness)
             case .topLeft:
-                frame = CGRect(x: selection.minX - corner / 2, y: selection.maxY - corner / 2,
-                               width: corner, height: corner)
+                frame = CGRect(x: selection.minX - outerTolerance, y: selection.maxY - innerTolerance,
+                               width: hitThickness, height: hitThickness)
             case .topRight:
-                frame = CGRect(x: selection.maxX - corner / 2, y: selection.maxY - corner / 2,
-                               width: corner, height: corner)
+                frame = CGRect(x: selection.maxX - innerTolerance, y: selection.maxY - innerTolerance,
+                               width: hitThickness, height: hitThickness)
             }
             panel.setFrame(frame, display: true)
             if let contentView = panel.contentView {
@@ -804,7 +806,13 @@ private final class SelectionResizeHandleView: NSView {
         NSColor.black.withAlphaComponent(0.01).setFill()
         bounds.fill(using: .copy)
         let size: CGFloat = 8
-        let knob = CGRect(x: bounds.midX - size / 2, y: bounds.midY - size / 2, width: size, height: size)
+        let outerTolerance: CGFloat = 20
+        let innerTolerance: CGFloat = 10
+        let center = CGPoint(
+            x: handle.movesLeft ? outerTolerance : (handle.movesRight ? innerTolerance : bounds.midX),
+            y: handle.movesBottom ? outerTolerance : (handle.movesTop ? innerTolerance : bounds.midY)
+        )
+        let knob = CGRect(x: center.x - size / 2, y: center.y - size / 2, width: size, height: size)
         NSColor.white.setFill()
         NSBezierPath(ovalIn: knob).fill()
         NSColor.systemBlue.setStroke()

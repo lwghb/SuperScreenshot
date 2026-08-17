@@ -86,7 +86,10 @@ final class SelectionOverlayController {
         windows.forEach {
             ($0.contentView as? SelectionView)?.isLocked = true
             $0.ignoresMouseEvents = true
-            $0.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 2)
+            // Keep the frozen desktop behind the editor (+1), resize handles
+            // (+2), and toolbar (+3). Raising this overlay above the canvas
+            // makes annotations receive input but remain visually hidden.
+            $0.level = .screenSaver
         }
         if cursorPushed {
             NSCursor.pop()
