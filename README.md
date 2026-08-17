@@ -1,7 +1,7 @@
 # SuperScreenshot / 超强截图
 
-一款轻量、原生、完全本地运行的 macOS 截图与标注工具。  
-A lightweight, native, and local-first screenshot and annotation tool for macOS.
+一款轻量、原生、完全本地运行的 macOS 截图、录屏与标注工具。
+A lightweight, native, and local-first screenshot, screen recording, and annotation tool for macOS.
 
 > **仅支持 macOS / macOS only** — 支持 Apple 芯片与 Intel Mac。
 
@@ -16,7 +16,11 @@ A lightweight, native, and local-first screenshot and annotation tool for macOS.
 - 箭头、文字、矩形、椭圆等标注工具
 - 马赛克与自定义颜色
 - 长截图
+- 区域录屏，可调节 30/60/120 FPS 与视频码率
+- 可选系统声音录制，不采集麦克风
+- 录屏预览、片段裁剪、标注、保存及复制到剪贴板
 - 鼠标取色，按 `C` 复制当前色值
+- 自定义全局截图快捷键
 - 完成后自动复制到剪贴板
 - 内置安全的自动更新检查
 - 截图内容完全在本机处理
@@ -24,6 +28,7 @@ A lightweight, native, and local-first screenshot and annotation tool for macOS.
 ### 系统要求
 
 - macOS 12.0 或更高版本
+- 录屏功能需要 macOS 13.0 或更高版本
 - 支持 Apple 芯片与 Intel Mac
 
 ### 安装
@@ -48,7 +53,11 @@ A lightweight, native, and local-first screenshot and annotation tool for macOS.
 - Arrow, text, rectangle, and ellipse annotations
 - Mosaic tool and custom colors
 - Scrolling capture
+- Region screen recording with configurable 30/60/120 FPS and video bitrate
+- Optional system-audio capture without microphone input
+- Recording preview, trimming, annotation, saving, and clipboard export
 - On-screen color picker — press `C` to copy the current color
+- Customizable global capture shortcut
 - Automatically copies the finished capture to the clipboard
 - Built-in secure update checks
 - All screenshots are processed locally on your Mac
@@ -56,6 +65,7 @@ A lightweight, native, and local-first screenshot and annotation tool for macOS.
 ### Requirements
 
 - macOS 12.0 or later
+- Screen recording requires macOS 13.0 or later
 - Apple silicon and Intel Macs are supported
 
 ### Installation
@@ -75,6 +85,9 @@ This is an actively developed beta. Please report bugs and feature requests thro
 
 本仓库包含 SuperScreenshot 的完整源代码和版本安装包。
 This repository contains the complete SuperScreenshot source code and release builds.
+
+产品需求见 [REQUIREMENTS.md](REQUIREMENTS.md)，开发架构与修改指南见 [ARCHITECTURE.md](ARCHITECTURE.md)，版本变化见 [CHANGELOG.md](CHANGELOG.md)。
+See [REQUIREMENTS.md](REQUIREMENTS.md) for product requirements, [ARCHITECTURE.md](ARCHITECTURE.md) for the development guide, and [CHANGELOG.md](CHANGELOG.md) for release changes.
 
 ## 开源许可 / License
 

@@ -1,39 +1,117 @@
-# SuperScreenshot Requirements
+# SuperScreenshot 产品需求
 
-## Long capture
+本文档是产品行为与验收标准的唯一总览。实现位置和修改影响范围见 [ARCHITECTURE.md](ARCHITECTURE.md)，版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
-- Automatic long capture calculates the scroll step from the selected region.
-- Each automatic step retains at least 64 output pixels of overlap for reliable matching, then captures and stitches one frame. It should still use a near-full-region step rather than small incremental scrolling.
-- The implementation must validate the detected displacement against the requested step so repeated content cannot cause skipped sections.
-- The long-capture preview must stay on the display containing the selected region, including when the selection overlay is non-activating.
-- Automatic scrolling must wait until the current frame has been stitched and its preview committed before starting the next scroll step.
+## 1. 产品定位与范围
 
-## Capture consistency
+- SuperScreenshot 是一款原生、轻量、菜单栏常驻的 macOS 截图、长截图、录屏与标注工具。
+- 截图、录屏、标注和导出均在本机完成，不上传用户内容。
+- 支持 macOS 12.0 及以上版本、Apple 芯片与 Intel Mac；录屏依赖 macOS 13.0 及以上版本的 ScreenCaptureKit 能力。
+- 支持简体中文、繁体中文、英语、日语、韩语、德语和阿拉伯语界面。
 
-- The selection background and the final capture should represent the same visible screen state; transient window visibility differences must not cause surprising content to appear only in the final image.
-- The selection overlay must not activate SuperScreenshot or cause another application's focus-sensitive plug-in window to hide.
-- Opening the selection overlay must be immediate, without a screen zoom or scale animation on any display.
+## 2. 启动、菜单栏与快捷键
 
-## Annotation toolbar
+- 应用以菜单栏附件应用运行，不显示常规 Dock 主窗口。
+- 菜单栏提供开始截图、设置快捷键、检查系统权限、查看版本、检查更新、关于和退出入口。
+- 默认截图快捷键为 `Command + Shift + 2`。
+- 用户可以重新录制全局快捷键；设置须持久保存并在下次启动时恢复。
+- 录屏进行中时，菜单栏图标须明确显示录制状态，并可直接停止录制。
 
-- The screenshot annotation toolbar must be draggable by its empty background so it can be moved away from a tall or near-full-screen selected region.
+## 3. 权限与错误处理
 
-## Text annotation
+- 首次截图前检查屏幕录制权限；权限不足时给出明确提示和系统设置入口。
+- 用户可从菜单栏主动检查系统权限。
+- 截图、录屏、拼接和导出失败时，应用须结束相应临时状态并给出可理解的错误提示，不能静默卡住或崩溃。
 
-- While text is being entered, the text background and editing box must expand in real time to fit the current content, including input-method marked text before candidate selection.
-- While the text tool is active, clicking the canvas must start text input even when the click is inside an existing large annotation; text insertion takes priority over selecting or resizing annotations.
-- While the text tool is active, clicking existing text must select it for movement instead of creating overlapping new text.
-- Double-clicking existing text with the text tool must reopen it for in-place editing while preserving its position and visual style; cancelling the edit must retain the original text.
+## 4. 截图选区
 
-## Selection color readout
+- 启动截图后，在所有显示器显示不会激活应用的选区覆盖层。
+- 支持单击识别窗口和拖动创建任意矩形选区。
+- 选区、边框、预览和最终图像须使用一致的像素对齐结果。
+- 支持多显示器、带偏移坐标的显示器布局和 Retina 缩放。
+- 选区覆盖层不得激活 SuperScreenshot，也不得导致其他应用中依赖焦点的浮动窗口消失。
+- 打开覆盖层必须立即完成，不得在任何显示器出现屏幕缩放或尺寸动画。
+- 选区背景与最终截图须代表同一可见屏幕状态，不能因临时窗口显隐而让最终图像意外出现不同内容。
+- 覆盖层显示鼠标位置的颜色值；按 `C` 将当前色值复制到剪贴板。
+- 颜色值绘制必须兼容系统字体不可用的情况，不能导致覆盖层崩溃。
+- `Esc` 可取消本轮截图并清理全部覆盖层。
 
-- Rendering the cursor color readout must tolerate unavailable system fonts and must never crash the capture overlay.
+## 5. 截图标注与输出
 
-## Screen recording audio
+- 选区完成后直接进入原位标注界面，并允许继续调整选区。
+- 提供箭头、文字、矩形、椭圆和马赛克工具。
+- 箭头和形状支持颜色设置；文字支持字号、字色和背景色设置。
+- 提供常用预设颜色以及系统自定义颜色面板。
+- 标注支持选择、移动、缩放、删除和撤销。
+- 标注工具栏可拖动空白背景，避免遮挡高选区或接近全屏的选区。
+- 截图标注界面提供长截图和录屏入口。
+- 完成截图后将合成结果复制到系统剪贴板，并关闭本轮截图界面。
 
-- The recording toolbar provides a system-audio option beside the start button.
-- System audio is disabled by default, and the user's latest choice is saved locally and restored the next time the recording toolbar opens.
-- Audio recording captures only audio played by the system and never captures microphone input.
-- The estimated recording size includes the 192 Kbps AAC audio track whenever system audio is enabled and updates immediately when the option changes.
-- When a captured recording contains system audio, the recording editor enables a keep-system-audio option by default. Turning it off removes the audio track from both saved and clipboard-exported videos and updates the size estimate.
-- When the source recording has no audio track, the editor's keep-system-audio option is off and disabled.
+### 5.1 文字标注交互
+
+- 输入文字时，背景与编辑框须随内容实时扩展，包括输入法候选确定前的 marked text。
+- 文字工具激活时，单击画布应优先开始文字输入，即使单击位置位于大型已有标注内部。
+- 文字工具激活时，单击已有文字应选中并允许移动，而不是创建重叠的新文字。
+- 使用文字工具双击已有文字时，须原位重新编辑，并保留位置、字色、背景色与字号。
+- 取消重新编辑须保留原文字；确认空内容时按既定删除行为处理。
+
+## 6. 长截图
+
+- 用户可以对当前选区启动长截图，并获得明确的状态、预览、完成和取消控制。
+- 支持手动滚动采集和自动滚动采集。
+- 自动长截图根据选区高度计算滚动步长，采用接近整块选区的步进，避免低效的小步滚动。
+- 每次自动滚动至少保留 64 个输出像素的重叠区域，以便可靠匹配。
+- 拼接前须根据请求步长校验检测位移，避免重复内容造成跳段。
+- 当前帧完成拼接且预览提交后，才可开始下一次自动滚动。
+- 自动滚动期间须避免用户鼠标位置干扰目标内容，并在结束后恢复必要状态。
+- 长截图预览和控制界面须位于选区所在显示器，即使选区覆盖层为非激活窗口。
+- 拼接失败、内容无变化、到达末尾或用户停止时，应保留已经成功生成的内容并明确反馈结果。
+
+## 7. 区域录屏
+
+- 用户可从截图标注界面对当前选区启动录屏。
+- 录制前允许再次移动或缩放录制区域，工具栏应跟随选区；用户手动移动工具栏后应尊重其位置。
+- 提供 30、60 和 120 FPS 选项；显示器刷新率不足时不得启用 120 FPS，并须解释原因。
+- 提供视频码率调节，范围随录制分辨率和帧率计算，最高不超过 60 Mbps。
+- 实时显示约一分钟文件大小估算。
+- 开始后锁定录制边框，显示计时与当前 FPS/码率，并允许隐藏录制工具栏。
+- 用户可以从录制工具栏或菜单栏状态图标停止录制；重复停止操作不得触发多次收尾。
+
+### 7.1 系统声音
+
+- 录制工具栏在开始按钮旁提供系统声音选项。
+- 系统声音默认关闭；用户最近一次选择须保存在本机并在下次打开工具栏时恢复。
+- 只录制系统播放声音，不录制麦克风。
+- 开启系统声音时，文件大小估算须计入 192 Kbps AAC 音轨，并立即更新。
+
+## 8. 录屏编辑与导出
+
+- 录制完成后进入视频预览编辑器。
+- 用户可拖动起止点裁剪保留片段，并看到时长、FPS、码率和预计文件大小。
+- 未裁剪、未添加标注且保留原音频时，应优先直接使用原文件，避免不必要的二次编码。
+- 录屏支持添加与截图一致的箭头、文字、矩形、椭圆和马赛克标注，并支持删除与撤销。
+- 用户可以保存 MP4 文件，或将可用的视频文件写入剪贴板。
+- 导出期间显示进度，防止重复提交，失败时恢复可操作状态并提示错误。
+- 源视频包含系统声音时，“保留系统声音”默认开启；关闭后，保存与剪贴板导出的视频均须移除音轨并更新大小估算。
+- 源视频没有音轨时，“保留系统声音”须关闭且不可操作。
+
+## 9. 更新、关于与发布
+
+- 使用 Sparkle 提供安全的应用内更新检查。
+- 关于窗口显示应用名称、版本、项目仓库和许可证入口。
+- 每次构建生成 Universal 应用和带版本号的 ZIP，包含 Apple 芯片与 Intel 可执行代码。
+- 新版本加入 `appcast.xml` 时必须带简洁更新说明，重新签名并验证签名后的 feed 与提交内容一致。
+
+## 10. 非功能要求
+
+- 截图和录屏内容不得离开本机；除更新检查和用户主动打开的项目链接外，不主动发送内容。
+- 高频鼠标移动、输入法输入、显示器切换及录屏停止路径不得造成崩溃。
+- 界面文字必须通过本地化函数读取；新增用户可见文本时同步更新全部语言资源。
+- 修改共享标注行为时必须同时检查截图编辑器和录屏编辑器。
+- 修改坐标、缩放或拼接逻辑时必须运行相关自动测试，并补充能够复现问题的用例。
+
+## 11. 验收与状态约定
+
+- 本文档描述当前应保持的产品行为，未标注“规划中”的项目均视为已实现需求。
+- 新需求先加入对应章节，再修改实现；删除或改变行为时同步更新本文档。
+- 具体代码入口、持久化键和修改检查清单以 `ARCHITECTURE.md` 为准。
