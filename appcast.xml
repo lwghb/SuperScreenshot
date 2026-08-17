@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.80</title>
+            <pubDate>Mon, 17 Aug 2026 10:20:48 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>280</sparkle:version>
+            <sparkle:shortVersionString>2.0.80</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[修复截图选区内会透出底层实时桌面的问题。触发截图后，所有显示器会立即冻结，选区和标注阶段始终显示触发瞬间的静态画面。
+
+选择录屏或长截图时仍会解除画面冻结，以便继续捕获实时内容。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.80/SuperScreenshot-v2.0.80-Universal.zip" length="3061660" type="application/octet-stream" sparkle:edSignature="7Vp11IC2H8Bm4x8M8RvIgf1c4HDnInU7nE5/quv3mJur/x4RQpqYK7nrr+BI6gTFFNJABbFkxbEce1GCCJCOAg=="/>
+        </item>
+        <item>
             <title>2.0.78</title>
             <pubDate>Fri, 14 Aug 2026 15:21:26 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -35,19 +48,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.75/SuperScreenshot-v2.0.75-Universal.zip" length="3057312" type="application/octet-stream" sparkle:edSignature="r6veoaWc6/K4O3w5rwuVvAPGp0KCjzo9kTYiWFINIKADy7sAV3bdJWdCZD3N+bPdxA1Hqd7/9KPlZy48yvBaAw=="/>
         </item>
-        <item>
-            <title>2.0.71</title>
-            <pubDate>Wed, 05 Aug 2026 16:27:49 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>271</sparkle:version>
-            <sparkle:shortVersionString>2.0.71</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[修复中文输入法组合输入期间，文本标注框不会随拼音内容实时扩展的问题。英文和数字输入行为保持不变，截图标注与录屏标注均已同步修复。]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.71/SuperScreenshot-v2.0.71-Universal.zip" length="3047192" type="application/octet-stream" sparkle:edSignature="RMVAPGTg6txAJadyYDrp1G8Gyo+yOGKLiHlg9UBShRNubsHz/GFRnSlisgICfFgsVlUTOE3xzSb9Qp53pWFZCw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: jlX+c3WnGO3Gl2D2gNZpTQ1Ovcw9QC0GkMRnaDeOO1rJVD4c0LhUpFxyGXWgKqYnTkSo5DMyn+2SO0LCxd5YBQ==
-length: 4473
+edSignature: 2AvxMrZdRluHp+JcnUGXIXGFQvCxlW2F9Z9X8ySLQlWEfG0qk5EdF5xoRqvDNfUF3Xkj/czGR9IfDGEGmPDCBw==
+length: 4545
 -->
