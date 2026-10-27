@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.84</title>
+            <pubDate>Tue, 27 Oct 2026 23:11:14 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>284</sparkle:version>
+            <sparkle:shortVersionString>2.0.84</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[截图工具条左侧新增大号录屏按钮，旁边增加齿轮设置入口。可预先设置并自动保存帧率、码率和系统声音，之后点击录屏即可直接开始，无需再点击一次“开始录屏”。
+
+录制参数会根据当前屏幕和选区自动适配。录屏启动失败时会恢复选区编辑并提示错误。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.84/SuperScreenshot-v2.0.84-Universal.zip" length="3068357" type="application/octet-stream" sparkle:edSignature="w7dyxl8n/iJwgMth+Un4JSyus1wXMIh9Wz2LVvhVbU5JEIPq59MwK+YjnSRQbmfkkJg6Vzem0qwR8sx9g6XYCw=="/>
+        </item>
+        <item>
             <title>2.0.83</title>
             <pubDate>Tue, 27 Oct 2026 15:50:32 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -31,22 +44,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.82/SuperScreenshot-v2.0.82-Universal.zip" length="3062414" type="application/octet-stream" sparkle:edSignature="uqekvFw3QwtXc76Ou2s38opV/3weduyD/gLFz5CMxHlF1NGjQsAsliLAg1Ao2eJJAzcrMfTMKMR/PbPd0srSCw=="/>
         </item>
-        <item>
-            <title>2.0.80</title>
-            <pubDate>Mon, 17 Aug 2026 10:20:48 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>280</sparkle:version>
-            <sparkle:shortVersionString>2.0.80</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[修复截图选区内会透出底层实时桌面的问题。触发截图后，所有显示器会立即冻结，选区和标注阶段始终显示触发瞬间的静态画面。
-
-选择录屏或长截图时仍会解除画面冻结，以便继续捕获实时内容。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.80/SuperScreenshot-v2.0.80-Universal.zip" length="3061660" type="application/octet-stream" sparkle:edSignature="7Vp11IC2H8Bm4x8M8RvIgf1c4HDnInU7nE5/quv3mJur/x4RQpqYK7nrr+BI6gTFFNJABbFkxbEce1GCCJCOAg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: r3qbJ35g8FQ1nrRnBdMq5dqPZOxSjJk5bzSC8yfZG7ELfCNcFkjOqs0+ELubrzC5BB5rCG5WS1OBMfHI9Dr0CQ==
-length: 3656
+edSignature: xiiUJ/8XbIMt/yFsAYhj6KFDlNGphBlkStkgLC+Aa421qFfRYQQk/z5okH/a7CKQCZaYaN4XVWUvcQWa90DPAA==
+length: 3737
 -->
