@@ -7,6 +7,7 @@ enum ScreenshotAnnotationMode: Int, CaseIterable {
     case rectangle = 2
     case ellipse = 3
     case mosaic = 4
+    case brush = 5
 }
 
 private enum ColorTarget {
@@ -31,6 +32,8 @@ final class ScreenshotEditorController: NSObject {
     private var textToolButton: NSButton?
     private var rectangleButton: NSButton?
     private var ellipseButton: NSButton?
+    private var brushButton: NSButton?
+    private var brushSizeSlider: NSSlider?
     private var textColorButton: NSButton?
     private var backgroundColorButton: NSButton?
     private weak var activeColorPanel: NSColorPanel?
@@ -100,6 +103,10 @@ final class ScreenshotEditorController: NSObject {
         toolbar.addArrangedSubview(textTool)
         toolbar.addArrangedSubview(rectangle)
         toolbar.addArrangedSubview(ellipse)
+        let brush = iconButton("pencil.tip", action: #selector(useBrush(_:)))
+        brush.toolTip = L("自由画笔")
+        brushButton = brush
+        toolbar.addArrangedSubview(brush)
         let text = toolbarButton(L("字色"), action: #selector(pickTextColor(_:)))
         let background = toolbarButton(L("背景色"), action: #selector(pickTextBackgroundColor(_:)))
         textColorButton = text
@@ -178,6 +185,16 @@ final class ScreenshotEditorController: NSObject {
         showPalette(.stroke)
     }
 
+    @objc private func useBrush(_ sender: NSButton) {
+        canvas?.mode = .brush
+        updateColorButtons(for: .brush)
+        showPalette(.stroke)
+    }
+
+    @objc private func changeBrushWidth(_ sender: NSSlider) {
+        canvas?.brushWidth = CGFloat(sender.doubleValue.rounded())
+    }
+
     @objc private func useText(_ sender: NSButton) {
         canvas?.mode = .text
         canvas?.pendingText = nil
@@ -206,6 +223,13 @@ final class ScreenshotEditorController: NSObject {
         for view in paletteStack.arrangedSubviews {
             paletteStack.removeArrangedSubview(view)
             view.removeFromSuperview()
+        }
+        if canvas?.mode == .brush {
+            paletteStack.addArrangedSubview(NSTextField(labelWithString: L("粗细")))
+            let slider = NSSlider(value: Double(canvas?.brushWidth ?? 4), minValue: 1, maxValue: 24, target: self, action: #selector(changeBrushWidth(_:)))
+            slider.toolTip = L("粗细")
+            slider.widthAnchor.constraint(equalToConstant: 92).isActive = true
+            paletteStack.addArrangedSubview(slider)
         }
         let colors: [NSColor] = [.systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple, .white, .black]
         let selectedColor = currentColor(for: colorTarget)
@@ -326,6 +350,7 @@ final class ScreenshotEditorController: NSObject {
         applyColorBars(to: arrowButton, bottom: stroke, selected: mode == .arrow)
         applyColorBars(to: rectangleButton, bottom: stroke, selected: mode == .rectangle)
         applyColorBars(to: ellipseButton, bottom: stroke, selected: mode == .ellipse)
+        applyColorBars(to: brushButton, top: nil, bottom: canvas?.strokeColor ?? .systemRed, selected: mode == .brush)
         applyColorBars(to: textToolButton, top: canvas?.textColor ?? .white, bottom: canvas?.textBackgroundColor ?? .systemRed, selected: mode == .text)
     }
 
@@ -397,6 +422,7 @@ private enum ScreenshotAnnotation {
     case ellipse(CGRect, color: NSColor)
     case text(String, origin: CGPoint, fontSize: CGFloat, textColor: NSColor, backgroundColor: NSColor)
     case mosaic(points: [CGPoint], brushWidth: CGFloat)
+    case brush(points: [CGPoint], width: CGFloat, color: NSColor)
 }
 
 private enum AnnotationResizeHandle: CaseIterable {
@@ -571,6 +597,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     var drawsWorkspace = true
     var drawsBaseImage = true
     var pendingText: String?
+    var brushWidth: CGFloat = 4
     var strokeColor: NSColor = .systemRed
     var textColor: NSColor = .white { didSet { updateActiveTextFieldStyle() } }
     var textBackgroundColor: NSColor = .systemBlue { didSet { updateActiveTextFieldStyle() } }
@@ -608,6 +635,9 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
     private var activeTextAnchor: CGPoint?
     private var activeTextEditingIndex: Int?
     private var suppressNextTextMouseDown = false
+    private var activeBrushPoints: [CGPoint]?
+    private var activeBrushWidth: CGFloat = 4
+    private var activeBrushColor: NSColor = .systemRed
     private var activeMosaicPoints: [CGPoint]?
     private var lastMosaicSampleTime: TimeInterval = 0
     private lazy var mosaicImage: CGImage? = makeMosaicImage()
@@ -674,6 +704,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             }
             dragStart = dragStart.map { CGPoint(x: $0.x + annotationOffset.x, y: $0.y + annotationOffset.y) }
             dragEnd = dragEnd.map { CGPoint(x: $0.x + annotationOffset.x, y: $0.y + annotationOffset.y) }
+            activeBrushPoints = activeBrushPoints?.map { CGPoint(x: $0.x + annotationOffset.x, y: $0.y + annotationOffset.y) }
             activeMosaicPoints = activeMosaicPoints?.map {
                 CGPoint(x: $0.x + annotationOffset.x, y: $0.y + annotationOffset.y)
             }
@@ -696,6 +727,14 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         }
         let viewPoint = convert(event.locationInWindow, from: nil)
         let point = imagePoint(from: viewPoint)
+        if mode == .brush {
+            selectedIndex = nil
+            activeBrushPoints = [point]
+            activeBrushWidth = min(max(brushWidth, 1), 24) / max(imageToViewScale, 0.001)
+            activeBrushColor = strokeColor
+            needsDisplay = true
+            return
+        }
         // Existing text remains directly manipulable while the text tool is
         // active. Other annotation types must not block placing new text.
         if mode == .text {
@@ -732,7 +771,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         }
         selectedIndex = nil
         switch mode {
-        case .text:
+        case .text, .brush:
             break
         case .arrow, .rectangle, .ellipse:
             dragStart = point
@@ -756,6 +795,11 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             moveAnnotation(at: index, by: CGPoint(x: point.x - last.x, y: point.y - last.y))
             lastMovePoint = point
             onAnnotationDragLocation?(event.locationInWindow)
+            needsDisplay = true
+            return
+        }
+        if activeBrushPoints != nil {
+            if activeBrushPoints?.last != point { activeBrushPoints?.append(point) }
             needsDisplay = true
             return
         }
@@ -790,6 +834,15 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             window?.invalidateCursorRects(for: self)
             return
         }
+        if var points = activeBrushPoints {
+            let end = imagePoint(from: convert(event.locationInWindow, from: nil))
+            if points.last != end { points.append(end) }
+            annotations.append(.brush(points: points, width: activeBrushWidth, color: activeBrushColor))
+            activeBrushPoints = nil
+            selectedIndex = annotations.count - 1
+            needsDisplay = true
+            return
+        }
         if var points = activeMosaicPoints {
             let end = imagePoint(from: convert(event.locationInWindow, from: nil))
             if points.last.map({ hypot($0.x - end.x, $0.y - end.y) > 1 }) ?? true {
@@ -815,7 +868,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
                 annotations.append(.ellipse(normalizedRect(start, end), color: strokeColor))
             case .text:
                 break
-            case .mosaic:
+            case .mosaic, .brush:
                 break
             }
             selectedIndex = annotations.count - 1
@@ -856,6 +909,9 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         if let selectedIndex, annotations.indices.contains(selectedIndex) {
             drawSelectionHandles(for: annotations[selectedIndex], in: context)
         }
+        if let points = activeBrushPoints {
+            draw(.brush(points: points, width: activeBrushWidth, color: activeBrushColor), in: context)
+        }
         if let points = activeMosaicPoints {
             draw(.mosaic(points: points, brushWidth: mosaicBrushWidth), in: context)
         }
@@ -865,7 +921,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             case .rectangle: draw(.rectangle(normalizedRect(start, end), color: strokeColor), in: context)
             case .ellipse: draw(.ellipse(normalizedRect(start, end), color: strokeColor), in: context)
             case .text: break
-            case .mosaic: break
+            case .mosaic, .brush: break
             }
         }
         context.restoreGState()
@@ -898,6 +954,8 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
         guard !annotations.isEmpty else { return }
         let index = selectedIndex.map { min(max($0, 0), annotations.count - 1) } ?? (annotations.count - 1)
         switch (annotations[index], target) {
+        case let (.brush(points, width, _), .stroke):
+            annotations[index] = .brush(points: points, width: width, color: color)
         case let (.arrow(start, end, _), .stroke):
             annotations[index] = .arrow(start: start, end: end, color: color)
         case let (.rectangle(rect, _), .stroke):
@@ -1101,7 +1159,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
                 (.bottomLeft, CGPoint(x: rect.minX, y: rect.minY)),
                 (.left, CGPoint(x: rect.minX, y: rect.midY))
             ]
-        case .text, .mosaic:
+        case .text, .mosaic, .brush:
             return []
         }
     }
@@ -1151,7 +1209,7 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
                 resizedRect(rect, handle: handle, point: clamped),
                 color: color
             )
-        case .text, .mosaic:
+        case .text, .mosaic, .brush:
             break
         }
     }
@@ -1236,6 +1294,8 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
                 if rect.insetBy(dx: -12, dy: -12).contains(point) { return index }
             case let .text(text, origin, fontSize, _, _):
                 if textRect(text, at: origin, fontSize: fontSize).insetBy(dx: -8, dy: -8).contains(point) { return index }
+            case let .brush(points, width, _):
+                if polyline(points, contains: point, tolerance: width / 2 + 6 / max(imageToViewScale, 0.001)) { return index }
             case let .mosaic(points, brushWidth):
                 if polyline(points, contains: point, tolerance: brushWidth / 2 + 8) { return index }
             }
@@ -1263,6 +1323,8 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             annotations[index] = .ellipse(rect.offsetBy(dx: delta.x, dy: delta.y), color: color)
         case let .text(text, origin, fontSize, textColor, backgroundColor):
             annotations[index] = .text(text, origin: CGPoint(x: origin.x + delta.x, y: origin.y + delta.y), fontSize: fontSize, textColor: textColor, backgroundColor: backgroundColor)
+        case let .brush(points, width, color):
+            annotations[index] = .brush(points: points.map { CGPoint(x: $0.x + delta.x, y: $0.y + delta.y) }, width: width, color: color)
         case let .mosaic(points, brushWidth):
             annotations[index] = .mosaic(
                 points: points.map { CGPoint(x: $0.x + delta.x, y: $0.y + delta.y) },
@@ -1357,6 +1419,23 @@ final class ScreenshotEditorView: NSView, NSTextViewDelegate {
             drawShape(rect, color: color, ellipse: true, in: context)
         case let .text(text, origin, fontSize, textColor, backgroundColor):
             drawText(text, at: origin, fontSize: fontSize, textColor: textColor, backgroundColor: backgroundColor, in: context)
+        case let .brush(points, width, color):
+            guard let first = points.first else { return }
+            context.saveGState()
+            context.setStrokeColor(color.cgColor)
+            context.setFillColor(color.cgColor)
+            context.setLineWidth(width)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+            if points.count == 1 {
+                context.fillEllipse(in: CGRect(x: first.x - width / 2, y: first.y - width / 2, width: width, height: width))
+            } else {
+                context.beginPath()
+                context.move(to: first)
+                for point in points.dropFirst() { context.addLine(to: point) }
+                context.strokePath()
+            }
+            context.restoreGState()
         case let .mosaic(points, brushWidth):
             drawMosaic(points: points, brushWidth: brushWidth, in: context)
         }

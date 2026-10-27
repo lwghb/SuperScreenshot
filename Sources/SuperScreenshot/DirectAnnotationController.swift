@@ -368,6 +368,7 @@ final class DirectAnnotationController: NSObject {
 
     private func makeToolbarView(frame: CGRect) -> NSView {
         let toolbar = SharedAnnotationToolbar(frame: frame, showsCaptureActions: true, showsFinish: true)
+        toolbar.onBrushWidth = { [weak self] width in self?.canvas?.brushWidth = width }
         toolbar.onDelete = { [weak self] in self?.deleteSelectedAnnotation() }
         toolbar.onUndo = { [weak self] in self?.undo() }
         toolbar.onMode = { [weak self] mode in
@@ -377,6 +378,7 @@ final class DirectAnnotationController: NSObject {
             case .rectangle: self?.useRectangle()
             case .ellipse: self?.useEllipse()
             case .mosaic: self?.useMosaic()
+            case .brush: self?.useBrush()
             }
         }
         toolbar.onColorTarget = { [weak self] target in
@@ -484,6 +486,14 @@ final class DirectAnnotationController: NSObject {
     @objc private func deleteSelectedAnnotation() {
         canvas?.deleteSelectedAnnotation()
         deleteDropButton?.isDropTarget = false
+        focusCanvas()
+    }
+
+    private func useBrush() {
+        mode = .brush
+        colorTarget = .stroke
+        canvas?.mode = .brush
+        updateToolState()
         focusCanvas()
     }
 

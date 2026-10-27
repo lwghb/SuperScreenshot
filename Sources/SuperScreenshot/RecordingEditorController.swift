@@ -80,6 +80,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
         )
         toolbar.isHidden = true
         toolbar.autoresizingMask = [.width]
+        toolbar.onBrushWidth = { [weak self] width in self?.annotationOverlayView?.canvas.brushWidth = width }
         toolbar.onDelete = { [weak self] in self?.annotationOverlayView?.deleteSelectedAnnotation() }
         toolbar.onUndo = { [weak self] in self?.annotationOverlayView?.undo() }
         toolbar.onMode = { [weak self] mode in

@@ -13,6 +13,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     var onUndo: (() -> Void)?
     var onMode: ((ScreenshotAnnotationMode) -> Void)?
     var onColorTarget: ((SharedAnnotationColorTarget) -> Void)?
+    var onBrushWidth: ((CGFloat) -> Void)?
     var onFontSize: ((CGFloat) -> Void)?
     var onColor: ((NSColor) -> Void)?
     var onCustomColor: (() -> Void)?
@@ -26,6 +27,9 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private let textButton: ToolButton
     private let rectangleButton: ToolButton
     private let ellipseButton: ToolButton
+    private let brushButton: ToolButton
+    private let brushWidthLabel = NSTextField(labelWithString: L("粗细"))
+    private let brushWidthSlider = NSSlider(value: 4, minValue: 1, maxValue: 24, target: nil, action: nil)
     private let mosaicButton: ToolButton
     private let textColorButton: NSButton
     private let textBackgroundButton: NSButton
@@ -42,6 +46,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         textButton = SharedAnnotationToolbar.toolButton(image: SharedAnnotationToolbar.textIcon(), tooltip: L("文字标注"))
         rectangleButton = SharedAnnotationToolbar.toolButton("rectangle", tooltip: L("矩形标注"))
         ellipseButton = SharedAnnotationToolbar.toolButton("circle", tooltip: L("椭圆标注"))
+        brushButton = SharedAnnotationToolbar.toolButton("pencil.tip", tooltip: L("自由画笔"))
         mosaicButton = SharedAnnotationToolbar.toolButton(image: SharedAnnotationToolbar.mosaicIcon(), tooltip: L("马赛克"))
         textColorButton = NSButton(title: L("字色"), target: nil, action: nil)
         textBackgroundButton = NSButton(title: L("背景"), target: nil, action: nil)
@@ -69,6 +74,11 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         rectangleButton.target = self; rectangleButton.action = #selector(selectMode(_:)); rectangleButton.tag = ScreenshotAnnotationMode.rectangle.rawValue
         ellipseButton.target = self; ellipseButton.action = #selector(selectMode(_:)); ellipseButton.tag = ScreenshotAnnotationMode.ellipse.rawValue
         mosaicButton.target = self; mosaicButton.action = #selector(selectMode(_:)); mosaicButton.tag = ScreenshotAnnotationMode.mosaic.rawValue
+        brushButton.target = self; brushButton.action = #selector(selectMode(_:)); brushButton.tag = ScreenshotAnnotationMode.brush.rawValue
+        brushWidthSlider.target = self; brushWidthSlider.action = #selector(changeBrushWidth(_:))
+        brushWidthSlider.isContinuous = true
+        brushWidthSlider.widthAnchor.constraint(equalToConstant: 92).isActive = true
+        brushWidthSlider.toolTip = L("粗细")
         textColorButton.target = self; textColorButton.action = #selector(selectTextColor)
         textBackgroundButton.target = self; textBackgroundButton.action = #selector(selectTextBackground)
         [textColorButton, textBackgroundButton].forEach { $0.bezelStyle = .rounded; $0.wantsLayer = true; $0.layer?.cornerRadius = 6 }
@@ -85,7 +95,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
 
         let tools = NSStackView()
         tools.orientation = .horizontal; tools.spacing = 8; tools.alignment = .centerY; tools.translatesAutoresizingMaskIntoConstraints = false
-        [deleteDropButton, undoButton, arrowButton, textButton, rectangleButton, ellipseButton, mosaicButton].forEach { tools.addArrangedSubview($0) }
+        [deleteDropButton, undoButton, arrowButton, textButton, rectangleButton, ellipseButton, brushButton, mosaicButton].forEach { tools.addArrangedSubview($0) }
         if showsCaptureActions {
             let long = NSButton(title: L("长截图"), target: self, action: #selector(longCapture)); long.bezelStyle = .rounded; long.toolTip = L("长截图")
             let recording = NSButton(title: L("录屏"), target: self, action: #selector(screenRecording)); recording.bezelStyle = .rounded; recording.toolTip = L("录制当前区域")
@@ -94,6 +104,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
 
         let palette = NSStackView()
         palette.orientation = .horizontal; palette.spacing = 8; palette.alignment = .centerY; palette.translatesAutoresizingMaskIntoConstraints = false
+        palette.addArrangedSubview(brushWidthLabel); palette.addArrangedSubview(brushWidthSlider)
         palette.addArrangedSubview(fontSizeLabel); palette.addArrangedSubview(fontSizeSlider)
         palette.addArrangedSubview(textColorButton); palette.addArrangedSubview(textBackgroundButton)
         paletteButtons.forEach { palette.addArrangedSubview($0) }
@@ -123,6 +134,9 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         arrowButton.configure(top: nil, bottom: stroke, selected: mode == .arrow)
         rectangleButton.configure(top: nil, bottom: stroke, selected: mode == .rectangle)
         ellipseButton.configure(top: nil, bottom: stroke, selected: mode == .ellipse)
+        brushButton.configure(top: nil, bottom: stroke, selected: mode == .brush)
+        brushWidthLabel.isHidden = mode != .brush; brushWidthSlider.isHidden = mode != .brush
+        brushWidthSlider.doubleValue = Double(canvas?.brushWidth ?? 4)
         mosaicButton.configure(top: nil, bottom: nil, selected: mode == .mosaic)
         textButton.configure(top: canvas?.textColor ?? .white, bottom: canvas?.textBackgroundColor ?? .systemRed, selected: mode == .text)
         let textMode = mode == .text
@@ -144,6 +158,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     @objc private func selectMode(_ sender: NSButton) { onMode?(ScreenshotAnnotationMode(rawValue: sender.tag) ?? .arrow) }
     @objc private func selectTextColor() { onColorTarget?(.text) }
     @objc private func selectTextBackground() { onColorTarget?(.textBackground) }
+    @objc private func changeBrushWidth(_ sender: NSSlider) { onBrushWidth?(CGFloat(sender.doubleValue.rounded())) }
     @objc private func changeFontSize(_ sender: NSSlider) { onFontSize?(CGFloat(sender.doubleValue.rounded())) }
     @objc private func selectColor(_ sender: DirectColorButton) { onColor?(sender.color) }
     @objc private func selectCustomColor() { onCustomColor?() }

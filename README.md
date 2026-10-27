@@ -13,7 +13,7 @@ A lightweight, native, and local-first screenshot, screen recording, and annotat
 
 - 区域截图与窗口自动识别
 - 多显示器与 Retina 高分辨率支持
-- 箭头、文字、矩形、椭圆等标注工具
+- 箭头、文字、矩形、椭圆及自由画笔（支持颜色和粗细调节）
 - 马赛克与自定义颜色
 - 长截图
 - 区域录屏，可调节 30/60/120 FPS 与视频码率
@@ -24,6 +24,8 @@ A lightweight, native, and local-first screenshot, screen recording, and annotat
 - 完成后自动复制到剪贴板
 - 内置安全的自动更新检查
 - 截图内容完全在本机处理
+
+使用画笔时，按下并拖动即可画任意线条；切换箭头工具可选中和移动已有笔画，撤销按整笔处理。
 
 ### 系统要求
 
@@ -50,7 +52,7 @@ A lightweight, native, and local-first screenshot, screen recording, and annotat
 
 - Region capture and automatic window detection
 - Multi-display and Retina support
-- Arrow, text, rectangle, and ellipse annotations
+- Arrow, text, rectangle, ellipse, and freehand annotations with adjustable brush color and width
 - Mosaic tool and custom colors
 - Scrolling capture
 - Region screen recording with configurable 30/60/120 FPS and video bitrate

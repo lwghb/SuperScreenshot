@@ -55,6 +55,9 @@
 - 坐标在 AppKit 全局点、显示器局部点和输出像素之间转换；转换应集中使用 `ScreenCapture` 辅助函数，避免各控制器自行取整。
 - 录屏编辑器在“无裁剪、无标注、音频设置不变”时有原文件快速路径，改动导出逻辑时不得破坏该路径。
 
+- 自由画笔在 `ScreenshotEditorView` 中记录输出像素坐标、颜色和笔宽；输入按视图缩放换算笔宽，预览与导出共用渲染分支。画笔模式优先新增笔画，其他形状工具可命中笔画并整体移动；自由笔画不提供缩放手柄。
+- `SharedAnnotationToolbar` 提供画笔与粗细控件；独立长截图编辑器同步提供入口。笔宽默认 4 pt，范围 1–24 pt，仅保存在当前编辑会话。
+
 ## 5. 本地持久化
 
 当前通过 `UserDefaults.standard` 保存：
@@ -78,6 +81,7 @@
 
 ## 7. 测试与验证
 
+- `Tests/FreehandBrushTests.swift` 验证轨迹转折和松手终点、相交笔画独立撤销、移动删除、点状笔画、视图缩放与选区偏移后的导出像素。
 - `Tests/ImageStitcherTests.swift` 当前覆盖显示器坐标、Retina 像素对齐和长截图拼接关键场景。
 - 修改 `ScreenCapture`、`ImageStitcher` 或 `LongCaptureEngine` 时，先添加问题复现测试，再运行 `swift test`。
 - 标注、AppKit 窗口交互和录屏导出目前主要依靠手工验证；涉及这些模块时至少走通截图完成、长截图、无声录屏、有声录屏、裁剪与导出路径。
