@@ -18,6 +18,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     var onColor: ((NSColor) -> Void)?
     var onCustomColor: (() -> Void)?
     var onLongCapture: (() -> Void)?
+    var onRecordingSettings: (() -> Void)?
     var onScreenRecording: (() -> Void)?
     var onFinish: (() -> Void)?
 
@@ -57,6 +58,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         customColorButton = DirectCustomColorButton(target: nil, action: nil)
         finishButton = showsFinish ? ColoredTitleButton(title: L("完成"), fillColor: .systemGreen, textColor: .white, target: nil, action: nil) : nil
         super.init(frame: frame)
+        heightAnchor.constraint(equalToConstant: frame.height).isActive = true
 
         wantsLayer = true
         layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
@@ -98,8 +100,30 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         [deleteDropButton, undoButton, arrowButton, textButton, rectangleButton, ellipseButton, brushButton, mosaicButton].forEach { tools.addArrangedSubview($0) }
         if showsCaptureActions {
             let long = NSButton(title: L("长截图"), target: self, action: #selector(longCapture)); long.bezelStyle = .rounded; long.toolTip = L("长截图")
-            let recording = NSButton(title: L("录屏"), target: self, action: #selector(screenRecording)); recording.bezelStyle = .rounded; recording.toolTip = L("录制当前区域")
-            tools.addArrangedSubview(long); tools.addArrangedSubview(recording)
+            tools.addArrangedSubview(long)
+            let recording = CaptureRecordingButton(title: L("录屏"), target: self, action: #selector(screenRecording))
+            recording.font = .systemFont(ofSize: 18, weight: .semibold)
+            recording.toolTip = L("录制当前区域")
+            recording.translatesAutoresizingMaskIntoConstraints = false
+            let settings = NSButton(image: NSImage(systemSymbolName: "gearshape", accessibilityDescription: L("录屏设置")) ?? NSImage(), target: self, action: #selector(recordingSettings))
+            settings.identifier = NSUserInterfaceItemIdentifier("recording.settings")
+            settings.bezelStyle = .texturedRounded
+            settings.toolTip = L("录屏设置")
+            settings.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(recording); addSubview(settings)
+            NSLayoutConstraint.activate([
+                recording.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+                recording.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+                recording.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+                recording.widthAnchor.constraint(equalToConstant: 96),
+                settings.leadingAnchor.constraint(equalTo: recording.trailingAnchor, constant: 8),
+                settings.centerYAnchor.constraint(equalTo: centerYAnchor),
+                settings.widthAnchor.constraint(equalToConstant: 30),
+                settings.heightAnchor.constraint(equalToConstant: 34)
+            ])
+            if #unavailable(macOS 13.0) {
+                recording.isEnabled = false; settings.isEnabled = false
+            }
         }
 
         let palette = NSStackView()
@@ -113,9 +137,9 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         addSubview(tools); addSubview(palette)
         if let finishButton { addSubview(finishButton) }
         NSLayoutConstraint.activate([
-            tools.centerXAnchor.constraint(equalTo: centerXAnchor),
+            tools.centerXAnchor.constraint(equalTo: centerXAnchor, constant: showsCaptureActions ? 48 : 0),
             tools.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            palette.centerXAnchor.constraint(equalTo: centerXAnchor),
+            palette.centerXAnchor.constraint(equalTo: centerXAnchor, constant: showsCaptureActions ? 48 : 0),
             palette.topAnchor.constraint(equalTo: tools.bottomAnchor, constant: 10)
         ])
         if let finishButton {
@@ -163,6 +187,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     @objc private func selectColor(_ sender: DirectColorButton) { onColor?(sender.color) }
     @objc private func selectCustomColor() { onCustomColor?() }
     @objc private func longCapture() { onLongCapture?() }
+    @objc private func recordingSettings() { onRecordingSettings?() }
     @objc private func screenRecording() { onScreenRecording?() }
     @objc private func finish() { onFinish?() }
 
@@ -204,5 +229,32 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private static func colorsMatch(_ lhs: NSColor, _ rhs: NSColor) -> Bool {
         guard let a = lhs.usingColorSpace(.deviceRGB), let b = rhs.usingColorSpace(.deviceRGB) else { return lhs == rhs }
         return abs(a.redComponent - b.redComponent) < 0.01 && abs(a.greenComponent - b.greenComponent) < 0.01 && abs(a.blueComponent - b.blueComponent) < 0.01 && abs(a.alphaComponent - b.alphaComponent) < 0.01
+    }
+}
+
+/// A prominent, two-line recording action occupying the toolbar's left lane.
+private final class CaptureRecordingButton: NSButton {
+    override func draw(_ dirtyRect: NSRect) {
+        let alpha: CGFloat = isEnabled ? 1 : 0.4
+        let color = isHighlighted ? NSColor.systemRed.blended(withFraction: 0.2, of: .black)! : .systemRed
+        color.withAlphaComponent(alpha).setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 10, yRadius: 10).fill()
+        let center = CGPoint(x: bounds.midX, y: bounds.midY - 12)
+        NSColor.white.withAlphaComponent(alpha).setStroke()
+        let ring = NSBezierPath(ovalIn: CGRect(x: center.x - 11, y: center.y - 11, width: 22, height: 22))
+        ring.lineWidth = 1.8
+        ring.stroke()
+        NSColor.white.withAlphaComponent(alpha).setFill()
+        NSBezierPath(ovalIn: CGRect(x: center.x - 6, y: center.y - 6, width: 12, height: 12)).fill()
+        let text = NSAttributedString(string: title, attributes: [
+            .font: NSFont.systemFont(ofSize: 17, weight: .semibold),
+            .foregroundColor: NSColor.white.withAlphaComponent(alpha)
+        ])
+        text.draw(at: CGPoint(x: (bounds.width - text.size().width) / 2, y: bounds.midY + 10))
+    }
+
+    override func highlight(_ flag: Bool) {
+        super.highlight(flag)
+        needsDisplay = true
     }
 }

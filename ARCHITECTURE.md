@@ -22,7 +22,7 @@
 
 ### 录屏
 
-`DirectAnnotationController` → `RecordingToolbarController` → `ScreenRecorder` → `RecordingEditorController` → 保存或剪贴板
+`DirectAnnotationController`（齿轮预设/一键开始） → `RecordingToolbarController` → `ScreenRecorder` → `RecordingEditorController` → 保存或剪贴板
 
 ## 3. 模块与职责
 
@@ -39,7 +39,8 @@
 | `ImageStitcher.swift` | 位移检测、重叠匹配和图像拼接 | 重复内容、最小重叠、末尾判断 |
 | `LongCaptureStatus.swift` | 长截图状态、预览与控制 | 所在显示器、用户反馈 |
 | `SelectionBorder.swift` | 长截图/录屏选区边框及调整 | 选区边界、锁定状态 |
-| `RecordingToolbarController.swift` | FPS、码率、音频、计时、开始/停止 | 估算、持久化、重复停止 |
+| `RecordingToolbarController.swift` | 齿轮设置面板、保存参数、直接开始、计时与停止 | 估算、持久化、重复停止 |
+| `RecordingPreferences.swift` | 参数持久化及当前屏幕/选区的有效参数限制 | 高帧率回退、码率上限、默认值 |
 | `ScreenRecorder.swift` | ScreenCaptureKit 录制与 MP4 写入 | 音视频同步、收尾和错误传播 |
 | `RecordingEditorController.swift` | 视频预览、裁剪、标注、音频保留、导出 | 快速路径、进度、保存/剪贴板一致性 |
 | `ShortcutRecorder.swift` / `GlobalHotKeyManager.swift` | 快捷键录制、注册和触发 | 冲突、持久化、生命周期 |
@@ -67,9 +68,14 @@
 | `shortcutKeyCode` | 全局快捷键键码 |
 | `shortcutModifiers` | 全局快捷键修饰键 |
 | `shortcutKeyLabel` | 快捷键显示文本 |
+| `recording.frameRate` | 预设帧率，默认 60 FPS；不支持 120 FPS 的屏幕实际回退到 60，不覆盖预设 |
+| `recording.bitRateMbps` | 预设码率，默认 1 Mbps，录制时按选区和有效帧率限制到 1–60 Mbps |
 | `recording.capturesSystemAudio` | 是否录制系统声音 |
 
 新增持久化设置时，应在此表记录键名、默认值和迁移策略，避免不同模块重复定义。
+
+- `DirectAnnotationController` 持有齿轮设置面板，关闭时保留选区及画布，选区变化时更新码率范围；开始录制时关闭设置，转入已锁定边框和紧凑录制工具条。
+- `RecordingToolbarController.show(settingsOnly:)` 复用 FPS、码率和音频控件；`startImmediately` 无需显示准备界面便触发录制，开始成功后才启动计时和启用停止。启动失败时由协调器清理录制状态并恢复截图选区。
 
 ## 6. 平台与能力边界
 
@@ -81,6 +87,7 @@
 
 ## 7. 测试与验证
 
+- `Tests/RecordingPreferencesTests.swift` 验证录屏设置持久化、无效值恢复、120 FPS 回退和码率限制，以及左侧按钮/文字模式布局、设置不触发录制和一键启动回调。AppKit 窗口交互测试单独串行执行；核心测试可使用 `swift test --disable-sandbox --skip RecordingToolbarInteractionTests` 完整运行。
 - `Tests/FreehandBrushTests.swift` 验证轨迹转折和松手终点、相交笔画独立撤销、移动删除、点状笔画、视图缩放与选区偏移后的导出像素。
 - `Tests/ImageStitcherTests.swift` 当前覆盖显示器坐标、Retina 像素对齐和长截图拼接关键场景。
 - 修改 `ScreenCapture`、`ImageStitcher` 或 `LongCaptureEngine` 时，先添加问题复现测试，再运行 `swift test`。

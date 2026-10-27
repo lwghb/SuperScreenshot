@@ -15,6 +15,8 @@ final class DirectAnnotationController: NSObject {
     private let screen: NSScreen
     private var window: NSWindow?
     private var toolbarWindow: NSWindow?
+    private var isStartingRecording = false
+    private var recordingSettings: RecordingToolbarController?
     private var canvas: ScreenshotEditorView?
     private var mode: ScreenshotAnnotationMode = .arrow
     private var colorTarget: DirectColorTarget = .stroke
@@ -107,7 +109,7 @@ final class DirectAnnotationController: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         window.makeFirstResponder(canvasView)
 
-        let toolbarWidth = min(CGFloat(680), max(CGFloat(320), screen.visibleFrame.width - 24))
+        let toolbarWidth = min(CGFloat(860), max(CGFloat(320), screen.visibleFrame.width - 24))
         let toolbarFrame = resolvedToolbarFrame(size: CGSize(width: toolbarWidth, height: toolbarHeight))
         let toolbarPanel = NSPanel(
             contentRect: CGRect(origin: .zero, size: toolbarFrame.size),
@@ -305,6 +307,7 @@ final class DirectAnnotationController: NSObject {
         if let toolbarWindow {
             toolbarWindow.setFrame(resolvedToolbarFrame(size: toolbarWindow.frame.size), display: true)
         }
+        recordingSettings?.followSelectionIfNeeded(next, on: screen)
         updateResizeHandleFrames()
         onSelectionChanged?(next)
     }
@@ -349,6 +352,8 @@ final class DirectAnnotationController: NSObject {
     }
 
     func close() {
+        recordingSettings?.close()
+        recordingSettings = nil
         if let resizeCursorMonitor {
             NSEvent.removeMonitor(resizeCursorMonitor)
             self.resizeCursorMonitor = nil
@@ -397,6 +402,7 @@ final class DirectAnnotationController: NSObject {
         toolbar.onColor = { [weak self] color in self?.applyColor(color) }
         toolbar.onCustomColor = { [weak self] in self?.showCustomColorPanel() }
         toolbar.onLongCapture = { [weak self] in self?.longCapture() }
+        toolbar.onRecordingSettings = { [weak self] in self?.showRecordingSettings() }
         toolbar.onScreenRecording = { [weak self] in self?.screenRecording() }
         toolbar.onFinish = { [weak self] in self?.finish() }
         deleteDropButton = toolbar.deleteDropButton
@@ -628,7 +634,27 @@ final class DirectAnnotationController: NSObject {
         onLongCapture?(selection)
     }
 
+    private func showRecordingSettings() {
+        if let recordingSettings {
+            recordingSettings.close()
+            self.recordingSettings = nil
+            return
+        }
+        let settings = RecordingToolbarController()
+        recordingSettings = settings
+        settings.onBack = { [weak self] in
+            self?.recordingSettings?.close()
+            self?.recordingSettings = nil
+            self?.focusCanvas()
+        }
+        settings.show(in: screen, below: selection, from: toolbarWindow?.frame, settingsOnly: true)
+    }
+
     @objc private func screenRecording() {
+        guard !isStartingRecording else { return }
+        isStartingRecording = true
+        recordingSettings?.close()
+        recordingSettings = nil
         onScreenRecording?(selection)
     }
 

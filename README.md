@@ -16,7 +16,7 @@ A lightweight, native, and local-first screenshot, screen recording, and annotat
 - 箭头、文字、矩形、椭圆及自由画笔（支持颜色和粗细调节）
 - 马赛克与自定义颜色
 - 长截图
-- 区域录屏，可调节 30/60/120 FPS 与视频码率
+- 一键区域录屏，齿轮中预设并保存 30/60/120 FPS、视频码率和系统声音
 - 可选系统声音录制，不采集麦克风
 - 录屏预览、片段裁剪、标注、保存及复制到剪贴板
 - 鼠标取色，按 `C` 复制当前色值
@@ -24,6 +24,8 @@ A lightweight, native, and local-first screenshot, screen recording, and annotat
 - 完成后自动复制到剪贴板
 - 内置安全的自动更新检查
 - 截图内容完全在本机处理
+
+工具条左侧的大录屏按钮可直接开始录制；旁边的齿轮可预设帧率、码率和系统声音，调整自动保存。
 
 使用画笔时，按下并拖动即可画任意线条；切换箭头工具可选中和移动已有笔画，撤销按整笔处理。
 
@@ -55,7 +57,7 @@ A lightweight, native, and local-first screenshot, screen recording, and annotat
 - Arrow, text, rectangle, ellipse, and freehand annotations with adjustable brush color and width
 - Mosaic tool and custom colors
 - Scrolling capture
-- Region screen recording with configurable 30/60/120 FPS and video bitrate
+- One-click region recording with saved FPS (30/60/120), bitrate, and system-audio settings
 - Optional system-audio capture without microphone input
 - Recording preview, trimming, annotation, saving, and clipboard export
 - On-screen color picker — press `C` to copy the current color

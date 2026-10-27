@@ -217,9 +217,10 @@ final class CaptureCoordinator: ObservableObject {
         on screen: NSScreen?,
         frameRate: RecordingFrameRate = .standard,
         bitRate: Int = 1_000_000,
-        capturesSystemAudio: Bool = false
+        capturesSystemAudio: Bool = false,
+        onFailure: (() -> Void)? = nil
     ) {
-        guard let screen else { return }
+        guard screenRecorder == nil, let screen else { return }
         recordingScreen = screen
         recordingFrameRate = frameRate
         recordingBitRate = bitRate
@@ -239,10 +240,22 @@ final class CaptureCoordinator: ObservableObject {
                     ),
                     outputURL: url
                 )
+                self.recordingToolbar?.recordingDidStart()
                 self.onRecordingStateChanged?(true)
             } catch {
                 self.screenRecorder = nil
+                self.recordingToolbar?.close()
+                self.recordingToolbar = nil
+                self.longSelectionBorder?.close()
+                self.longSelectionBorder = nil
+                self.recordingSelection = nil
                 self.onRecordingStateChanged?(false)
+                onFailure?()
+                let alert = NSAlert()
+                alert.messageText = L("录屏启动失败")
+                alert.informativeText = error.localizedDescription
+                alert.addButton(withTitle: L("好"))
+                alert.runModal()
             }
         }
     }
@@ -332,7 +345,8 @@ final class CaptureCoordinator: ObservableObject {
                             on: screen,
                             frameRate: frameRate,
                             bitRate: bitRate,
-                            capturesSystemAudio: capturesSystemAudio
+                            capturesSystemAudio: capturesSystemAudio,
+                            onFailure: { [weak self] in self?.presentDirectAnnotation(image: image, rect: selection, screen: screen) }
                         )
                     }
                     toolbar.onStop = { [weak self, weak toolbar] in
@@ -346,35 +360,14 @@ final class CaptureCoordinator: ObservableObject {
                         toolbar?.hideWhileRecording()
                         self?.onRecordingStateChanged?(true)
                     }
-                    toolbar.onBack = { [weak self] in
-                        guard let self else { return }
-                        self.recordingToolbar?.dismissForBack { [weak self] in
-                            guard let self else { return }
-                            let finalSelection = self.recordingSelection ?? selection
-                            let finalImage = fullScreenImage.flatMap {
-                                ScreenCapture.crop($0, to: finalSelection, on: screen)
-                            } ?? image
-                            self.recordingToolbar = nil
-                            self.longSelectionBorder?.close()
-                            self.longSelectionBorder = nil
-                            self.recordingSelection = nil
-                            // Return to the editor with the latest recording
-                            // rectangle, not the rectangle from before resize.
-                            self.presentDirectAnnotation(image: finalImage, rect: finalSelection, screen: screen)
-                        }
-                    }
-                    toolbar.show(in: screen, below: selection, from: sourceFrame)
                     let border = SelectionBorderController(
                         selection: selection,
-                        editable: true,
-                        allowedFrame: screen.frame,
-                        onSelectionChanged: { [weak self] updatedSelection in
-                            self?.recordingSelection = updatedSelection
-                            self?.recordingToolbar?.followSelectionIfNeeded(updatedSelection, on: screen)
-                        }
+                        editable: false,
+                        allowedFrame: screen.frame
                     )
                     self.longSelectionBorder = border
                     border.show()
+                    toolbar.show(in: screen, below: selection, from: sourceFrame, startImmediately: true)
                 }
             }
         }

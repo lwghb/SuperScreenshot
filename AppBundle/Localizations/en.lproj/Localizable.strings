@@ -77,3 +77,6 @@
 
 "自由画笔" = "Freehand Brush";
 "粗细" = "Width";
+
+"录屏设置" = "Recording Settings";
+"录屏启动失败" = "Could Not Start Recording";

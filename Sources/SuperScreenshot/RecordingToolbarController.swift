@@ -75,8 +75,13 @@ final class RecordingToolbarController: NSObject {
     private var maximumBitRateMbps = 6.0
     private var hasUserPositionedToolbar = false
     private var isStopping = false
+    private var isStarting = false
+    private var settingsOnly = false
+    private var preferences = RecordingPreferences()
 
-    func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil) {
+    func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil, settingsOnly: Bool = false, startImmediately: Bool = false) {
+        self.settingsOnly = settingsOnly
+        preferences = RecordingPreferences()
         let size = CGSize(width: 480, height: 104)
         hasUserPositionedToolbar = false
         visibleFrame = screen.visibleFrame
@@ -92,11 +97,17 @@ final class RecordingToolbarController: NSObject {
         var y = selection.minY - size.height - 12
         if y < screen.visibleFrame.minY + 8 { y = selection.maxY + 12 }
         y = min(max(y, screen.visibleFrame.minY + 8), screen.visibleFrame.maxY - size.height - 8)
+        if settingsOnly, let sourceFrame {
+            x = min(max(sourceFrame.midX - size.width / 2, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8)
+            y = sourceFrame.minY - size.height - 12
+            if y < screen.visibleFrame.minY + 8 { y = sourceFrame.maxY + 12 }
+            y = min(max(y, screen.visibleFrame.minY + 8), screen.visibleFrame.maxY - size.height - 8)
+        }
         let frame = CGRect(x: x,
                            y: y,
                            width: size.width, height: size.height)
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = .screenSaver
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 5)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -115,6 +126,8 @@ final class RecordingToolbarController: NSObject {
         back.toolTip = L("返回截图")
         back.frame = CGRect(x: 16, y: 14, width: 36, height: 36)
         backButton = back
+        startButton.title = settingsOnly ? L("完成") : L("开始录屏")
+        back.isHidden = settingsOnly
         startButton.target = self; startButton.action = #selector(toggle)
         startButton.bezelStyle = .rounded
         startButton.frame = CGRect(x: (size.width - 112) / 2, y: 14, width: 112, height: 36)
@@ -130,7 +143,7 @@ final class RecordingToolbarController: NSObject {
         )
         systemAudio.font = .systemFont(ofSize: 12, weight: .medium)
         systemAudio.toolTip = L("录制电脑播放的声音，不录制麦克风")
-        systemAudio.state = UserDefaults.standard.bool(forKey: "recording.capturesSystemAudio") ? .on : .off
+        systemAudio.state = preferences.capturesSystemAudio ? .on : .off
         systemAudio.frame = CGRect(x: 350, y: 17, width: 108, height: 28)
         systemAudioButton = systemAudio
         let frameRate = NSSegmentedControl(labels: ["30", "60", "120"], trackingMode: .selectOne, target: self, action: #selector(frameRateChanged(_:)))
@@ -146,6 +159,12 @@ final class RecordingToolbarController: NSObject {
         }
         if !supportsHighFrameRate {
             frameRate.setToolTip(L("当前屏幕暂不支持 120 FPS"), forSegment: 2)
+        }
+        frameRate.setEnabled(supportsHighFrameRate, forSegment: 2)
+        let rate = preferences.effectiveFrameRate(supportsHighFrameRate: supportsHighFrameRate)
+        frameRate.selectedSegment = rate == .low ? 0 : (rate == .high ? 2 : 1)
+        if preferences.frameRate == .high && !supportsHighFrameRate {
+            frameRate.toolTip = L("当前屏幕暂不支持 120 FPS")
         }
         let fpsLabel = NSTextField(labelWithString: "FPS")
         fpsLabel.font = .systemFont(ofSize: 12, weight: .medium)
@@ -168,7 +187,7 @@ final class RecordingToolbarController: NSObject {
         bitrateEstimate.alignment = .right
         bitrateEstimate.frame = CGRect(x: 374, y: 85, width: 83, height: 14)
         bitRateEstimateLabel = bitrateEstimate
-        let bitrateSlider = NSSlider(value: 1, minValue: 1, maxValue: 6, target: self, action: #selector(bitRateChanged(_:)))
+        let bitrateSlider = NSSlider(value: preferences.bitRateMbps, minValue: 1, maxValue: 6, target: self, action: #selector(bitRateChanged(_:)))
         bitrateSlider.isContinuous = true
         bitrateSlider.frame = CGRect(x: 338, y: 61, width: 119, height: 24)
         bitRateSlider = bitrateSlider
@@ -187,6 +206,11 @@ final class RecordingToolbarController: NSObject {
         panel.contentView = content
         contentView = content
         self.panel = panel
+        if startImmediately {
+            toggleOnMainActor()
+            panel.orderFrontRegardless()
+            return
+        }
         panel.alphaValue = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 1 : 0
         // Drop down from the centre of the recording toolbar's final lane.
         // This continues the editor toolbar transition without a sideways jump.
@@ -206,7 +230,7 @@ final class RecordingToolbarController: NSObject {
     /// Follows the editable recording border until the user manually moves
     /// this toolbar. A manual position is then respected for the session.
     func followSelectionIfNeeded(_ selection: CGRect, on screen: NSScreen) {
-        guard !hasUserPositionedToolbar, let panel, startedAt == nil else { return }
+        guard !hasUserPositionedToolbar, let panel, startedAt == nil, !isStarting else { return }
         visibleFrame = screen.visibleFrame
         if let displayID = ScreenCapture.displayID(for: screen) {
             let xScale = CGFloat(CGDisplayPixelsWide(displayID)) / screen.frame.width
@@ -215,6 +239,7 @@ final class RecordingToolbarController: NSObject {
         } else {
             recordingPixelSize = CGSize(width: (selection.width * screen.backingScaleFactor).rounded(.up), height: (selection.height * screen.backingScaleFactor).rounded(.up))
         }
+        bitRateSlider?.doubleValue = preferences.bitRateMbps
         updateBitRateRange()
         updateBitRateEstimate()
         let size = panel.frame.size
@@ -237,8 +262,12 @@ final class RecordingToolbarController: NSObject {
     }
 
     private func toggleOnMainActor() {
+        if settingsOnly { onBack?(); return }
+        guard !isStarting else { return }
         if startedAt == nil {
-            startedAt = Date(); startButton.title = L("结束录屏")
+            isStarting = true
+            startButton.isEnabled = false
+            startButton.title = L("结束录屏")
             startButton.isBordered = true
             startButton.bezelStyle = .rounded
             startButton.bezelColor = nil
@@ -251,7 +280,6 @@ final class RecordingToolbarController: NSObject {
             startButton.frame.origin.x = 188
             hideToolbarButton.isHidden = false
             compactForRecording()
-            timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
             let rate: RecordingFrameRate
             switch frameRateControl?.selectedSegment {
             case 0: rate = .low
@@ -288,7 +316,11 @@ final class RecordingToolbarController: NSObject {
             alert.addButton(withTitle: L("好"))
             alert.runModal()
         }
+        preferences.frameRate = sender.selectedSegment == 0 ? .low : (sender.selectedSegment == 2 ? .high : .standard)
+        preferences.save()
+        bitRateSlider?.doubleValue = preferences.bitRateMbps
         updateBitRateRange()
+        updateBitRateEstimate()
     }
     @objc nonisolated private func bitRateChanged(_ sender: NSSlider) {
         Task { @MainActor [weak self, weak sender] in
@@ -299,30 +331,22 @@ final class RecordingToolbarController: NSObject {
 
     private func bitRateChangedOnMainActor(_ sender: NSSlider) {
         sender.doubleValue = (min(max(sender.doubleValue, 1), maximumBitRateMbps) * 10).rounded() / 10
+        preferences.bitRateMbps = sender.doubleValue
+        preferences.save()
         updateBitRateEstimate()
     }
     @objc nonisolated private func systemAudioChanged(_ sender: NSButton) {
         Task { @MainActor [weak self, weak sender] in
             guard let self, let sender else { return }
-            UserDefaults.standard.set(sender.state == .on, forKey: "recording.capturesSystemAudio")
+            self.preferences.capturesSystemAudio = sender.state == .on
+            self.preferences.save()
             self.updateBitRateEstimate()
         }
     }
     private func updateBitRateRange() {
         guard let slider = bitRateSlider else { return }
-        let frameRate: Double
-        switch frameRateControl?.selectedSegment {
-        case 0: frameRate = 30
-        case 2: frameRate = 120
-        default: frameRate = 60
-        }
-        // The previous 0.14 bpppf ceiling is adequate for static desktop UI,
-        // but is too conservative for games and rapidly changing scenes.  The
-        // top slider position now uses a 0.28 bpppf ceiling, while retaining
-        // the 1 Mbps floor for compact clips.  Keep an explicit 60 Mbps cap
-        // to avoid overwhelming the real-time H.264 encoder.
-        let calculated = Double(recordingPixelSize.width * recordingPixelSize.height) * frameRate * 0.28 / 1_000_000
-        maximumBitRateMbps = min(60, max(1, (calculated * 10).rounded(.up) / 10))
+        let rate: RecordingFrameRate = frameRateControl?.selectedSegment == 0 ? .low : (frameRateControl?.selectedSegment == 2 ? .high : .standard)
+        maximumBitRateMbps = RecordingPreferences.maximumBitRateMbps(pixelSize: recordingPixelSize, frameRate: rate)
         slider.maxValue = maximumBitRateMbps
         slider.doubleValue = min(max(slider.doubleValue, 1), maximumBitRateMbps)
     }
@@ -357,8 +381,16 @@ final class RecordingToolbarController: NSObject {
             self?.onHide?()
         }
     }
+    func recordingDidStart() {
+        guard isStarting else { return }
+        isStarting = false
+        startedAt = Date()
+        startButton.isEnabled = true
+        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTimer() }
+    }
+
     func recordingDidStop() {
-        timer?.invalidate(); timer = nil; startedAt = nil; isStopping = false
+        timer?.invalidate(); timer = nil; startedAt = nil; isStopping = false; isStarting = false
         timerLabel.stringValue = "00:00"
         startButton.title = L("开始录屏")
         startButton.isEnabled = true
