@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.83</title>
+            <pubDate>Tue, 27 Oct 2026 15:50:32 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>283</sparkle:version>
+            <sparkle:shortVersionString>2.0.83</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[截图、长截图及录屏编辑新增自由画笔，按下并拖动即可绘制任意线条，单击可画圆点。支持预设和自定义颜色，以及 1–24 pt 粗细调节。
+
+每笔可整体撤销、删除；切换箭头工具可选中并移动已有笔画。笔画会保留在截图和视频导出结果中。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.83/SuperScreenshot-v2.0.83-Universal.zip" length="3069762" type="application/octet-stream" sparkle:edSignature="tYXi43lXP99FYGeB4VB2rxPPUhEu+bSSNWxnQzMsrgsibdvTYqgfAOi+0z+57LD8o8/ZYQkQ0k4ivE/AR7u4DA=="/>
+        </item>
+        <item>
             <title>2.0.82</title>
             <pubDate>Mon, 17 Aug 2026 10:58:04 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -31,26 +44,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.80/SuperScreenshot-v2.0.80-Universal.zip" length="3061660" type="application/octet-stream" sparkle:edSignature="7Vp11IC2H8Bm4x8M8RvIgf1c4HDnInU7nE5/quv3mJur/x4RQpqYK7nrr+BI6gTFFNJABbFkxbEce1GCCJCOAg=="/>
         </item>
-        <item>
-            <title>2.0.78</title>
-            <pubDate>Fri, 14 Aug 2026 15:21:26 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>278</sparkle:version>
-            <sparkle:shortVersionString>2.0.78</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[优化截图文本标注的点击优先级：文本工具可在大矩形等已有标注内部直接插入文字，同时点击已有文本仍会优先选中并移动。
-
-新增文本双击原位编辑，可保留原位置、字号、文字颜色和背景色继续修改；按 Esc 可取消编辑并保留原内容。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.78/SuperScreenshot-v2.0.78-Universal.zip" length="3061461" type="application/octet-stream" sparkle:edSignature="fCnHj38IqzHJcZzsmzjsekxSMCSolYopDoAukm1CesQHK1RFcCOdEpJUtUaN8p+YubZgtnnnyzBwe5AdKV36DA=="/>
-            <sparkle:deltas>
-                <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.78/SuperScreenshot278-277.delta" sparkle:deltaFrom="277" length="99070" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977616" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="OlwFJ2x4HoDsfKPX1IXidkzVomw7WbKaUG/ssnmeIc10/vuLxKs2CbG/EeHbdFkmNdbEf0I1VtYdl/MTmLPxAw=="/>
-                <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.78/SuperScreenshot278-276.delta" sparkle:deltaFrom="276" length="103422" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977616" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="tcIEFIGql2DDhfE2dHdgbz8nHR0N7ZpUXBiV4XvADsmS07yuIFCC4AkBMmUyTKeKLwDbNuYvfddrWgxhJr45Bw=="/>
-            </sparkle:deltas>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: K7OKbXNk6nX6JjXx0LihuZz5+6SFkrdDTvLiGnFyKNs83iqXW2MURczAIDqq6q72faLZcutADSYaNiJBMerPAw==
-length: 4545
+edSignature: r3qbJ35g8FQ1nrRnBdMq5dqPZOxSjJk5bzSC8yfZG7ELfCNcFkjOqs0+ELubrzC5BB5rCG5WS1OBMfHI9Dr0CQ==
+length: 3656
 -->
