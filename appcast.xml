@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.90</title>
+            <pubDate>Wed, 28 Oct 2026 11:23:08 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>290</sparkle:version>
+            <sparkle:shortVersionString>2.0.90</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[修复手动长截图来回滚动时重复拼接已采集内容的问题。现在会跟踪累计滚动位置及已覆盖范围，只追加真正出现的新内容，回看旧区域不会让长图重复增高。
+
+预览与最终导出共用修正逻辑，支持从中段向上下两端扩展，保持内容顺序正确。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.90/SuperScreenshot-v2.0.90-Universal.zip" length="3125306" type="application/octet-stream" sparkle:edSignature="LxrpSl6ONRKWIMBRF1wdFbOcDnOICj7TX6cXZE8KY8qb9D0UWYJ/hbLqxzf8P0cOrslmnmF3DJuN03E53FaRDg=="/>
+        </item>
+        <item>
             <title>2.0.89</title>
             <pubDate>Wed, 28 Oct 2026 11:09:42 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -33,22 +46,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.84/SuperScreenshot-v2.0.84-Universal.zip" length="3068357" type="application/octet-stream" sparkle:edSignature="w7dyxl8n/iJwgMth+Un4JSyus1wXMIh9Wz2LVvhVbU5JEIPq59MwK+YjnSRQbmfkkJg6Vzem0qwR8sx9g6XYCw=="/>
         </item>
-        <item>
-            <title>2.0.83</title>
-            <pubDate>Tue, 27 Oct 2026 15:50:32 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>283</sparkle:version>
-            <sparkle:shortVersionString>2.0.83</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[截图、长截图及录屏编辑新增自由画笔，按下并拖动即可绘制任意线条，单击可画圆点。支持预设和自定义颜色，以及 1–24 pt 粗细调节。
-
-每笔可整体撤销、删除；切换箭头工具可选中并移动已有笔画。笔画会保留在截图和视频导出结果中。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.83/SuperScreenshot-v2.0.83-Universal.zip" length="3069762" type="application/octet-stream" sparkle:edSignature="tYXi43lXP99FYGeB4VB2rxPPUhEu+bSSNWxnQzMsrgsibdvTYqgfAOi+0z+57LD8o8/ZYQkQ0k4ivE/AR7u4DA=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: D4YX1J+pGR+Ka7o7a1faBSo/cFPSFiVnBYWakKachTbw5PWfu6qKwHMbU2C2Rs78g0Irm0fazbXlcK36jmhyDA==
-length: 4035
+edSignature: 2rlixVCqzU77TnErHiaoLugZ1HR8tuu2c+vqZ+Tv6iORfU0wqnSARFCb9r5xuII/O0/REc4N0P1YbTrMjPK8BQ==
+length: 4036
 -->
