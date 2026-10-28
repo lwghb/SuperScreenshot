@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.91</title>
+            <pubDate>Wed, 28 Oct 2026 11:32:18 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>291</sparkle:version>
+            <sparkle:shortVersionString>2.0.91</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[调整截图选区完成后的工具栏位置，让“完成”按钮靠近选区右下方，右边缘与选区对齐，便于顺手确认。
+
+调整选区后工具栏同步定位；靠近屏幕边缘时自动避让，保证控件完整可见，下方空间不足时移至选区上方。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.91/SuperScreenshot-v2.0.91-Universal.zip" length="3125352" type="application/octet-stream" sparkle:edSignature="ckKuZ2ZOvZD09xthuLX0v9Zk3YZ4gv/X61eHqoGvbhSvrRF3iRIK8t61/jYQNmMkfARfKUTZJ4kcfXhY4lWUDQ=="/>
+        </item>
+        <item>
             <title>2.0.90</title>
             <pubDate>Wed, 28 Oct 2026 11:23:08 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -33,22 +46,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.89/SuperScreenshot-v2.0.89-Universal.zip" length="3124859" type="application/octet-stream" sparkle:edSignature="wHJ3y+Xkqz+ZYY6HUpiLqyvqKRQCnrE0FOSZnchWuEMFemmpeTQEmpsAYUjxwH7MHnpYXYDUuHzK+M2Cm47dBA=="/>
         </item>
-        <item>
-            <title>2.0.84</title>
-            <pubDate>Tue, 27 Oct 2026 23:11:14 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>284</sparkle:version>
-            <sparkle:shortVersionString>2.0.84</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[截图工具条左侧新增大号录屏按钮，旁边增加齿轮设置入口。可预先设置并自动保存帧率、码率和系统声音，之后点击录屏即可直接开始，无需再点击一次“开始录屏”。
-
-录制参数会根据当前屏幕和选区自动适配。录屏启动失败时会恢复选区编辑并提示错误。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.84/SuperScreenshot-v2.0.84-Universal.zip" length="3068357" type="application/octet-stream" sparkle:edSignature="w7dyxl8n/iJwgMth+Un4JSyus1wXMIh9Wz2LVvhVbU5JEIPq59MwK+YjnSRQbmfkkJg6Vzem0qwR8sx9g6XYCw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 2rlixVCqzU77TnErHiaoLugZ1HR8tuu2c+vqZ+Tv6iORfU0wqnSARFCb9r5xuII/O0/REc4N0P1YbTrMjPK8BQ==
-length: 4036
+edSignature: Di29lS+p+SzABOqV6D38W5p31MHuq5w6sUaeWfXzPNa+oO7k0cThk+/EXPOnRV2L8hyhOnabVZD/c++Hey91Bw==
+length: 3979
 -->
