@@ -274,7 +274,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         actionsBackground.translatesAutoresizingMaskIntoConstraints = false
         actionsBackground.wantsLayer = true
         actionsBackground.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        actionsBackground.layer?.cornerRadius = 9
+        actionsBackground.layer?.cornerRadius = 12
         actionsBackground.layer?.borderWidth = 1
         actionsBackground.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
         actionsBackground.isHidden = true
@@ -285,7 +285,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         NSLayoutConstraint.activate([
             actionsBackground.leadingAnchor.constraint(equalTo: leadingAnchor),
             actionsBackground.centerYAnchor.constraint(equalTo: centerYAnchor),
-            actionsBackground.heightAnchor.constraint(equalToConstant: 40),
+            actionsBackground.heightAnchor.constraint(equalToConstant: Self.collapsedHeight),
             actionsBackground.widthAnchor.constraint(equalTo: actionStrip.widthAnchor, constant: 12),
             actionStrip.centerXAnchor.constraint(equalTo: actionsBackground.centerXAnchor),
             actionStrip.centerYAnchor.constraint(equalTo: actionsBackground.centerYAnchor)
