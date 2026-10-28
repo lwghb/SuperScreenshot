@@ -382,6 +382,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     @objc private func selectRecentTool() { setExpanded(true) }
 
     func setToolPickerExpanded(_ expanded: Bool, animated: Bool = true) {
+        dismissInstantTooltip()
         guard isToolPickerExpanded != expanded else { return }
         layoutSubtreeIfNeeded()
         let anchorView = expanded ? recentToolButton! : selectedChoice
@@ -438,6 +439,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         }
     }
     func closeTransientUI() {
+        dismissInstantTooltip()
         hoverExpandTask?.cancel(); hoverExitTask?.cancel(); expansionTask?.cancel()
         overTools = false; overOptions = false
         setToolPickerExpanded(false, animated: false)

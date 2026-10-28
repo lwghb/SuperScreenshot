@@ -935,6 +935,7 @@ class InstantTooltipToolbarView: NSView {
     private weak var currentTarget: NSView?
     private weak var pendingTarget: NSView?
     private var tooltipWorkItem: DispatchWorkItem?
+    private var tooltipPanel: NSPanel?
     private let tooltipLabel: NSTextField = {
         let label = NSTextField(labelWithString: "")
         label.cell = VerticallyCenteredTextFieldCell(textCell: "")
@@ -954,8 +955,14 @@ class InstantTooltipToolbarView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        addSubview(tooltipLabel)
     }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if newWindow == nil { hideTooltip() }
+        super.viewWillMove(toWindow: newWindow)
+    }
+
+    func dismissInstantTooltip() { hideTooltip() }
 
     override var mouseDownCanMoveWindow: Bool { true }
 
@@ -1004,7 +1011,7 @@ class InstantTooltipToolbarView: NSView {
     }
 
     private func tooltipTarget(at point: CGPoint) -> NSView? {
-        var candidate = hitTest(point)
+        var candidate = hitTest(convert(point, to: superview))
         while let view = candidate, view !== self {
             if tooltipText[ObjectIdentifier(view)] != nil { return view }
             candidate = view.superview
@@ -1013,27 +1020,47 @@ class InstantTooltipToolbarView: NSView {
     }
 
     private func showTooltip(for target: NSView) {
-        guard currentTarget !== target, let text = tooltipText[ObjectIdentifier(target)] else { return }
+        guard currentTarget !== target, let text = tooltipText[ObjectIdentifier(target)],
+              !target.isHiddenOrHasHiddenAncestor, let window, window.isVisible else { return }
+        let targetFrame = window.convertToScreen(target.convert(target.bounds, to: nil))
+        let pointer = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(pointer) } ?? window.screen ?? NSScreen.main
+        guard let screen else { return }
         currentTarget = target
         tooltipLabel.stringValue = text
-        tooltipLabel.sizeToFit()
-        var frame = tooltipLabel.frame.insetBy(dx: -8, dy: -4)
-        let targetFrame = target.convert(target.bounds, to: self)
-        frame.origin.x = min(max(targetFrame.midX - frame.width / 2, 4), bounds.maxX - frame.width - 4)
-        let aboveTarget = targetFrame.maxY + 6
-        frame.origin.y = aboveTarget + frame.height <= bounds.maxY - 4
-            ? aboveTarget
-            : max(4, targetFrame.minY - frame.height - 6)
-        tooltipLabel.frame = frame
+        tooltipLabel.maximumNumberOfLines = 0
+        tooltipLabel.lineBreakMode = .byWordWrapping
+        let maxWidth = max(32, min(360, screen.visibleFrame.width - 16))
+        let textSize = NSAttributedString(string: text, attributes: [.font: tooltipLabel.font ?? NSFont.systemFont(ofSize: 12)])
+            .boundingRect(with: CGSize(width: maxWidth - 16, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading]).size
+        let size = CGSize(width: ceil(textSize.width) + 16, height: ceil(textSize.height) + 8)
+        let frame = ToolbarTooltipPlacement.frame(target: targetFrame, size: size, pointer: pointer, visibleFrame: screen.visibleFrame)
+        let panel: NSPanel
+        if let tooltipPanel { panel = tooltipPanel }
+        else {
+            panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = true
+            panel.ignoresMouseEvents = true
+            panel.hidesOnDeactivate = false
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            panel.animationBehavior = .none
+            panel.contentView = tooltipLabel
+            tooltipPanel = panel
+        }
+        panel.level = NSWindow.Level(rawValue: max(window.level.rawValue + 1, NSWindow.Level.screenSaver.rawValue + 6))
         tooltipLabel.alphaValue = 1
         tooltipLabel.isHidden = false
-        addSubview(tooltipLabel, positioned: .above, relativeTo: nil)
+        panel.setFrame(frame, display: true)
+        panel.orderFrontRegardless()
     }
 
     private func scheduleTooltip(for target: NSView) {
         guard currentTarget !== target, pendingTarget !== target else { return }
         tooltipWorkItem?.cancel()
         tooltipLabel.isHidden = true
+        tooltipPanel?.orderOut(nil)
         currentTarget = nil
         pendingTarget = target
         let workItem = DispatchWorkItem { [weak self, weak target] in
@@ -1052,6 +1079,7 @@ class InstantTooltipToolbarView: NSView {
         currentTarget = nil
         tooltipLabel.isHidden = true
         tooltipLabel.alphaValue = 0
+        tooltipPanel?.orderOut(nil)
     }
 }
 

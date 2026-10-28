@@ -68,6 +68,8 @@
 
 - 录屏设置采用 360 × 136 pt 三行布局，无完成按钮；设置更改自动保存。录屏齿轮通过 `AnnotationSettingsHoverButton` 的进入/退出回调显示设置；`RecordingToolbarController` 管理 180 ms 可取消关闭任务，气泡进入取消、退出重新计时。录制中使用 468 × 72 pt 布局：计时、双行参数/估算、结束、隐藏五个控件互不覆盖，准备状态的 FPS 标签须隐藏。
 
+- `InstantTooltipToolbarView` 使用独立的忽略鼠标 `NSPanel` 展示提示，取消工具条内裁切；`ToolbarTooltipPlacement` 统一计算屏幕坐标、可见边界和光标避让区域。工具折叠或关闭时通过 `dismissInstantTooltip()` 清理。`Tests/ToolbarTooltipPlacementTests.swift` 覆盖顶部翻转、光标避让及偏移显示器边缘。
+
 ## 5. 本地持久化
 
 当前通过 `UserDefaults.standard` 保存：
