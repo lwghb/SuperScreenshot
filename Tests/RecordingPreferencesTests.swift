@@ -98,11 +98,12 @@ struct RecordingToolbarInteractionTests {
         let undoRect = undo.convert(undo.bounds, to: toolbar)
         let deleteRect = toolbar.deleteDropButton.convert(toolbar.deleteDropButton.bounds, to: toolbar)
         let mainRect = recording.convert(recording.bounds, to: toolbar)
-        #expect(undoRect.minY > mainRect.maxY && deleteRect.minY > mainRect.maxY)
+        #expect(undoRect.maxX < mainRect.minX && deleteRect.maxX < mainRect.minX)
+        #expect(abs(undoRect.midY - mainRect.midY) < 1)
         #expect(abs(undoRect.midY - deleteRect.midY) < 1)
-        #expect(toolbar.frame.width == 348 && toolbar.displayedHeight == 96)
+        #expect(toolbar.frame.width == 442 && toolbar.displayedHeight == 48)
         #expect(!undoRect.intersects(deleteRect))
-        try capture(toolbar, to: "/tmp/SuperScreenshot-toolbar-upper-actions.png")
+        try capture(toolbar, to: "/tmp/SuperScreenshot-toolbar-left-capsule.png")
         toolbar.update(canvas: nil, mode: .arrow, colorTarget: .stroke, hasAnnotations: false)
         toolbar.setToolPickerExpanded(true, animated: false)
         toolbar.setToolPickerExpanded(false, animated: false)
@@ -245,7 +246,7 @@ struct RecordingToolbarInteractionTests {
         try capture(content, to: "/tmp/SuperScreenshot-recording-status-refined.png")
     }
 
-    @Test func settingsDoNotStartRecordingAndDoneCloses() async throws {
+    @Test func settingsHaveNoDoneButtonAndRemainAutoSaved() async throws {
         let screen = try #require(NSScreen.main)
         let toolbar = RecordingToolbarController()
         defer { toolbar.close() }
@@ -256,17 +257,23 @@ struct RecordingToolbarInteractionTests {
         toolbar.show(in: screen, below: CGRect(x: screen.frame.midX - 100, y: screen.frame.midY - 100, width: 200, height: 200), settingsOnly: true)
         #expect(starts == 0)
         let panel = try #require(NSApp.windows.first { window in
-            window.isVisible && window.contentView.map { descendants($0).contains { ($0 as? NSButton)?.title == L("完成") } } == true
+            window.isVisible && window.contentView.map { descendants($0).contains { $0 is NSSegmentedControl } } == true
         })
         let content = try #require(panel.contentView)
-        let done = try #require(descendants(content).compactMap { $0 as? NSButton }.first { $0.title == L("完成") })
-        if let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds) {
-            content.cacheDisplay(in: content.bounds, to: bitmap)
-            try bitmap.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/SuperScreenshot-recording-settings.png"))
+        let visible = descendants(content).filter { !$0.isHiddenOrHasHiddenAncestor && ($0 is NSButton || $0 is NSTextField || $0 is NSSlider || $0 is NSSegmentedControl) }
+        #expect(!visible.contains { ($0 as? NSButton)?.title == L("完成") })
+        for (index, item) in visible.enumerated() {
+            let rect = item.convert(item.bounds, to: content)
+            #expect(content.bounds.contains(rect))
+            for other in visible.dropFirst(index + 1) {
+                #expect(!rect.intersects(other.convert(other.bounds, to: content)))
+            }
         }
-        done.performClick(nil)
-        await Task.yield()
-        #expect(starts == 0)
-        #expect(closes == 1)
+        try capture(content, to: "/tmp/SuperScreenshot-recording-settings-compact.png")
+        #expect(starts == 0 && closes == 0)
+        toolbar.scheduleSettingsDismiss()
+        try await Task.sleep(nanoseconds: 240_000_000)
+        #expect(!toolbar.isSettingsVisible)
+
     }
 }

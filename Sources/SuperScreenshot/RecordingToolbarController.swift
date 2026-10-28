@@ -100,7 +100,7 @@ final class RecordingToolbarController: NSObject {
     func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil, settingsOnly: Bool = false, startImmediately: Bool = false, settingsAnchor: NSView? = nil) {
         self.settingsOnly = settingsOnly
         preferences = RecordingPreferences()
-        let size = CGSize(width: 480, height: 104)
+        let size = settingsOnly ? CGSize(width: 360, height: 136) : CGSize(width: 480, height: 104)
         hasUserPositionedToolbar = false
         visibleFrame = screen.visibleFrame
         if let displayID = ScreenCapture.displayID(for: screen) {
@@ -148,6 +148,7 @@ final class RecordingToolbarController: NSObject {
         back.toolTip = L("返回截图")
         back.frame = CGRect(x: 16, y: 14, width: 36, height: 36)
         backButton = back
+        startButton.isHidden = settingsOnly
         startButton.title = settingsOnly ? L("完成") : L("开始录屏")
         back.isHidden = settingsOnly
         startButton.target = self; startButton.action = #selector(toggle)
@@ -237,6 +238,23 @@ final class RecordingToolbarController: NSObject {
         recordingSettingsLabel.isHidden = true
         recordingSettingsLabel.frame = CGRect(x: 48, y: 10, width: 116, height: 14)
         content.addSubview(back); content.addSubview(timerLabel); content.addSubview(recordingSettingsLabel); content.addSubview(fpsLabel); content.addSubview(frameRate); content.addSubview(bitrateLabel); content.addSubview(bitrateValue); content.addSubview(bitrateEstimate); content.addSubview(bitrateSlider); content.addSubview(startButton); content.addSubview(hideToolbarButton); content.addSubview(systemAudio)
+        if settingsOnly {
+            fpsLabel.frame = CGRect(x: 16, y: 100, width: 80, height: 18)
+            frameRate.font = .systemFont(ofSize: 12)
+            frameRate.setWidth(48, forSegment: 0)
+            frameRate.setWidth(48, forSegment: 1)
+            frameRate.setWidth(56, forSegment: 2)
+            frameRate.frame = CGRect(x: 164, y: 94, width: 180, height: 28)
+            bitrateLabel.alignment = .left
+            bitrateLabel.frame = CGRect(x: 16, y: 64, width: 94, height: 18)
+            bitrateValue.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+            bitrateValue.alignment = .right
+            bitrateValue.frame = CGRect(x: 112, y: 64, width: 38, height: 18)
+            bitrateSlider.frame = CGRect(x: 164, y: 58, width: 180, height: 24)
+            systemAudio.frame = CGRect(x: 16, y: 16, width: 128, height: 24)
+            bitrateEstimate.font = .systemFont(ofSize: 11)
+            bitrateEstimate.frame = CGRect(x: 160, y: 20, width: 184, height: 18)
+        }
         panel.contentView = content
         contentView = content
         self.panel = panel

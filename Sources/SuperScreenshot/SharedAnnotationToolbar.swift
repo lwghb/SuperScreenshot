@@ -39,6 +39,8 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private let toolChoices = NSStackView()
     private let actionStrip = NSStackView()
     private let actionsBackground = NSView()
+    private let mainBackground = NSView()
+    private var actionsInsetConstraint: NSLayoutConstraint!
     private let optionsPopover = NSPopover()
     private let optionsContent = AnnotationToolsHoverView()
     private var choicesCenterConstraint: NSLayoutConstraint!
@@ -107,14 +109,20 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
 
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
-        let mainBackground = NSView(frame: CGRect(x: 0, y: 0, width: compactFrame.width, height: Self.collapsedHeight))
-        mainBackground.autoresizingMask = [.width]
+        mainBackground.translatesAutoresizingMaskIntoConstraints = false
         mainBackground.wantsLayer = true
         mainBackground.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         mainBackground.layer?.cornerRadius = 12
         mainBackground.layer?.borderWidth = 1
         mainBackground.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
         addSubview(mainBackground)
+        actionsInsetConstraint = mainBackground.leadingAnchor.constraint(equalTo: leadingAnchor)
+        NSLayoutConstraint.activate([
+            actionsInsetConstraint,
+            mainBackground.trailingAnchor.constraint(equalTo: trailingAnchor),
+            mainBackground.bottomAnchor.constraint(equalTo: bottomAnchor),
+            mainBackground.heightAnchor.constraint(equalToConstant: Self.collapsedHeight)
+        ])
 
         deleteDropButton.target = self
         deleteDropButton.action = #selector(deleteSelected)
@@ -275,8 +283,8 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         addSubview(actionsBackground)
         addSubview(tools)
         NSLayoutConstraint.activate([
-            actionsBackground.centerXAnchor.constraint(equalTo: centerXAnchor),
-            actionsBackground.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(Self.collapsedHeight + 8)),
+            actionsBackground.leadingAnchor.constraint(equalTo: leadingAnchor),
+            actionsBackground.centerYAnchor.constraint(equalTo: centerYAnchor),
             actionsBackground.heightAnchor.constraint(equalToConstant: 40),
             actionsBackground.widthAnchor.constraint(equalTo: actionStrip.widthAnchor, constant: 12),
             actionStrip.centerXAnchor.constraint(equalTo: actionsBackground.centerXAnchor),
@@ -297,8 +305,8 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         optionsPopover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if showsCaptureActions {
             NSLayoutConstraint.activate([
-                tools.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-                tools.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8)
+                tools.leadingAnchor.constraint(equalTo: mainBackground.leadingAnchor, constant: 8),
+                tools.trailingAnchor.constraint(equalTo: mainBackground.trailingAnchor, constant: -8)
             ])
         } else {
             inlineCenterConstraint = tools.centerXAnchor.constraint(equalTo: centerXAnchor)
@@ -447,15 +455,17 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         let stableAnchor = anchor ?? screenCenter(of: isToolPickerExpanded ? selectedChoice : recentToolButton)
         let startOffset = choicesCenterConstraint.constant
         let targetOffset: CGFloat = isToolPickerExpanded ? 0 : -selectedChoiceOffset
+        let startInset = actionsInsetConstraint.constant
+        let targetInset: CGFloat = hasAnnotations ? 94 : 0
         let startHeight = displayedHeight
         let startWidth = displayedWidth
         let startToolWidth = toolsWidthConstraint.constant
         let startPaletteAlpha = palette.alphaValue
         let startChoicesAlpha = toolChoices.alphaValue
         let startRecentAlpha = recentToolButton.alphaValue
-        let targetHeight = Self.collapsedHeight + (hasAnnotations ? 48 : 0)
+        let targetHeight = Self.collapsedHeight
         let targetToolWidth: CGFloat = isToolPickerExpanded ? 234 : 44
-        let rowWidth = Self.collapsedWidth + (isToolPickerExpanded ? 190 : 0)
+        let rowWidth = Self.collapsedWidth + (hasAnnotations ? 94 : 0) + (isToolPickerExpanded ? 190 : 0)
         let targetWidth = rowWidth
         let targetPaletteAlpha: CGFloat = isExpanded ? 1 : 0
         let targetChoicesAlpha: CGFloat = isToolPickerExpanded ? 1 : 0
@@ -467,6 +477,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         }
         let render = { [weak self] (progress: CGFloat) in
             guard let self else { return }
+            self.actionsInsetConstraint.constant = startInset + (targetInset - startInset) * progress
             self.choicesCenterConstraint.constant = startOffset + (targetOffset - startOffset) * progress
             self.toolsWidthConstraint.constant = startToolWidth + (targetToolWidth - startToolWidth) * progress
             self.palette.alphaValue = startPaletteAlpha + (targetPaletteAlpha - startPaletteAlpha) * progress
