@@ -50,6 +50,7 @@
 
 ## 4. 共享行为与耦合点
 
+- `SharedAnnotationToolbar` 的主行仅保留录屏、最近工具、长截图、完成，记录/长截图采用同高 48 pt 的灰色按钮；录屏右上角叠加独立齿轮点击区。撤销与删除放在 `actionStrip` 中，仅有标注时出现。
 - `SharedAnnotationToolbar` 同时服务截图和录屏；新增工具或调整颜色交互时必须验证两条流程。
 - `ScreenshotAnnotationMode` 是共享工具模式定义；修改枚举时同步检查直接标注和录屏标注适配层。
 - `SelectionBorderController` 同时用于长截图与录屏区域；修改拖拽或锁定逻辑会影响两者。
@@ -58,6 +59,12 @@
 
 - 自由画笔在 `ScreenshotEditorView` 中记录输出像素坐标、颜色和笔宽；输入按视图缩放换算笔宽，预览与导出共用渲染分支。画笔模式优先新增笔画，其他形状工具可命中笔画并整体移动；自由笔画不提供缩放手柄。
 - `SharedAnnotationToolbar` 提供画笔与粗细控件；独立长截图编辑器同步提供入口。笔宽默认 4 pt，范围 1–24 pt，仅保存在当前编辑会话。
+
+- `AnnotationToolsHoverView` 负责工具与参数区域的悬停。移入显示参数气泡并启动可取消的 1 秒任务，提前退出取消，右击当前工具可立即展开。离开两个区域后延迟 180 ms 收起，选择后阻止鼠标未离开时重开。
+- 参数使用 `NSPopover`，不改变主条高度；工具选择通过 `animateLayout` 用 220 ms smoothstep 插值宽度、图标偏移与透明度。记录当前工具的屏幕锚点，每帧修正窗口位置或内嵌布局中心；屏幕边缘限制窗口位置。减少动态效果时立即切换。
+- 主条高度 48 pt、初始宽 348 pt，有标注时增加 82 pt、工具展开增加 190 pt；录屏与长截图与底板融合，完成按钮为深绿色，工具选中使用浅蓝背景，无外发光。
+- `closeTransientUI()` 在完成、录屏、长截图、关闭或隐藏编辑器时取消悬停任务并关闭参数气泡，避免临时 UI 泄漏进下一状态。
+- `RecordingToolbarController` 在录制中按时间与视频/音频码率计算累计 MB 估算；与设置中的每分钟大小估算分开显示，不代表文件实测大小。
 
 ## 5. 本地持久化
 
@@ -74,8 +81,8 @@
 
 新增持久化设置时，应在此表记录键名、默认值和迁移策略，避免不同模块重复定义。
 
-- `DirectAnnotationController` 持有齿轮设置面板，关闭时保留选区及画布，选区变化时更新码率范围；开始录制时关闭设置，转入已锁定边框和紧凑录制工具条。
-- `RecordingToolbarController.show(settingsOnly:)` 复用 FPS、码率和音频控件；`startImmediately` 无需显示准备界面便触发录制，开始成功后才启动计时和启用停止。启动失败时由协调器清理录制状态并恢复截图选区。
+- `DirectAnnotationController` 持有录屏设置控制器；`RecordingToolbarController` 以 transient `NSPopover` 锚定右上角齿轮，关闭时保留选区及画布，选区变化时更新码率范围；开始录制时关闭设置，转入已锁定边框和紧凑录制工具条。
+- `RecordingToolbarController.show(settingsOnly:settingsAnchor:)` 复用 FPS、码率和音频控件；`startImmediately` 无需显示准备界面便触发录制，开始成功后才启动计时和启用停止。启动失败时由协调器清理录制状态并恢复截图选区。
 
 ## 6. 平台与能力边界
 

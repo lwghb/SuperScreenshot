@@ -80,3 +80,7 @@
 
 "录屏设置" = "Aufnahmeeinstellungen";
 "录屏启动失败" = "Aufnahme konnte nicht gestartet werden";
+
+"标注工具" = "Anmerkungswerkzeuge";
+
+"预估 %.1f MB" = "Geschätzt %.1f MB";

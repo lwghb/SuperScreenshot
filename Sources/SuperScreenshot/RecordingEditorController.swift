@@ -80,6 +80,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
         )
         toolbar.isHidden = true
         toolbar.autoresizingMask = [.width]
+        toolbar.onHeightChange = { [weak self] _ in self?.layoutEditorContent() }
         toolbar.onBrushWidth = { [weak self] width in self?.annotationOverlayView?.canvas.brushWidth = width }
         toolbar.onDelete = { [weak self] in self?.annotationOverlayView?.deleteSelectedAnnotation() }
         toolbar.onUndo = { [weak self] in self?.annotationOverlayView?.undo() }
@@ -459,6 +460,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
     }
 
     private func setAnnotationToolbarVisible(_ visible: Bool) {
+        if !visible { annotationToolbar?.closeTransientUI() }
         annotationToolbar?.isHidden = !visible
         addAnnotationButton?.isHidden = visible
     }
@@ -469,7 +471,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
     private func setAnnotationEditorExpanded(_ expanded: Bool) {
         guard let panel else { return }
         annotationEditorExpanded = expanded
-        let offset: CGFloat = expanded ? 100 : 0
+        let offset: CGFloat = expanded ? (annotationToolbar?.displayedHeight ?? SharedAnnotationToolbar.collapsedHeight) : 0
         let targetSize = CGSize(width: 820, height: 580 + offset)
         if panel.contentView?.bounds.size != targetSize {
             let frame = panel.frame
@@ -485,7 +487,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
               let overlay = annotationOverlayView,
               let caption = trimCaptionLabel,
               let info = recordingInfoLabel else { return }
-        let offset: CGFloat = annotationEditorExpanded ? 100 : 0
+        let offset: CGFloat = annotationEditorExpanded ? (annotationToolbar?.displayedHeight ?? SharedAnnotationToolbar.collapsedHeight) : 0
         let side: CGFloat = 24
         let previewBottom: CGFloat = 160 + offset
         // The preview always keeps a 20pt top inset.  When the user makes the
@@ -496,7 +498,7 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
         trimRangeView.frame = CGRect(x: 32, y: 114 + offset, width: max(1, content.bounds.width - 64), height: 38)
         caption.frame = CGRect(x: 32, y: 88 + offset, width: max(1, content.bounds.width * 0.58), height: 18)
         info.frame = CGRect(x: content.bounds.width * 0.60, y: 88 + offset, width: max(1, content.bounds.width * 0.36), height: 18)
-        annotationToolbar?.frame = CGRect(x: 16, y: 74, width: max(1, content.bounds.width - 32), height: 100)
+        annotationToolbar?.frame = CGRect(x: 16, y: 74, width: max(1, content.bounds.width - 32), height: annotationToolbar?.displayedHeight ?? SharedAnnotationToolbar.collapsedHeight)
     }
 
     func windowDidResize(_ notification: Notification) {

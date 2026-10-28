@@ -49,7 +49,7 @@ final class DirectAnnotationController: NSObject {
     }
 
     func show() {
-        let toolbarHeight: CGFloat = 100
+        let toolbarHeight = SharedAnnotationToolbar.collapsedHeight
         let canvasView = ScreenshotEditorView(
             frame: CGRect(origin: .zero, size: selection.size),
             image: initialImage,
@@ -109,7 +109,7 @@ final class DirectAnnotationController: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         window.makeFirstResponder(canvasView)
 
-        let toolbarWidth = min(CGFloat(860), max(CGFloat(320), screen.visibleFrame.width - 24))
+        let toolbarWidth = min(SharedAnnotationToolbar.collapsedWidth, max(CGFloat(320), screen.visibleFrame.width - 24))
         let toolbarFrame = resolvedToolbarFrame(size: CGSize(width: toolbarWidth, height: toolbarHeight))
         let toolbarPanel = NSPanel(
             contentRect: CGRect(origin: .zero, size: toolbarFrame.size),
@@ -352,6 +352,7 @@ final class DirectAnnotationController: NSObject {
     }
 
     func close() {
+        sharedToolbar?.closeTransientUI()
         recordingSettings?.close()
         recordingSettings = nil
         if let resizeCursorMonitor {
@@ -636,10 +637,12 @@ final class DirectAnnotationController: NSObject {
 
     private func showRecordingSettings() {
         if let recordingSettings {
+            let wasVisible = recordingSettings.isSettingsVisible
             recordingSettings.close()
             self.recordingSettings = nil
-            return
+            if wasVisible { return }
         }
+        guard let anchor = sharedToolbar?.recordingSettingsAnchor else { return }
         let settings = RecordingToolbarController()
         recordingSettings = settings
         settings.onBack = { [weak self] in
@@ -647,7 +650,7 @@ final class DirectAnnotationController: NSObject {
             self?.recordingSettings = nil
             self?.focusCanvas()
         }
-        settings.show(in: screen, below: selection, from: toolbarWindow?.frame, settingsOnly: true)
+        settings.show(in: screen, below: selection, settingsOnly: true, settingsAnchor: anchor)
     }
 
     @objc private func screenRecording() {
@@ -1105,6 +1108,11 @@ private enum DirectColorTarget {
 
 
 final class ToolButton: NSButton {
+    var usesCompactStyle = false
+    var onRightClick: (() -> Void)?
+    override func rightMouseDown(with event: NSEvent) {
+        if let onRightClick { onRightClick() } else { super.rightMouseDown(with: event) }
+    }
     private var topColor: NSColor?
     private var bottomColor: NSColor?
 
@@ -1112,6 +1120,14 @@ final class ToolButton: NSButton {
         topColor = top
         bottomColor = bottom
         wantsLayer = true
+        if usesCompactStyle {
+            layer?.shadowOpacity = 0
+            layer?.borderWidth = 0
+            layer?.backgroundColor = selected ? NSColor.systemBlue.withAlphaComponent(0.16).cgColor : NSColor.clear.cgColor
+            contentTintColor = selected ? .systemBlue : .labelColor
+            needsDisplay = true
+            return
+        }
         let glow = DirectGlowStyle.current
         layer?.masksToBounds = false
         layer?.shadowColor = glow.color.cgColor
@@ -1141,6 +1157,7 @@ final class ToolButton: NSButton {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        guard !usesCompactStyle else { return }
         drawBar(color: topColor, y: bounds.minY + 4)
         drawBar(color: bottomColor, y: bounds.maxY - 6)
     }

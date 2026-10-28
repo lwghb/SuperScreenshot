@@ -80,3 +80,7 @@
 
 "录屏设置" = "Recording Settings";
 "录屏启动失败" = "Could Not Start Recording";
+
+"标注工具" = "Annotation Tools";
+
+"预估 %.1f MB" = "Estimated %.1f MB";

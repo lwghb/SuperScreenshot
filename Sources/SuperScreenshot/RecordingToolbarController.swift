@@ -55,9 +55,13 @@ final class RecordingToolbarController: NSObject {
     var onBack: (@MainActor () -> Void)?
     var onHide: (@MainActor () -> Void)?
     private var panel: NSPanel?
+    private var settingsPopover: NSPopover?
+    var isSettingsVisible: Bool { settingsPopover?.isShown == true || panel?.isVisible == true }
     private var timer: Timer?
     private var startedAt: Date?
     private let timerLabel = NSTextField(labelWithString: "00:00")
+    private let recordingSizeLabel = NSTextField(labelWithString: "")
+    private var recordingBytesPerSecond = 0.0
     private let recordingSettingsLabel = NSTextField(labelWithString: "")
     private let startButton = RecordingStopButton(title: L("开始录屏"), target: nil, action: nil)
     private let hideToolbarButton = NSButton(title: L("隐藏工具栏"), target: nil, action: nil)
@@ -79,7 +83,7 @@ final class RecordingToolbarController: NSObject {
     private var settingsOnly = false
     private var preferences = RecordingPreferences()
 
-    func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil, settingsOnly: Bool = false, startImmediately: Bool = false) {
+    func show(in screen: NSScreen, below selection: CGRect, from sourceFrame: CGRect? = nil, settingsOnly: Bool = false, startImmediately: Bool = false, settingsAnchor: NSView? = nil) {
         self.settingsOnly = settingsOnly
         preferences = RecordingPreferences()
         let size = CGSize(width: 480, height: 104)
@@ -197,6 +201,12 @@ final class RecordingToolbarController: NSObject {
         timerLabel.isHidden = true
         timerLabel.alignment = .center
         timerLabel.frame = CGRect(x: 48, y: 23, width: 116, height: 30)
+        recordingSizeLabel.identifier = NSUserInterfaceItemIdentifier("recording.estimate")
+        recordingSizeLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        recordingSizeLabel.textColor = .secondaryLabelColor
+        recordingSizeLabel.frame = CGRect(x: 48, y: 0, width: 130, height: 12)
+        recordingSizeLabel.isHidden = true
+        content.addSubview(recordingSizeLabel)
         recordingSettingsLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         recordingSettingsLabel.textColor = .secondaryLabelColor
         recordingSettingsLabel.alignment = .right
@@ -206,6 +216,21 @@ final class RecordingToolbarController: NSObject {
         panel.contentView = content
         contentView = content
         self.panel = panel
+        if settingsOnly, let settingsAnchor {
+            panel.contentView = nil
+            self.panel = nil
+            let controller = NSViewController()
+            controller.view = content
+            controller.preferredContentSize = size
+            let popover = NSPopover()
+            popover.contentViewController = controller
+            popover.contentSize = size
+            popover.behavior = .transient
+            popover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            settingsPopover = popover
+            popover.show(relativeTo: settingsAnchor.bounds, of: settingsAnchor, preferredEdge: .minY)
+            return
+        }
         if startImmediately {
             toggleOnMainActor()
             panel.orderFrontRegardless()
@@ -230,7 +255,7 @@ final class RecordingToolbarController: NSObject {
     /// Follows the editable recording border until the user manually moves
     /// this toolbar. A manual position is then respected for the session.
     func followSelectionIfNeeded(_ selection: CGRect, on screen: NSScreen) {
-        guard !hasUserPositionedToolbar, let panel, startedAt == nil, !isStarting else { return }
+        guard startedAt == nil, !isStarting else { return }
         visibleFrame = screen.visibleFrame
         if let displayID = ScreenCapture.displayID(for: screen) {
             let xScale = CGFloat(CGDisplayPixelsWide(displayID)) / screen.frame.width
@@ -242,6 +267,7 @@ final class RecordingToolbarController: NSObject {
         bitRateSlider?.doubleValue = preferences.bitRateMbps
         updateBitRateRange()
         updateBitRateEstimate()
+        guard !hasUserPositionedToolbar, let panel else { return }
         let size = panel.frame.size
         var x = selection.midX - size.width / 2
         x = min(max(x, screen.visibleFrame.minX + 8), screen.visibleFrame.maxX - size.width - 8)
@@ -289,6 +315,9 @@ final class RecordingToolbarController: NSObject {
             let value = min(max(bitRateSlider?.doubleValue ?? 1, 1), maximumBitRateMbps)
             recordingSettingsLabel.stringValue = String(format: "%d FPS · %.1f Mbps", rate.rawValue, value)
             recordingSettingsLabel.isHidden = false
+            recordingBytesPerSecond = (value * 1_000_000 + (systemAudioButton?.state == .on ? 192_000 : 0)) / 8
+            recordingSizeLabel.isHidden = false
+            recordingSizeLabel.stringValue = LF("预估 %.1f MB", 0.0)
             onStart?(rate, Int((value * 1_000_000).rounded()), systemAudioButton?.state == .on)
         } else {
             // Finishing an MP4 is asynchronous. Ignore repeat clicks while
@@ -370,7 +399,12 @@ final class RecordingToolbarController: NSObject {
         compact.origin.y = min(max(compact.minY, currentScreenFrame.minY + 8), currentScreenFrame.maxY - size.height - 8)
         panel.setFrame(compact, display: true)
     }
-    private func updateTimer() { guard let startedAt else { return }; timerLabel.stringValue = String(format: "%02d:%02d", Int(Date().timeIntervalSince(startedAt)) / 60, Int(Date().timeIntervalSince(startedAt)) % 60) }
+    private func updateTimer() {
+        guard let startedAt else { return }
+        let elapsed = max(0, Date().timeIntervalSince(startedAt))
+        timerLabel.stringValue = String(format: "%02d:%02d", Int(elapsed) / 60, Int(elapsed) % 60)
+        recordingSizeLabel.stringValue = LF("预估 %.1f MB", elapsed * recordingBytesPerSecond / 1_000_000)
+    }
     @objc nonisolated private func back() {
         Task { @MainActor [weak self] in self?.onBack?() }
     }
@@ -402,6 +436,7 @@ final class RecordingToolbarController: NSObject {
         startButton.attributedTitle = NSAttributedString(string: L("开始录屏"))
         timerLabel.isHidden = true
         recordingSettingsLabel.isHidden = true
+        recordingSizeLabel.isHidden = true
         hideToolbarButton.isHidden = true
         backButton?.isHidden = false
         frameRateControl?.isHidden = false
@@ -429,5 +464,5 @@ final class RecordingToolbarController: NSObject {
             }
         }
     }
-    func close() { timer?.invalidate(); timer = nil; panel?.orderOut(nil); panel = nil }
+    func close() { timer?.invalidate(); timer = nil; settingsPopover?.performClose(nil); settingsPopover = nil; panel?.orderOut(nil); panel = nil }
 }
