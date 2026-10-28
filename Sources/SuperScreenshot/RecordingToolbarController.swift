@@ -40,6 +40,17 @@ private final class RecordingStopButton: NSButton {
 
 private final class DraggableRecordingToolbarView: NSVisualEffectView {
     var onManualMoveBegan: (@MainActor () -> Void)?
+    var onHoverEnter: (() -> Void)?
+    var onHoverExit: (() -> Void)?
+    private var hoverArea: NSTrackingArea?
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited], owner: self)
+        addTrackingArea(area); hoverArea = area
+    }
+    override func mouseEntered(with event: NSEvent) { onHoverEnter?() }
+    override func mouseExited(with event: NSEvent) { onHoverExit?() }
     override var mouseDownCanMoveWindow: Bool { true }
 
     override func mouseDown(with event: NSEvent) {
@@ -55,6 +66,8 @@ final class RecordingToolbarController: NSObject {
     var onBack: (@MainActor () -> Void)?
     var onHide: (@MainActor () -> Void)?
     private var panel: NSPanel?
+    private var settingsDismissTask: Task<Void, Never>?
+    private var pointerInSettings = false
     private var settingsPopover: NSPopover?
     var isSettingsVisible: Bool { settingsPopover?.isShown == true || panel?.isVisible == true }
     private var timer: Timer?
@@ -66,6 +79,7 @@ final class RecordingToolbarController: NSObject {
     private let startButton = RecordingStopButton(title: L("开始录屏"), target: nil, action: nil)
     private let hideToolbarButton = NSButton(title: L("隐藏工具栏"), target: nil, action: nil)
     private weak var backButton: NSButton?
+    private weak var frameRateLabel: NSTextField?
     private weak var frameRateControl: NSSegmentedControl?
     private weak var bitRateSlider: NSSlider?
     private weak var bitRateLabel: NSTextField?
@@ -117,6 +131,10 @@ final class RecordingToolbarController: NSObject {
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
         let content = DraggableRecordingToolbarView(frame: CGRect(origin: .zero, size: size))
+        if settingsOnly {
+            content.onHoverEnter = { [weak self] in self?.pointerInSettings = true; self?.cancelSettingsDismiss() }
+            content.onHoverExit = { [weak self] in self?.pointerInSettings = false; self?.scheduleSettingsDismiss() }
+        }
         content.onManualMoveBegan = { [weak self] in self?.hasUserPositionedToolbar = true }
         content.material = .hudWindow
         content.blendingMode = .withinWindow
@@ -138,6 +156,9 @@ final class RecordingToolbarController: NSObject {
         hideToolbarButton.target = self
         hideToolbarButton.action = #selector(hideToolbar)
         hideToolbarButton.bezelStyle = .rounded
+        hideToolbarButton.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: L("隐藏工具栏"))
+        hideToolbarButton.imagePosition = .imageOnly
+        hideToolbarButton.toolTip = L("隐藏工具栏")
         hideToolbarButton.isHidden = true
         hideToolbarButton.frame = CGRect(x: 312, y: 14, width: 112, height: 36)
         let systemAudio = NSButton(
@@ -171,6 +192,7 @@ final class RecordingToolbarController: NSObject {
             frameRate.toolTip = L("当前屏幕暂不支持 120 FPS")
         }
         let fpsLabel = NSTextField(labelWithString: "FPS")
+        frameRateLabel = fpsLabel
         fpsLabel.font = .systemFont(ofSize: 12, weight: .medium)
         fpsLabel.frame = CGRect(x: 102, y: 66, width: 28, height: 18)
         frameRate.frame = CGRect(x: 130, y: 61, width: 102, height: 28)
@@ -197,6 +219,7 @@ final class RecordingToolbarController: NSObject {
         bitRateSlider = bitrateSlider
         updateBitRateRange()
         updateBitRateEstimate()
+        timerLabel.identifier = NSUserInterfaceItemIdentifier("recording.timer")
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
         timerLabel.isHidden = true
         timerLabel.alignment = .center
@@ -207,6 +230,7 @@ final class RecordingToolbarController: NSObject {
         recordingSizeLabel.frame = CGRect(x: 48, y: 0, width: 130, height: 12)
         recordingSizeLabel.isHidden = true
         content.addSubview(recordingSizeLabel)
+        recordingSettingsLabel.identifier = NSUserInterfaceItemIdentifier("recording.options-summary")
         recordingSettingsLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         recordingSettingsLabel.textColor = .secondaryLabelColor
         recordingSettingsLabel.alignment = .right
@@ -301,6 +325,7 @@ final class RecordingToolbarController: NSObject {
             startButton.usesStopStyle = true
             startButton.attributedTitle = NSAttributedString(string: L("结束录屏"))
             timerLabel.isHidden = false; backButton?.isHidden = true; frameRateControl?.isHidden = true
+            frameRateLabel?.isHidden = true
             bitRateSlider?.isHidden = true; bitRateLabel?.isHidden = true; bitRateValueLabel?.isHidden = true; bitRateEstimateLabel?.isHidden = true
             systemAudioButton?.isHidden = true
             startButton.frame.origin.x = 188
@@ -388,7 +413,16 @@ final class RecordingToolbarController: NSObject {
     }
     private func compactForRecording() {
         guard let panel else { return }
-        let size = CGSize(width: 460, height: 64)
+        let size = CGSize(width: 468, height: 72)
+        timerLabel.font = .monospacedDigitSystemFont(ofSize: 22, weight: .semibold)
+        timerLabel.alignment = .left
+        timerLabel.frame = CGRect(x: 16, y: 24, width: 92, height: 28)
+        recordingSettingsLabel.alignment = .left
+        recordingSettingsLabel.frame = CGRect(x: 124, y: 41, width: 148, height: 16)
+        recordingSizeLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        recordingSizeLabel.frame = CGRect(x: 124, y: 18, width: 148, height: 16)
+        startButton.frame = CGRect(x: 288, y: 18, width: 112, height: 36)
+        hideToolbarButton.frame = CGRect(x: 416, y: 20, width: 36, height: 32)
         // Preserve the setup toolbar's visual centre after a user drag.
         // The recording controls then appear in exactly the same place,
         // without a transition that could look like an unintended jump.
@@ -439,6 +473,7 @@ final class RecordingToolbarController: NSObject {
         recordingSizeLabel.isHidden = true
         hideToolbarButton.isHidden = true
         backButton?.isHidden = false
+        frameRateLabel?.isHidden = false
         frameRateControl?.isHidden = false
         bitRateSlider?.isHidden = false
         bitRateLabel?.isHidden = false
@@ -464,5 +499,14 @@ final class RecordingToolbarController: NSObject {
             }
         }
     }
-    func close() { timer?.invalidate(); timer = nil; settingsPopover?.performClose(nil); settingsPopover = nil; panel?.orderOut(nil); panel = nil }
+    func cancelSettingsDismiss() { settingsDismissTask?.cancel() }
+    func scheduleSettingsDismiss() {
+        settingsDismissTask?.cancel()
+        settingsDismissTask = Task { @MainActor [weak self] in
+            do { try await Task.sleep(nanoseconds: 180_000_000) } catch { return }
+            guard let self, !self.pointerInSettings else { return }
+            self.close()
+        }
+    }
+    func close() { settingsDismissTask?.cancel(); timer?.invalidate(); timer = nil; settingsPopover?.performClose(nil); settingsPopover = nil; panel?.orderOut(nil); panel = nil }
 }

@@ -18,6 +18,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     var onColor: ((NSColor) -> Void)?
     var onCustomColor: (() -> Void)?
     var onLongCapture: (() -> Void)?
+    var onRecordingSettingsExit: (() -> Void)?
     var onRecordingSettings: (() -> Void)?
     var onScreenRecording: (() -> Void)?
     var onFinish: (() -> Void)?
@@ -37,6 +38,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private let toolsHoverView = AnnotationToolsHoverView()
     private let toolChoices = NSStackView()
     private let actionStrip = NSStackView()
+    private let actionsBackground = NSView()
     private let optionsPopover = NSPopover()
     private let optionsContent = AnnotationToolsHoverView()
     private var choicesCenterConstraint: NSLayoutConstraint!
@@ -104,11 +106,15 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         }
 
         wantsLayer = true
-        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        layer?.cornerRadius = 12
-        layer?.masksToBounds = true
-        layer?.borderWidth = 1
-        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+        layer?.backgroundColor = NSColor.clear.cgColor
+        let mainBackground = NSView(frame: CGRect(x: 0, y: 0, width: compactFrame.width, height: Self.collapsedHeight))
+        mainBackground.autoresizingMask = [.width]
+        mainBackground.wantsLayer = true
+        mainBackground.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        mainBackground.layer?.cornerRadius = 12
+        mainBackground.layer?.borderWidth = 1
+        mainBackground.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+        addSubview(mainBackground)
 
         deleteDropButton.target = self
         deleteDropButton.action = #selector(deleteSelected)
@@ -208,8 +214,10 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             recording.toolTip = L("录制当前区域")
             recording.identifier = NSUserInterfaceItemIdentifier("recording.start")
             recording.translatesAutoresizingMaskIntoConstraints = false
-            let settings = NSButton(image: NSImage(systemSymbolName: "gearshape", accessibilityDescription: L("录屏设置")) ?? NSImage(), target: self, action: #selector(recordingSettings))
+            let settings = AnnotationSettingsHoverButton(image: NSImage(systemSymbolName: "gearshape", accessibilityDescription: L("录屏设置")) ?? NSImage(), target: self, action: #selector(recordingSettings))
             settings.image = settings.image?.withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.labelColor]))
+            settings.onEnter = { [weak self] in self?.recordingSettings() }
+            settings.onExit = { [weak self] in self?.onRecordingSettingsExit?() }
             settings.identifier = NSUserInterfaceItemIdentifier("recording.settings")
             settings.bezelStyle = .regularSquare
             settings.isBordered = false; settings.contentTintColor = .labelColor
@@ -224,7 +232,6 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             tools.addArrangedSubview(recordingGroup)
             tools.addArrangedSubview(toolsHoverView)
             tools.addArrangedSubview(long)
-            tools.addArrangedSubview(actionStrip)
             NSLayoutConstraint.activate([
                 recordingGroup.widthAnchor.constraint(equalToConstant: 100),
                 recordingGroup.heightAnchor.constraint(equalToConstant: Self.collapsedHeight),
@@ -242,7 +249,6 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             if #unavailable(macOS 13.0) { recording.isEnabled = false; settings.isEnabled = false }
         } else {
             tools.addArrangedSubview(toolsHoverView)
-            tools.addArrangedSubview(actionStrip)
         }
         if let finishButton {
             tools.addArrangedSubview(finishButton)
@@ -257,13 +263,31 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         paletteButtons.forEach { palette.addArrangedSubview($0) }
         palette.addArrangedSubview(customColorButton)
 
+        actionsBackground.translatesAutoresizingMaskIntoConstraints = false
+        actionsBackground.wantsLayer = true
+        actionsBackground.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        actionsBackground.layer?.cornerRadius = 9
+        actionsBackground.layer?.borderWidth = 1
+        actionsBackground.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+        actionsBackground.isHidden = true
+        actionsBackground.addSubview(actionStrip)
+        actionStrip.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(actionsBackground)
         addSubview(tools)
+        NSLayoutConstraint.activate([
+            actionsBackground.centerXAnchor.constraint(equalTo: centerXAnchor),
+            actionsBackground.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(Self.collapsedHeight + 8)),
+            actionsBackground.heightAnchor.constraint(equalToConstant: 40),
+            actionsBackground.widthAnchor.constraint(equalTo: actionStrip.widthAnchor, constant: 12),
+            actionStrip.centerXAnchor.constraint(equalTo: actionsBackground.centerXAnchor),
+            actionStrip.centerYAnchor.constraint(equalTo: actionsBackground.centerYAnchor)
+        ])
         optionsContent.addSubview(palette)
         optionsContent.frame = CGRect(x: 0, y: 0, width: 340, height: 48)
         NSLayoutConstraint.activate([
             palette.centerXAnchor.constraint(equalTo: optionsContent.centerXAnchor),
             palette.centerYAnchor.constraint(equalTo: optionsContent.centerYAnchor),
-            tools.topAnchor.constraint(equalTo: topAnchor),
+            tools.bottomAnchor.constraint(equalTo: bottomAnchor),
             tools.heightAnchor.constraint(equalToConstant: Self.collapsedHeight)
         ])
         let optionsController = NSViewController()
@@ -314,6 +338,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         undoButton.isHidden = !hasAnnotations
         deleteDropButton.isHidden = !hasAnnotations
         actionStrip.isHidden = !hasAnnotations
+        actionsBackground.isHidden = !hasAnnotations
         let selectedTool: ToolButton
         switch mode {
         case .arrow: selectedTool = arrowButton
@@ -428,9 +453,9 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         let startPaletteAlpha = palette.alphaValue
         let startChoicesAlpha = toolChoices.alphaValue
         let startRecentAlpha = recentToolButton.alphaValue
-        let targetHeight = Self.collapsedHeight
+        let targetHeight = Self.collapsedHeight + (hasAnnotations ? 48 : 0)
         let targetToolWidth: CGFloat = isToolPickerExpanded ? 234 : 44
-        let rowWidth = Self.collapsedWidth + (hasAnnotations ? 82 : 0) + (isToolPickerExpanded ? 190 : 0)
+        let rowWidth = Self.collapsedWidth + (isToolPickerExpanded ? 190 : 0)
         let targetWidth = rowWidth
         let targetPaletteAlpha: CGFloat = isExpanded ? 1 : 0
         let targetChoicesAlpha: CGFloat = isToolPickerExpanded ? 1 : 0
@@ -489,7 +514,6 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         } else if let window, window.contentView === self {
             var frame = window.frame
             frame.origin.x += (frame.width - width) / 2
-            frame.origin.y += frame.height - height
             frame.size = CGSize(width: width, height: height)
             if let visible = window.screen?.visibleFrame {
                 frame.origin.x = min(max(frame.minX, visible.minX + 8), visible.maxX - width - 8)
@@ -590,4 +614,19 @@ private final class AnnotationActionButton: NSButton {
         text.draw(at: CGPoint(x: start + iconSpace, y: bounds.midY - text.size().height / 2))
     }
     override func highlight(_ flag: Bool) { super.highlight(flag); needsDisplay = true }
+}
+
+@MainActor
+private final class AnnotationSettingsHoverButton: NSButton {
+    var onEnter: (() -> Void)?
+    var onExit: (() -> Void)?
+    private var area: NSTrackingArea?
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let area { removeTrackingArea(area) }
+        let next = NSTrackingArea(rect: .zero, options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited], owner: self)
+        addTrackingArea(next); area = next
+    }
+    override func mouseEntered(with event: NSEvent) { onEnter?() }
+    override func mouseExited(with event: NSEvent) { onExit?() }
 }

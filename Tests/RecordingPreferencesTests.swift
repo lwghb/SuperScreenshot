@@ -76,10 +76,17 @@ struct RecordingToolbarInteractionTests {
         #expect(toolbar.hitTest(settings.convert(CGPoint(x: settings.bounds.midX, y: settings.bounds.midY), to: toolbar.superview)) === settings)
         var starts = 0
         var opens = 0
+        var exits = 0
+        toolbar.onRecordingSettingsExit = { exits += 1 }
         toolbar.onScreenRecording = { starts += 1 }
         toolbar.onRecordingSettings = { opens += 1 }
         settings.performClick(nil)
         #expect(opens == 1 && starts == 0)
+        let hoverEvent = try #require(NSEvent.mouseEvent(with: .mouseMoved, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
+        settings.mouseEntered(with: hoverEvent)
+        #expect(opens == 2 && starts == 0)
+        settings.mouseExited(with: hoverEvent)
+        #expect(exits == 1)
         recording.performClick(nil)
         #expect(starts == 1)
         try capture(toolbar, to: "/tmp/SuperScreenshot-toolbar-redesign-default.png")
@@ -88,7 +95,18 @@ struct RecordingToolbarInteractionTests {
         toolbar.setToolPickerExpanded(true, animated: false)
         toolbar.setToolPickerExpanded(false, animated: false)
         #expect(!undo.isHiddenOrHasHiddenAncestor)
-        try capture(toolbar, to: "/tmp/SuperScreenshot-toolbar-redesign-undo.png")
+        let undoRect = undo.convert(undo.bounds, to: toolbar)
+        let deleteRect = toolbar.deleteDropButton.convert(toolbar.deleteDropButton.bounds, to: toolbar)
+        let mainRect = recording.convert(recording.bounds, to: toolbar)
+        #expect(undoRect.minY > mainRect.maxY && deleteRect.minY > mainRect.maxY)
+        #expect(abs(undoRect.midY - deleteRect.midY) < 1)
+        #expect(toolbar.frame.width == 348 && toolbar.displayedHeight == 96)
+        #expect(!undoRect.intersects(deleteRect))
+        try capture(toolbar, to: "/tmp/SuperScreenshot-toolbar-upper-actions.png")
+        toolbar.update(canvas: nil, mode: .arrow, colorTarget: .stroke, hasAnnotations: false)
+        toolbar.setToolPickerExpanded(true, animated: false)
+        toolbar.setToolPickerExpanded(false, animated: false)
+        #expect(undo.isHiddenOrHasHiddenAncestor && toolbar.displayedHeight == 48)
     }
 
     @Test func hoverDelayRightClickAndScreenAnchorMatchApprovedLayout() async throws {
@@ -154,7 +172,7 @@ struct RecordingToolbarInteractionTests {
         }
     }
 
-    @Test func settingsBubbleIsAnchoredAndDoesNotStartRecording() throws {
+    @Test func settingsBubbleIsAnchoredAndDoesNotStartRecording() async throws {
         let screen = try #require(NSScreen.main)
         let toolbar = SharedAnnotationToolbar(frame: CGRect(x: 0, y: 0, width: 348, height: 48), showsCaptureActions: true, showsFinish: true)
         let window = NSWindow(contentRect: CGRect(x: screen.frame.midX - 206, y: screen.frame.midY, width: 348, height: 48), styleMask: [.borderless], backing: .buffered, defer: false)
@@ -175,7 +193,14 @@ struct RecordingToolbarInteractionTests {
         let content = try #require(bubble.contentView)
         content.layoutSubtreeIfNeeded()
         try capture(content, to: "/tmp/SuperScreenshot-recording-settings-bubble.png")
-        settings.close()
+        let hoverSurface = try #require(([content] + descendants(content)).first { $0 is NSVisualEffectView })
+        let hoverEvent = try #require(NSEvent.mouseEvent(with: .mouseMoved, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
+        settings.scheduleSettingsDismiss()
+        hoverSurface.mouseEntered(with: hoverEvent)
+        try await Task.sleep(nanoseconds: 240_000_000)
+        #expect(settings.isSettingsVisible && starts == 0)
+        hoverSurface.mouseExited(with: hoverEvent)
+        try await Task.sleep(nanoseconds: 240_000_000)
         #expect(!settings.isSettingsVisible && starts == 0)
     }
 
@@ -195,6 +220,29 @@ struct RecordingToolbarInteractionTests {
         #expect(starts == 1)
         toolbar.recordingDidStart()
         #expect(starts == 1)
+    }
+
+    @Test func recordingControlsStayWithinBoundsAndDoNotOverlap() throws {
+        let screen = try #require(NSScreen.main)
+        let controller = RecordingToolbarController()
+        defer { controller.close() }
+        controller.onStart = { _, _, _ in }
+        controller.show(in: screen, below: CGRect(x: screen.frame.midX - 100, y: screen.frame.midY, width: 200, height: 200), startImmediately: true)
+        controller.recordingDidStart()
+        let window = try #require(NSApp.windows.first { candidate in
+            candidate.isVisible && candidate.contentView.map { descendants($0).contains { $0.identifier?.rawValue == "recording.timer" && !$0.isHiddenOrHasHiddenAncestor } } == true
+        })
+        let content = try #require(window.contentView)
+        let visible = descendants(content).filter { !$0.isHiddenOrHasHiddenAncestor && ($0 is NSButton || $0 is NSTextField || $0 is NSSlider || $0 is NSSegmentedControl) }
+        #expect(visible.count == 5)
+        for (index, item) in visible.enumerated() {
+            let rect = item.convert(item.bounds, to: content)
+            #expect(content.bounds.contains(rect))
+            for other in visible.dropFirst(index + 1) {
+                #expect(!rect.intersects(other.convert(other.bounds, to: content)))
+            }
+        }
+        try capture(content, to: "/tmp/SuperScreenshot-recording-status-refined.png")
     }
 
     @Test func settingsDoNotStartRecordingAndDoneCloses() async throws {

@@ -403,6 +403,7 @@ final class DirectAnnotationController: NSObject {
         toolbar.onColor = { [weak self] color in self?.applyColor(color) }
         toolbar.onCustomColor = { [weak self] in self?.showCustomColorPanel() }
         toolbar.onLongCapture = { [weak self] in self?.longCapture() }
+        toolbar.onRecordingSettingsExit = { [weak self] in self?.recordingSettings?.scheduleSettingsDismiss() }
         toolbar.onRecordingSettings = { [weak self] in self?.showRecordingSettings() }
         toolbar.onScreenRecording = { [weak self] in self?.screenRecording() }
         toolbar.onFinish = { [weak self] in self?.finish() }
@@ -637,10 +638,12 @@ final class DirectAnnotationController: NSObject {
 
     private func showRecordingSettings() {
         if let recordingSettings {
-            let wasVisible = recordingSettings.isSettingsVisible
+            if recordingSettings.isSettingsVisible {
+                recordingSettings.cancelSettingsDismiss()
+                return
+            }
             recordingSettings.close()
             self.recordingSettings = nil
-            if wasVisible { return }
         }
         guard let anchor = sharedToolbar?.recordingSettingsAnchor else { return }
         let settings = RecordingToolbarController()
