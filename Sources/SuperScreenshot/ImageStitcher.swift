@@ -137,17 +137,31 @@ enum ImageStitcher {
     private static func slices(from frames: [CGImage], motions: [EdgeMotion]) -> [CGImage] {
         guard let first = frames.first else { return [] }
         var slices: [CGImage] = [first]
+        // Document coordinates are relative to the initial viewport. A reverse
+        // scroll changes the viewport position, not the captured document's end.
+        var viewportTop = 0
+        var coveredTop = 0
+        var coveredBottom = first.height
         for (index, next) in frames.dropFirst().enumerated() {
             guard index < motions.count else { break }
             let motion = motions[index]
-            let added = min(next.height, max(1, motion.shift))
+            let shift = min(next.height, max(0, motion.shift))
             switch motion.direction {
-            case .contentMovesUp:
-                let bottomRect = CGRect(x: 0, y: next.height - added, width: next.width, height: added)
-                if let bottomSlice = next.cropping(to: bottomRect) { slices.append(bottomSlice) }
-            case .contentMovesDown:
-                let topRect = CGRect(x: 0, y: 0, width: next.width, height: added)
-                if let topSlice = next.cropping(to: topRect) { slices.insert(topSlice, at: 0) }
+            case .contentMovesUp: viewportTop += shift
+            case .contentMovesDown: viewportTop -= shift
+            }
+            let viewportBottom = viewportTop + next.height
+            let newTopRows = min(next.height, max(0, coveredTop - viewportTop))
+            let newBottomRows = min(next.height, max(0, viewportBottom - coveredBottom))
+            if newTopRows > 0,
+               let slice = next.cropping(to: CGRect(x: 0, y: 0, width: next.width, height: newTopRows)) {
+                slices.insert(slice, at: 0)
+                coveredTop = viewportTop
+            }
+            if newBottomRows > 0,
+               let slice = next.cropping(to: CGRect(x: 0, y: next.height - newBottomRows, width: next.width, height: newBottomRows)) {
+                slices.append(slice)
+                coveredBottom = viewportBottom
             }
         }
         return slices

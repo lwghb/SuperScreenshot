@@ -70,6 +70,8 @@
 
 - `InstantTooltipToolbarView` 使用独立的忽略鼠标 `NSPanel` 展示提示，取消工具条内裁切；`ToolbarTooltipPlacement` 统一计算屏幕坐标、可见边界和光标避让区域。工具折叠或关闭时通过 `dismissInstantTooltip()` 清理。`Tests/ToolbarTooltipPlacementTests.swift` 覆盖顶部翻转、光标避让及偏移显示器边缘。
 
+- `ImageStitcher.slices` 将每次位移累积为文档中的视口顶部坐标，维护已覆盖的顶部/底部边界；只从新视口裁出边界以外的像素，范围内回滚仅更新位置。最终导出与预览共用这条路径，`LongCaptureEngine` 仍保留完整已接受帧作为下一次匹配基准。`ImageStitcherTests` 用实际位移检测及像素级对比覆盖往返、反复回看、上下两端扩展。
+
 ## 5. 本地持久化
 
 当前通过 `UserDefaults.standard` 保存：

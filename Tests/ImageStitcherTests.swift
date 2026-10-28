@@ -208,6 +208,65 @@ struct ImageStitcherTests {
         ))
     }
 
+    @Test func roundTripScrollOnlyAddsPreviouslyUnseenRows() throws {
+        let document = try #require(makeDirectionalDocument())
+        let positions = [0, 80, 0, 80, 160]
+        let frames = try positions.map { position in
+            try #require(document.cropping(to: CGRect(x: 0, y: position, width: 160, height: 400)))
+        }
+        let motions = try zip(frames, frames.dropFirst()).map { previous, next in
+            try #require(ImageStitcher.detectEdgeMotion(previous: previous, next: next))
+        }
+        let result = try #require(ImageStitcher.stitch(frames, motions: motions))
+        #expect(result.height == 560)
+        #expect(pixelsEqual(result, document))
+        let preview = try #require(ImageStitcher.preview(frames, motions: motions, maximumWidth: 80))
+        #expect(preview.height == 280)
+    }
+
+    @Test func repeatedRoundTripsDoNotGrowCapture() throws {
+        let document = try #require(makeDirectionalDocument())
+        let positions = [0, 80, 0, 80, 0, 80, 0]
+        let frames = try positions.map { position in
+            try #require(document.cropping(to: CGRect(x: 0, y: position, width: 160, height: 400)))
+        }
+        let motions = zip(positions, positions.dropFirst()).map { previous, next in
+            EdgeMotion(direction: next > previous ? .contentMovesUp : .contentMovesDown, shift: abs(next - previous), score: 0)
+        }
+        let result = try #require(ImageStitcher.stitch(frames, motions: motions))
+        let expected = try #require(document.cropping(to: CGRect(x: 0, y: 0, width: 160, height: 480)))
+        #expect(result.height == 480)
+        #expect(pixelsEqual(result, expected))
+    }
+
+    @Test func returnTripsCanStillExtendBothDocumentEnds() throws {
+        let document = try #require(makeDirectionalDocument())
+        let positions = [80, 0, 80, 160, 80, 0, 120]
+        let frames = try positions.map { position in
+            try #require(document.cropping(to: CGRect(x: 0, y: position, width: 160, height: 400)))
+        }
+        let motions = zip(positions, positions.dropFirst()).map { previous, next in
+            EdgeMotion(direction: next > previous ? .contentMovesUp : .contentMovesDown, shift: abs(next - previous), score: 0)
+        }
+        let result = try #require(ImageStitcher.stitch(frames, motions: motions))
+        #expect(result.height == 560)
+        #expect(pixelsEqual(result, document))
+        let preview = try #require(ImageStitcher.preview(frames, motions: motions, maximumWidth: 160))
+        #expect(pixelsEqual(preview, document))
+    }
+
+    private func pixelsEqual(_ a: CGImage, _ b: CGImage) -> Bool {
+        guard a.width == b.width, a.height == b.height, let pixels = raster(a), let expected = raster(b) else { return false }
+        return pixels == expected
+    }
+
+    private func raster(_ image: CGImage) -> [UInt8]? {
+        guard let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let data = context.data else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return Array(UnsafeBufferPointer(start: data.assumingMemoryBound(to: UInt8.self), count: image.width * image.height * 4))
+    }
+
     private func makeInteriorAnimationImage(centerGray: CGFloat) -> CGImage? {
         guard let context = CGContext(data: nil, width: 300, height: 400, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         context.setFillColor(CGColor(gray: 1, alpha: 1))
