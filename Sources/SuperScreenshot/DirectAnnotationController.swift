@@ -174,21 +174,7 @@ final class DirectAnnotationController: NSObject {
     }
 
     private func resolvedToolbarFrame(size: CGSize) -> CGRect {
-        let visible = screen.visibleFrame.insetBy(dx: 12, dy: 12)
-        var x = selection.midX - size.width / 2
-        if x < visible.minX {
-            x = selection.minX
-        } else if x + size.width > visible.maxX {
-            x = selection.maxX - size.width
-        }
-        x = min(max(x, visible.minX), visible.maxX - size.width)
-
-        var y = selection.minY - size.height - 8
-        if y < visible.minY {
-            y = selection.maxY + 8
-        }
-        y = min(max(y, visible.minY), visible.maxY - size.height)
-        return CGRect(origin: CGPoint(x: x, y: y), size: size)
+        ScreenshotToolbarPlacement.frame(selection: selection, size: size, visibleFrame: screen.visibleFrame)
     }
 
     private func installResizeHandles() {
