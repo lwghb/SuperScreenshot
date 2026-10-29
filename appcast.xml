@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.95</title>
+            <pubDate>Thu, 29 Oct 2026 17:44:42 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>296</sparkle:version>
+            <sparkle:shortVersionString>2.0.95</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[上拉工具选择面板增加图标旁的工具名称，箭头、文字、矩形、椭圆、自由画笔和马赛克更容易识别。
+
+修复点击工具后下方参数气泡短暂出现再消失的问题。工具选择和收回动画期间保持气泡关闭，鼠标移开再移回当前工具，停留满 300 ms 后才显示参数。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.95/SuperScreenshot-v2.0.95-Universal.zip" length="3131199" type="application/octet-stream" sparkle:edSignature="i52Qf9A3bxPq14BE4T9Sv1p5QCJ+IPoLb94mzti4BMEheaNurr6SesnF7qmItUhlyk26Q+EuPju/cqEe424MDQ=="/>
+        </item>
+        <item>
             <title>2.0.94</title>
             <pubDate>Thu, 29 Oct 2026 17:31:43 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -31,22 +44,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.93/SuperScreenshot-v2.0.93-Universal.zip" length="3126804" type="application/octet-stream" sparkle:edSignature="jYCeCzQqWVj1EEpQX1jpJD8JwePPHMC/6D194a0TekoktWEJoGQbxBQQZodEoYO/kMmXsjlLjsHvzMgUe8KxCw=="/>
         </item>
-        <item>
-            <title>2.0.92</title>
-            <pubDate>Thu, 29 Oct 2026 15:44:26 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>292</sparkle:version>
-            <sparkle:shortVersionString>2.0.92</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[优化标注工具栏的悬停交互：停留满 1 秒展开全部工具时，自动关闭下方颜色等参数气泡，避免同时遮挡画面。
-
-选择工具后保持简约状态，参数气泡不再自动弹出；鼠标移开再移回当前工具后，才显示对应参数。右击展开工具时也遵循相同规则。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.92/SuperScreenshot-v2.0.92-Universal.zip" length="3125344" type="application/octet-stream" sparkle:edSignature="QO617V/M9xioTKp8uCpVWAE3LIoPBIGkHz1hS8IgVhRP6hMJj5t8Kw8xfBsNXRVpNVhIyyiUsNRzXUVN091EBg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: TIokeyOZxqJK9JAYsCT4QYDbPejncL0m14MraXTHj3nWU+9NTYwIWNrV8HaFzfAUrNwHAvUc4DD5xOJlk08vCQ==
-length: 3776
+edSignature: Jwii6j4MfzxAKeTzNJkUzbIpDFSwaVzBrhJ7M0VQ/bBVKinRpZ/C+M8+Oj0Ko1LrNEcot9PhmA1zbZo4KY0bCw==
+length: 3787
 -->
