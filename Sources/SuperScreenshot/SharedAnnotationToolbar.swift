@@ -179,7 +179,14 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         recentToolButton.translatesAutoresizingMaskIntoConstraints = false
         toolChoices.orientation = .vertical; toolChoices.spacing = 6; toolChoices.alignment = .centerX
         toolChoices.translatesAutoresizingMaskIntoConstraints = false
-        [arrowButton, textButton, rectangleButton, ellipseButton, brushButton, mosaicButton].forEach { toolChoices.addArrangedSubview($0) }
+        [arrowButton, textButton, rectangleButton, ellipseButton, brushButton, mosaicButton].forEach { button in
+            button.title = button.toolTip ?? ""
+            button.imagePosition = .imageLeading
+            button.alignment = .left
+            button.font = .systemFont(ofSize: 12, weight: .medium)
+            button.constraints.first { $0.firstAttribute == .width }?.constant = 144
+            toolChoices.addArrangedSubview(button)
+        }
         toolChoices.identifier = NSUserInterfaceItemIdentifier("annotation.choices")
         toolChoices.isHidden = true; toolChoices.alphaValue = 0
         toolsHoverView.wantsLayer = true
@@ -215,7 +222,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         toolsHoverView.onExit = { [weak self] in
             guard let self else { return }
             self.overTools = false
-            self.suppressHoverUntilExit = false
+            if self.pickerPanel == nil { self.suppressHoverUntilExit = false }
             self.hoverExpandTask?.cancel()
             self.scheduleHoverClose()
         }
@@ -403,7 +410,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         let mode = ScreenshotAnnotationMode(rawValue: sender.tag) ?? .arrow
         hoverExitTask?.cancel()
         hoverExpandTask?.cancel()
-        suppressHoverUntilExit = overTools
+        suppressHoverUntilExit = true
         setExpanded(false)
         onMode?(mode)
         setToolPickerExpanded(false)
@@ -438,7 +445,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             guard let window else { isToolPickerExpanded = false; return }
             let anchor = window.convertToScreen(recentToolButton.convert(recentToolButton.bounds, to: nil))
             let visible = window.screen?.visibleFrame ?? anchor.insetBy(dx: -500, dy: -500)
-            let size = CGSize(width: 50, height: 238)
+            let size = CGSize(width: 160, height: 238)
             let x = min(max(anchor.midX - size.width / 2, visible.minX + 8), visible.maxX - size.width - 8)
             let y = anchor.maxY + 8
             let frame = CGRect(x: x, y: min(max(y, visible.minY + 8), visible.maxY - size.height - 8), width: size.width, height: size.height)
@@ -469,6 +476,13 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             self.pickerPanel = nil
             self.toolChoices.isHidden = true
             self.overPicker = false
+            // Resizing/removing the child panel can synthesize tracking events.
+            // Do not let those events reopen parameters under a stationary pointer.
+            if let window = self.window {
+                let toolFrame = window.convertToScreen(self.toolsHoverView.convert(self.toolsHoverView.bounds, to: nil))
+                self.overTools = toolFrame.contains(NSEvent.mouseLocation)
+                self.suppressHoverUntilExit = self.overTools
+            }
         }
         guard animated, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             render(1); finish(); return
@@ -488,10 +502,10 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         overTools = true
         hoverExitTask?.cancel()
         hoverExpandTask?.cancel()
-        guard !suppressHoverUntilExit, !isToolPickerExpanded else { return }
+        guard !suppressHoverUntilExit, pickerPanel == nil else { return }
         hoverExpandTask = Task { @MainActor [weak self] in
             do { try await Task.sleep(nanoseconds: 300_000_000) } catch { return }
-            guard let self, self.overTools, !self.suppressHoverUntilExit, !self.isToolPickerExpanded else { return }
+            guard let self, self.overTools, !self.suppressHoverUntilExit, self.pickerPanel == nil else { return }
             self.setExpanded(true)
         }
     }
@@ -505,6 +519,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         }
     }
     func setExpanded(_ expanded: Bool, animated: Bool = true) {
+        guard !expanded || (pickerPanel == nil && !suppressHoverUntilExit) else { return }
         isExpanded = expanded
         palette.isHidden = !expanded
         palette.alphaValue = expanded ? 1 : 0

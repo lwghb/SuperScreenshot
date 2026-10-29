@@ -166,6 +166,8 @@ struct RecordingToolbarInteractionTests {
         #expect(!choices.isHidden)
         let choiceButtons = descendants(choices).compactMap { $0 as? ToolButton }
         #expect(choiceButtons.count == 6)
+        #expect(choiceButtons.map(\.title) == [L("箭头标注"), L("文字标注"), L("矩形标注"), L("椭圆标注"), L("自由画笔"), L("马赛克")])
+        #expect(choiceButtons.allSatisfy { $0.imagePosition == .imageLeading && $0.bounds.width >= 144 })
         let choiceRects = choiceButtons.map { $0.convert($0.bounds, to: toolbar.toolPickerContentView) }
         #expect(choiceRects.allSatisfy { toolbar.toolPickerContentView.bounds.contains($0) })
         for pair in zip(choiceRects, choiceRects.dropFirst()) {
@@ -179,14 +181,24 @@ struct RecordingToolbarInteractionTests {
         #expect(toolbar.isToolPickerExpanded)
         text.performClick(nil)
         #expect(!toolbar.isToolPickerExpanded && !toolbar.isExpanded)
+        // Model tracking changes caused by the shrinking child window.
+        hover.mouseEntered(with: event)
+        hover.mouseExited(with: event)
+        hover.mouseEntered(with: event)
+        toolbar.setExpanded(true)
+        #expect(!toolbar.isExpanded)
         try await Task.sleep(nanoseconds: 80_000_000)
         if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             #expect(panel.frame.height > 1 && panel.frame.height < 238)
         }
-        try await Task.sleep(nanoseconds: 200_000_000)
+        for _ in 0..<24 {
+            try await Task.sleep(nanoseconds: 16_000_000)
+            #expect(!toolbar.isExpanded)
+        }
         #expect(!panel.isVisible && choices.isHidden)
         #expect(recent.tag == ScreenshotAnnotationMode.text.rawValue)
         #expect(window.frame == originalFrame)
+        hover.mouseExited(with: event)
         hover.mouseEntered(with: event)
         try await Task.sleep(nanoseconds: 350_000_000)
         #expect(toolbar.isExpanded)
