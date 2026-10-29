@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.93</title>
+            <pubDate>Thu, 29 Oct 2026 15:54:17 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>293</sparkle:version>
+            <sparkle:shortVersionString>2.0.93</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[录屏设置齿轮移到录屏按钮左下角，并调淡图标颜色，让工具栏更加简洁。
+
+鼠标停留满 300 ms 后才显示设置气泡，短暂经过或提前移开不会弹出；仍可点击齿轮立即打开设置，移入气泡可继续操作。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.93/SuperScreenshot-v2.0.93-Universal.zip" length="3126804" type="application/octet-stream" sparkle:edSignature="jYCeCzQqWVj1EEpQX1jpJD8JwePPHMC/6D194a0TekoktWEJoGQbxBQQZodEoYO/kMmXsjlLjsHvzMgUe8KxCw=="/>
+        </item>
+        <item>
             <title>2.0.92</title>
             <pubDate>Thu, 29 Oct 2026 15:44:26 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -31,22 +44,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.91/SuperScreenshot-v2.0.91-Universal.zip" length="3125352" type="application/octet-stream" sparkle:edSignature="ckKuZ2ZOvZD09xthuLX0v9Zk3YZ4gv/X61eHqoGvbhSvrRF3iRIK8t61/jYQNmMkfARfKUTZJ4kcfXhY4lWUDQ=="/>
         </item>
-        <item>
-            <title>2.0.90</title>
-            <pubDate>Wed, 28 Oct 2026 11:23:08 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>290</sparkle:version>
-            <sparkle:shortVersionString>2.0.90</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[修复手动长截图来回滚动时重复拼接已采集内容的问题。现在会跟踪累计滚动位置及已覆盖范围，只追加真正出现的新内容，回看旧区域不会让长图重复增高。
-
-预览与最终导出共用修正逻辑，支持从中段向上下两端扩展，保持内容顺序正确。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.90/SuperScreenshot-v2.0.90-Universal.zip" length="3125306" type="application/octet-stream" sparkle:edSignature="LxrpSl6ONRKWIMBRF1wdFbOcDnOICj7TX6cXZE8KY8qb9D0UWYJ/hbLqxzf8P0cOrslmnmF3DJuN03E53FaRDg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: //pJDTdplNzvyKB44h4Oat6KEpNngGm7xunEwO/+cbB3PRQ7wTf865R6AmmlGHo0Dtd23vca/bIF8lvNXO3aBQ==
-length: 3694
+edSignature: ZB1J5yTdSic/UCpQjYtX/1dkvwEcDMSVV5rZQWaYp9IiUk0hIoNS94ZsshnKBn/kujlqrZhJSfDVJm2WJbNwAw==
+length: 3636
 -->
