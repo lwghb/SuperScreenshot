@@ -50,7 +50,7 @@
 
 ## 4. 共享行为与耦合点
 
-- `SharedAnnotationToolbar` 的主行仅保留录屏、最近工具、长截图、完成，记录/长截图采用同高 48 pt 的灰色按钮；录屏右上角叠加独立齿轮点击区。撤销与删除放在左侧独立的 `actionsBackground/actionStrip` 中，仅有标注时出现。
+- `SharedAnnotationToolbar` 的主行仅保留录屏、最近工具、长截图、完成，记录/长截图采用同高 48 pt 的灰色按钮；录屏左下角叠加浅色独立齿轮点击区。撤销与删除放在左侧独立的 `actionsBackground/actionStrip` 中，仅有标注时出现。
 - `SharedAnnotationToolbar` 同时服务截图和录屏；新增工具或调整颜色交互时必须验证两条流程。
 - `ScreenshotAnnotationMode` 是共享工具模式定义；修改枚举时同步检查直接标注和录屏标注适配层。
 - `SelectionBorderController` 同时用于长截图与录屏区域；修改拖拽或锁定逻辑会影响两者。
@@ -66,7 +66,7 @@
 - `closeTransientUI()` 在完成、录屏、长截图、关闭或隐藏编辑器时取消悬停任务并关闭参数气泡，避免临时 UI 泄漏进下一状态。
 - `RecordingToolbarController` 在录制中按时间与视频/音频码率计算累计 MB 估算；与设置中的每分钟大小估算分开显示，不代表文件实测大小。
 
-- 录屏设置采用 360 × 136 pt 三行布局，无完成按钮；设置更改自动保存。录屏齿轮通过 `AnnotationSettingsHoverButton` 的进入/退出回调显示设置；`RecordingToolbarController` 管理 180 ms 可取消关闭任务，气泡进入取消、退出重新计时。录制中使用 468 × 72 pt 布局：计时、双行参数/估算、结束、隐藏五个控件互不覆盖，准备状态的 FPS 标签须隐藏。
+- 录屏设置采用 360 × 136 pt 三行布局，无完成按钮；设置更改自动保存。录屏浅色齿轮位于按钮左下角；`AnnotationSettingsHoverButton` 进入时立即取消已有气泡的关闭任务，并由 `SharedAnnotationToolbar` 启动可取消的 300 ms 显示任务，退出、点击或关闭临时 UI 时取消该任务；`RecordingToolbarController` 管理 180 ms 可取消关闭任务，气泡进入取消、退出重新计时。录制中使用 468 × 72 pt 布局：计时、双行参数/估算、结束、隐藏五个控件互不覆盖，准备状态的 FPS 标签须隐藏。
 
 - `InstantTooltipToolbarView` 使用独立的忽略鼠标 `NSPanel` 展示提示，取消工具条内裁切；`ToolbarTooltipPlacement` 统一计算屏幕坐标、可见边界和光标避让区域。工具折叠或关闭时通过 `dismissInstantTooltip()` 清理。`Tests/ToolbarTooltipPlacementTests.swift` 覆盖顶部翻转、光标避让及偏移显示器边缘。
 
@@ -89,7 +89,7 @@
 
 新增持久化设置时，应在此表记录键名、默认值和迁移策略，避免不同模块重复定义。
 
-- `DirectAnnotationController` 持有录屏设置控制器；`RecordingToolbarController` 以 transient `NSPopover` 锚定右上角齿轮，关闭时保留选区及画布，选区变化时更新码率范围；开始录制时关闭设置，转入已锁定边框和紧凑录制工具条。
+- `DirectAnnotationController` 持有录屏设置控制器；`RecordingToolbarController` 以 transient `NSPopover` 锚定左下角齿轮，关闭时保留选区及画布，选区变化时更新码率范围；开始录制时关闭设置，转入已锁定边框和紧凑录制工具条。
 - `RecordingToolbarController.show(settingsOnly:settingsAnchor:)` 复用 FPS、码率和音频控件；`startImmediately` 无需显示准备界面便触发录制，开始成功后才启动计时和启用停止。启动失败时由协调器清理录制状态并恢复截图选区。
 
 ## 6. 平台与能力边界

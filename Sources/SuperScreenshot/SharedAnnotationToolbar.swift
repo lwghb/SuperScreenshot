@@ -18,6 +18,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     var onColor: ((NSColor) -> Void)?
     var onCustomColor: (() -> Void)?
     var onLongCapture: (() -> Void)?
+    var onRecordingSettingsEnter: (() -> Void)?
     var onRecordingSettingsExit: (() -> Void)?
     var onRecordingSettings: (() -> Void)?
     var onScreenRecording: (() -> Void)?
@@ -45,6 +46,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private let optionsContent = AnnotationToolsHoverView()
     private var choicesCenterConstraint: NSLayoutConstraint!
     private var inlineCenterConstraint: NSLayoutConstraint?
+    private var settingsHoverTask: Task<Void, Never>?
     private var hoverExpandTask: Task<Void, Never>?
     private var overTools = false
     private var overOptions = false
@@ -222,12 +224,24 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             recording.identifier = NSUserInterfaceItemIdentifier("recording.start")
             recording.translatesAutoresizingMaskIntoConstraints = false
             let settings = AnnotationSettingsHoverButton(image: NSImage(systemSymbolName: "gearshape", accessibilityDescription: L("录屏设置")) ?? NSImage(), target: self, action: #selector(recordingSettings))
-            settings.image = settings.image?.withSymbolConfiguration(NSImage.SymbolConfiguration(paletteColors: [.labelColor]))
-            settings.onEnter = { [weak self] in self?.recordingSettings() }
-            settings.onExit = { [weak self] in self?.onRecordingSettingsExit?() }
+            let settingsColor = NSColor.secondaryLabelColor.withAlphaComponent(0.65)
+            settings.image = settings.image?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 12, weight: .regular).applying(NSImage.SymbolConfiguration(paletteColors: [settingsColor])))
+            settings.onEnter = { [weak self] in
+                guard let self else { return }
+                self.onRecordingSettingsEnter?()
+                self.settingsHoverTask?.cancel()
+                self.settingsHoverTask = Task { @MainActor [weak self] in
+                    do { try await Task.sleep(nanoseconds: 300_000_000) } catch { return }
+                    self?.recordingSettings()
+                }
+            }
+            settings.onExit = { [weak self] in
+                self?.settingsHoverTask?.cancel()
+                self?.onRecordingSettingsExit?()
+            }
             settings.identifier = NSUserInterfaceItemIdentifier("recording.settings")
             settings.bezelStyle = .regularSquare
-            settings.isBordered = false; settings.contentTintColor = .labelColor
+            settings.isBordered = false; settings.contentTintColor = settingsColor
             settings.toolTip = L("录屏设置")
             settings.translatesAutoresizingMaskIntoConstraints = false
             recordingGroup.addSubview(recording); recordingGroup.addSubview(settings)
@@ -246,8 +260,8 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
                 recording.trailingAnchor.constraint(equalTo: recordingGroup.trailingAnchor),
                 recording.topAnchor.constraint(equalTo: recordingGroup.topAnchor),
                 recording.bottomAnchor.constraint(equalTo: recordingGroup.bottomAnchor),
-                settings.trailingAnchor.constraint(equalTo: recordingGroup.trailingAnchor, constant: -3),
-                settings.topAnchor.constraint(equalTo: recordingGroup.topAnchor, constant: 6),
+                settings.leadingAnchor.constraint(equalTo: recordingGroup.leadingAnchor, constant: 2),
+                settings.bottomAnchor.constraint(equalTo: recordingGroup.bottomAnchor, constant: -2),
                 settings.widthAnchor.constraint(equalToConstant: 22),
                 settings.heightAnchor.constraint(equalToConstant: 22),
                 long.widthAnchor.constraint(equalTo: recordingGroup.widthAnchor),
@@ -446,6 +460,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     }
     func closeTransientUI() {
         dismissInstantTooltip()
+        settingsHoverTask?.cancel()
         hoverExpandTask?.cancel(); hoverExitTask?.cancel(); expansionTask?.cancel()
         overTools = false; overOptions = false
         suppressHoverUntilExit = false
@@ -638,6 +653,7 @@ private final class AnnotationActionButton: NSButton {
 
 @MainActor
 private final class AnnotationSettingsHoverButton: NSButton {
+    override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0) }
     var onEnter: (() -> Void)?
     var onExit: (() -> Void)?
     private var area: NSTrackingArea?

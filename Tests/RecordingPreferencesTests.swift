@@ -55,7 +55,7 @@ struct RecordingToolbarInteractionTests {
         view.subviews.flatMap { [$0] + descendants($0) }
     }
 
-    @Test func compactActionsAndIntegratedSettingsHaveIndependentHitAreas() throws {
+    @Test func compactActionsAndIntegratedSettingsHaveIndependentHitAreas() async throws {
         let toolbar = SharedAnnotationToolbar(frame: CGRect(x: 0, y: 0, width: 348, height: 48), showsCaptureActions: true, showsFinish: true)
         let window = NSWindow(contentRect: toolbar.bounds, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = toolbar
@@ -71,7 +71,7 @@ struct RecordingToolbarInteractionTests {
         let settingsRect = settings.convert(settings.bounds, to: toolbar)
         #expect(recordRect.height == 48 && long.frame.height == 48)
         #expect(recordRect.contains(settingsRect))
-        #expect(settingsRect.midX > recordRect.midX && settingsRect.midY > recordRect.midY)
+        #expect(settingsRect.midX < recordRect.midX && settingsRect.midY < recordRect.midY)
         #expect(undo.isHiddenOrHasHiddenAncestor && undo.title.isEmpty && undo.image != nil)
         #expect(toolbar.hitTest(settings.convert(CGPoint(x: settings.bounds.midX, y: settings.bounds.midY), to: toolbar.superview)) === settings)
         var starts = 0
@@ -84,9 +84,20 @@ struct RecordingToolbarInteractionTests {
         #expect(opens == 1 && starts == 0)
         let hoverEvent = try #require(NSEvent.mouseEvent(with: .mouseMoved, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
         settings.mouseEntered(with: hoverEvent)
+        try await Task.sleep(nanoseconds: 150_000_000)
+        #expect(opens == 1 && starts == 0)
+        settings.mouseExited(with: hoverEvent)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        #expect(opens == 1 && exits == 1)
+        settings.mouseEntered(with: hoverEvent)
+        try await Task.sleep(nanoseconds: 350_000_000)
         #expect(opens == 2 && starts == 0)
         settings.mouseExited(with: hoverEvent)
-        #expect(exits == 1)
+        #expect(exits == 2)
+        settings.mouseEntered(with: hoverEvent)
+        toolbar.closeTransientUI()
+        try await Task.sleep(nanoseconds: 350_000_000)
+        #expect(opens == 2)
         recording.performClick(nil)
         #expect(starts == 1)
         try capture(toolbar, to: "/tmp/SuperScreenshot-toolbar-redesign-default.png")

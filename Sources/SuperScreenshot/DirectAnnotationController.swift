@@ -389,6 +389,7 @@ final class DirectAnnotationController: NSObject {
         toolbar.onColor = { [weak self] color in self?.applyColor(color) }
         toolbar.onCustomColor = { [weak self] in self?.showCustomColorPanel() }
         toolbar.onLongCapture = { [weak self] in self?.longCapture() }
+        toolbar.onRecordingSettingsEnter = { [weak self] in self?.recordingSettings?.cancelSettingsDismiss() }
         toolbar.onRecordingSettingsExit = { [weak self] in self?.recordingSettings?.scheduleSettingsDismiss() }
         toolbar.onRecordingSettings = { [weak self] in self?.showRecordingSettings() }
         toolbar.onScreenRecording = { [weak self] in self?.screenRecording() }
