@@ -201,7 +201,6 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         }
         recentToolButton.onRightClick = { [weak self] in
             self?.hoverExpandTask?.cancel()
-            self?.setExpanded(true)
             self?.setToolPickerExpanded(true)
         }
         optionsContent.onEnter = { [weak self] in
@@ -374,15 +373,22 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         hoverExitTask?.cancel()
         hoverExpandTask?.cancel()
         suppressHoverUntilExit = true
+        setExpanded(false)
         onMode?(mode)
-        setExpanded(true)
         setToolPickerExpanded(false)
     }
 
-    @objc private func selectRecentTool() { setExpanded(true) }
+    @objc private func selectRecentTool() {
+        guard !suppressHoverUntilExit, !isToolPickerExpanded else { return }
+        setExpanded(true)
+    }
 
     func setToolPickerExpanded(_ expanded: Bool, animated: Bool = true) {
         dismissInstantTooltip()
+        if expanded {
+            overOptions = false
+            setExpanded(false)
+        }
         guard isToolPickerExpanded != expanded else { return }
         layoutSubtreeIfNeeded()
         let anchorView = expanded ? recentToolButton! : selectedChoice
@@ -406,8 +412,8 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         overTools = true
         hoverExitTask?.cancel()
         hoverExpandTask?.cancel()
+        guard !suppressHoverUntilExit, !isToolPickerExpanded else { return }
         setExpanded(true)
-        guard !suppressHoverUntilExit else { return }
         hoverExpandTask = Task { @MainActor [weak self] in
             do { try await Task.sleep(nanoseconds: 1_000_000_000) } catch { return }
             guard let self, self.overTools, !self.suppressHoverUntilExit else { return }
@@ -442,6 +448,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         dismissInstantTooltip()
         hoverExpandTask?.cancel(); hoverExitTask?.cancel(); expansionTask?.cancel()
         overTools = false; overOptions = false
+        suppressHoverUntilExit = false
         setToolPickerExpanded(false, animated: false)
         animateLayout(animated: false)
         setExpanded(false)
