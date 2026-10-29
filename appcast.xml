@@ -6,6 +6,19 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.92</title>
+            <pubDate>Thu, 29 Oct 2026 15:44:26 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>292</sparkle:version>
+            <sparkle:shortVersionString>2.0.92</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[优化标注工具栏的悬停交互：停留满 1 秒展开全部工具时，自动关闭下方颜色等参数气泡，避免同时遮挡画面。
+
+选择工具后保持简约状态，参数气泡不再自动弹出；鼠标移开再移回当前工具后，才显示对应参数。右击展开工具时也遵循相同规则。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.92/SuperScreenshot-v2.0.92-Universal.zip" length="3125344" type="application/octet-stream" sparkle:edSignature="QO617V/M9xioTKp8uCpVWAE3LIoPBIGkHz1hS8IgVhRP6hMJj5t8Kw8xfBsNXRVpNVhIyyiUsNRzXUVN091EBg=="/>
+        </item>
+        <item>
             <title>2.0.91</title>
             <pubDate>Wed, 28 Oct 2026 11:32:18 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -31,24 +44,9 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 ]]></description>
             <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.90/SuperScreenshot-v2.0.90-Universal.zip" length="3125306" type="application/octet-stream" sparkle:edSignature="LxrpSl6ONRKWIMBRF1wdFbOcDnOICj7TX6cXZE8KY8qb9D0UWYJ/hbLqxzf8P0cOrslmnmF3DJuN03E53FaRDg=="/>
         </item>
-        <item>
-            <title>2.0.89</title>
-            <pubDate>Wed, 28 Oct 2026 11:09:42 +0800</pubDate>
-            <link>https://github.com/lwghb/SuperScreenshot</link>
-            <sparkle:version>289</sparkle:version>
-            <sparkle:shortVersionString>2.0.89</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[重设计为 48 pt 轻量工具栏，默认只显示最近使用的标注工具；移入先显示参数气泡，停留 1 秒或右击后以当前工具为锚点展开全部工具，选择后自动收回。删除和撤销放在左侧等高的独立胶囊中，仅有标注时显示。
-
-录屏设置集成在按钮右上角，移入自动显示设置气泡，移出收起，参数自动保存。重新排列录制中的计时、参数、预估大小及结束按钮，修复控件遮挡。
-
-修复工具提示文字被鼠标挡住的问题，提示优先显示在按钮上方，靠近屏幕边缘时自动换位。
-]]></description>
-            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.89/SuperScreenshot-v2.0.89-Universal.zip" length="3124859" type="application/octet-stream" sparkle:edSignature="wHJ3y+Xkqz+ZYY6HUpiLqyvqKRQCnrE0FOSZnchWuEMFemmpeTQEmpsAYUjxwH7MHnpYXYDUuHzK+M2Cm47dBA=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: Di29lS+p+SzABOqV6D38W5p31MHuq5w6sUaeWfXzPNa+oO7k0cThk+/EXPOnRV2L8hyhOnabVZD/c++Hey91Bw==
-length: 3979
+edSignature: //pJDTdplNzvyKB44h4Oat6KEpNngGm7xunEwO/+cbB3PRQ7wTf865R6AmmlGHo0Dtd23vca/bIF8lvNXO3aBQ==
+length: 3694
 -->
