@@ -432,7 +432,7 @@ final class CaptureCoordinator: ObservableObject {
 
     private func presentEditor(_ image: CGImage, on screen: NSScreen) {
         editorController?.close()
-        let editor = ScreenshotEditorController(image: image, initialMode: .arrow, screen: screen)
+        let editor = ScreenshotEditorController(image: image, initialMode: AnnotationToolPreference().mode, screen: screen)
         editorController = editor
         editor.onFinish = { [weak self] edited in
             NSPasteboard.general.clearContents()

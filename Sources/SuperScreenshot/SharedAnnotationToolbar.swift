@@ -28,6 +28,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     static let collapsedWidth: CGFloat = 348
     static let collapsedHeight: CGFloat = 48
     static let expandedHeight: CGFloat = 100
+    static let toolPickerSize = CGSize(width: 204, height: 239)
     private(set) var isExpanded = false
     var parameterContentView: NSView { optionsContent }
     var displayedHeight: CGFloat { toolbarHeightConstraint.constant }
@@ -38,6 +39,8 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private let palette = NSStackView()
     private let toolsHoverView = AnnotationToolsHoverView()
     private let toolChoices = NSStackView()
+    private let toolPreference: AnnotationToolPreference
+    private var pinButtons: [NSButton] = []
     private let actionStrip = NSStackView()
     private let actionsBackground = NSView()
     private let mainBackground = NSView()
@@ -62,6 +65,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private var displayedWidth: CGFloat = SharedAnnotationToolbar.collapsedWidth
     private(set) var recordingSettingsAnchor: NSView?
     private var suppressHoverUntilExit = false
+    private var isRecentToolPressed = false
     private var hoverExitTask: Task<Void, Never>?
 
     let deleteDropButton: DeleteDropButton
@@ -82,8 +86,12 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private let customColorButton: DirectCustomColorButton
     let finishButton: NSButton?
 
-    init(frame: CGRect, showsCaptureActions: Bool, showsFinish: Bool) {
+    init(
+        frame: CGRect, showsCaptureActions: Bool, showsFinish: Bool,
+        toolPreference: AnnotationToolPreference = AnnotationToolPreference()
+    ) {
         self.showsCaptureActions = showsCaptureActions
+        self.toolPreference = toolPreference
         deleteDropButton = DeleteDropButton(target: nil, action: nil)
         undoButton = NSButton(image: NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: L("撤销")) ?? NSImage(), target: nil, action: nil)
         arrowButton = SharedAnnotationToolbar.toolButton("arrow.down.right", tooltip: L("箭头标注"))
@@ -175,18 +183,26 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
 
         recentToolButton = SharedAnnotationToolbar.toolButton("arrow.down.right", tooltip: L("标注工具"))
         recentToolButton.identifier = NSUserInterfaceItemIdentifier("annotation.recent")
+        recentToolButton.isBordered = false
         recentToolButton.target = self; recentToolButton.action = #selector(selectRecentTool)
         recentToolButton.translatesAutoresizingMaskIntoConstraints = false
-        toolChoices.orientation = .vertical; toolChoices.spacing = 6; toolChoices.alignment = .centerX
+        toolChoices.orientation = .vertical; toolChoices.spacing = 3; toolChoices.alignment = .centerX
         toolChoices.translatesAutoresizingMaskIntoConstraints = false
-        [arrowButton, textButton, rectangleButton, ellipseButton, brushButton, mosaicButton].forEach { button in
+        for button in [arrowButton, textButton, rectangleButton, ellipseButton, brushButton, mosaicButton] {
             button.title = button.toolTip ?? ""
             button.imagePosition = .imageLeading
             button.alignment = .left
-            button.font = .systemFont(ofSize: 12, weight: .medium)
-            button.constraints.first { $0.firstAttribute == .width }?.constant = 144
-            toolChoices.addArrangedSubview(button)
+            button.constraints.first { $0.firstAttribute == .width }?.constant = 148
+            button.constraints.first { $0.firstAttribute == .height }?.constant = 34
+            let pin = NSButton(image: NSImage(), target: self, action: #selector(pinDefaultTool(_:)))
+            pin.tag = button.tag
+            pin.identifier = NSUserInterfaceItemIdentifier("annotation.pin")
+            pin.isBordered = false
+            pin.imagePosition = .imageOnly
+            pinButtons.append(pin)
+            toolChoices.addArrangedSubview(AnnotationToolPickerRow(tool: button, pin: pin))
         }
+        updateDefaultToolPins()
         toolChoices.identifier = NSUserInterfaceItemIdentifier("annotation.choices")
         toolChoices.isHidden = true; toolChoices.alphaValue = 0
         toolsHoverView.wantsLayer = true
@@ -194,10 +210,17 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         toolsHoverView.addSubview(recentToolButton)
         pickerContent.wantsLayer = true
         pickerContent.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        pickerContent.layer?.cornerRadius = 12
+        pickerContent.layer?.cornerRadius = 15
         pickerContent.layer?.borderWidth = 1
-        pickerContent.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+        pickerContent.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.45).cgColor
         pickerContent.layer?.masksToBounds = true
+        let pickerMaterial = NSVisualEffectView()
+        pickerMaterial.material = .popover
+        pickerMaterial.blendingMode = .behindWindow
+        pickerMaterial.state = .active
+        pickerMaterial.frame = pickerContent.bounds
+        pickerMaterial.autoresizingMask = [.width, .height]
+        pickerContent.addSubview(pickerMaterial)
         pickerContent.addSubview(toolChoices)
         pickerContent.onEnter = { [weak self] in
             self?.overPicker = true
@@ -216,7 +239,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             recentToolButton.centerXAnchor.constraint(equalTo: toolsHoverView.centerXAnchor),
             recentToolButton.centerYAnchor.constraint(equalTo: toolsHoverView.centerYAnchor),
             toolChoices.centerXAnchor.constraint(equalTo: pickerContent.centerXAnchor),
-            toolChoices.topAnchor.constraint(equalTo: pickerContent.topAnchor, constant: 8)
+            toolChoices.topAnchor.constraint(equalTo: pickerContent.topAnchor, constant: 10)
         ])
         toolsHoverView.onEnter = { [weak self] in self?.beginToolHover() }
         toolsHoverView.onExit = { [weak self] in
@@ -226,10 +249,12 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             self.hoverExpandTask?.cancel()
             self.scheduleHoverClose()
         }
-        recentToolButton.onRightClick = { [weak self] in
-            self?.hoverExpandTask?.cancel()
-            self?.setToolPickerExpanded(true)
+        recentToolButton.onPressChanged = { [weak self] pressed in
+            guard let self else { return }
+            self.isRecentToolPressed = pressed
+            if pressed { self.dismissOptionsForToolSelection() }
         }
+        recentToolButton.onRightClick = { [weak self] in self?.setToolPickerExpanded(true) }
         optionsContent.onEnter = { [weak self] in
             self?.overOptions = true
             self?.hoverExitTask?.cancel()
@@ -340,7 +365,6 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         optionsController.view = optionsContent
         optionsPopover.contentViewController = optionsController
         optionsPopover.behavior = .applicationDefined
-        optionsPopover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if showsCaptureActions {
             NSLayoutConstraint.activate([
                 tools.leadingAnchor.constraint(equalTo: mainBackground.leadingAnchor, constant: 8),
@@ -360,15 +384,12 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
 
     func update(canvas: ScreenshotEditorView?, mode: ScreenshotAnnotationMode, colorTarget: SharedAnnotationColorTarget, hasAnnotations: Bool) {
         currentMode = mode
+        for case let row as AnnotationToolPickerRow in toolChoices.arrangedSubviews {
+            row.isCurrent = row.tool.tag == mode.rawValue
+        }
         let stroke = canvas?.strokeColor ?? .systemRed
-        arrowButton.configure(top: nil, bottom: stroke, selected: mode == .arrow)
-        rectangleButton.configure(top: nil, bottom: stroke, selected: mode == .rectangle)
-        ellipseButton.configure(top: nil, bottom: stroke, selected: mode == .ellipse)
-        brushButton.configure(top: nil, bottom: stroke, selected: mode == .brush)
         brushWidthLabel.isHidden = mode != .brush; brushWidthSlider.isHidden = mode != .brush
         brushWidthSlider.doubleValue = Double(canvas?.brushWidth ?? 4)
-        mosaicButton.configure(top: nil, bottom: nil, selected: mode == .mosaic)
-        textButton.configure(top: canvas?.textColor ?? .white, bottom: canvas?.textBackgroundColor ?? .systemRed, selected: mode == .text)
         let textMode = mode == .text
         textColorButton.isHidden = !textMode; textBackgroundButton.isHidden = !textMode
         fontSizeLabel.isHidden = !textMode; fontSizeSlider.isHidden = !textMode
@@ -407,11 +428,11 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     @objc private func deleteSelected() { onDelete?() }
     @objc private func undo() { onUndo?() }
     @objc private func selectMode(_ sender: NSButton) {
-        let mode = ScreenshotAnnotationMode(rawValue: sender.tag) ?? .arrow
-        hoverExitTask?.cancel()
-        hoverExpandTask?.cancel()
-        suppressHoverUntilExit = true
-        setExpanded(false)
+        activateTool(ScreenshotAnnotationMode(rawValue: sender.tag) ?? .arrow)
+    }
+
+    private func activateTool(_ mode: ScreenshotAnnotationMode) {
+        dismissOptionsForToolSelection()
         onMode?(mode)
         setToolPickerExpanded(false)
     }
@@ -425,8 +446,8 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         hoverExpandTask?.cancel()
         hoverExitTask?.cancel()
         if expanded {
-            overOptions = false
-            setExpanded(false)
+            dismissOptionsForToolSelection()
+            updateDefaultToolPins()
         }
         guard isToolPickerExpanded != expanded else {
             if !expanded && !animated {
@@ -435,6 +456,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
                 pickerPanel?.orderOut(nil)
                 pickerPanel = nil
                 toolChoices.isHidden = true
+                clearToolRowHighlights()
                 overPicker = false
             }
             return
@@ -445,7 +467,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             guard let window else { isToolPickerExpanded = false; return }
             let anchor = window.convertToScreen(recentToolButton.convert(recentToolButton.bounds, to: nil))
             let visible = window.screen?.visibleFrame ?? anchor.insetBy(dx: -500, dy: -500)
-            let size = CGSize(width: 160, height: 238)
+            let size = Self.toolPickerSize
             let x = min(max(anchor.midX - size.width / 2, visible.minX + 8), visible.maxX - size.width - 8)
             let y = anchor.maxY + 8
             let frame = CGRect(x: x, y: min(max(y, visible.minY + 8), visible.maxY - size.height - 8), width: size.width, height: size.height)
@@ -463,7 +485,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         guard let panel = pickerPanel else { return }
         let startFrame = panel.frame
         let startAlpha = panel.alphaValue
-        let targetHeight: CGFloat = expanded ? 238 : 1
+        let targetHeight: CGFloat = expanded ? Self.toolPickerSize.height : 1
         let render = { (progress: CGFloat) in
             panel.setFrame(CGRect(x: startFrame.minX, y: startFrame.minY, width: startFrame.width,
                                   height: startFrame.height + (targetHeight - startFrame.height) * progress), display: true)
@@ -475,6 +497,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
             panel.orderOut(nil)
             self.pickerPanel = nil
             self.toolChoices.isHidden = true
+            self.clearToolRowHighlights()
             self.overPicker = false
             // Resizing/removing the child panel can synthesize tracking events.
             // Do not let those events reopen parameters under a stationary pointer.
@@ -498,14 +521,56 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         }
     }
 
+    @objc private func pinDefaultTool(_ sender: NSButton) {
+        guard let mode = ScreenshotAnnotationMode(rawValue: sender.tag) else { return }
+        toolPreference.mode = mode
+        updateDefaultToolPins()
+        activateTool(mode)
+    }
+
+    private func updateDefaultToolPins() {
+        let defaultTag = toolPreference.mode.rawValue
+        for button in pinButtons {
+            let pinned = button.tag == defaultTag
+            let label = L(pinned ? "默认工具" : "设为默认工具")
+            let row = button.superview as? AnnotationToolPickerRow
+            let toolTitle = row?.tool.title ?? ""
+            row?.isPinned = pinned
+            button.image = NSImage(systemSymbolName: pinned ? "pin.fill" : "pin", accessibilityDescription: label)?
+                .withSymbolConfiguration(.init(pointSize: 12, weight: .medium))
+            button.contentTintColor = pinned ? .controlAccentColor : .secondaryLabelColor
+            button.toolTip = label
+            button.setAccessibilityLabel([toolTitle, label].filter { !$0.isEmpty }.joined(separator: " · "))
+            button.state = pinned ? .on : .off
+        }
+    }
+
+    private func clearToolRowHighlights() {
+        for case let row as AnnotationToolPickerRow in toolChoices.arrangedSubviews {
+            row.setHovered(false)
+        }
+    }
+
+    private var canShowToolOptions: Bool {
+        !isRecentToolPressed && !suppressHoverUntilExit && pickerPanel == nil && !isToolPickerExpanded
+    }
+
+    private func dismissOptionsForToolSelection() {
+        hoverExpandTask?.cancel()
+        hoverExitTask?.cancel()
+        suppressHoverUntilExit = true
+        overOptions = false
+        setExpanded(false, animated: false)
+    }
+
     private func beginToolHover() {
         overTools = true
         hoverExitTask?.cancel()
         hoverExpandTask?.cancel()
-        guard !suppressHoverUntilExit, pickerPanel == nil else { return }
+        guard canShowToolOptions else { return }
         hoverExpandTask = Task { @MainActor [weak self] in
             do { try await Task.sleep(nanoseconds: 300_000_000) } catch { return }
-            guard let self, self.overTools, !self.suppressHoverUntilExit, self.pickerPanel == nil else { return }
+            guard let self, self.overTools, self.canShowToolOptions else { return }
             self.setExpanded(true)
         }
     }
@@ -519,18 +584,24 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         }
     }
     func setExpanded(_ expanded: Bool, animated: Bool = true) {
-        guard !expanded || (pickerPanel == nil && !suppressHoverUntilExit) else { return }
+        guard !expanded || canShowToolOptions else { return }
         isExpanded = expanded
         palette.isHidden = !expanded
         palette.alphaValue = expanded ? 1 : 0
-        if expanded { updateOptionsPopover() }
-        else { optionsPopover.performClose(nil) }
+        if expanded {
+            updateOptionsPopover()
+        } else {
+            optionsPopover.animates = animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            if animated { optionsPopover.performClose(nil) }
+            else { optionsPopover.close() }
+        }
     }
     private func updateOptionsPopover() {
         let width: CGFloat = currentMode == .text ? 560 : (currentMode == .brush ? 450 : 330)
         optionsPopover.contentSize = CGSize(width: width, height: 48)
         guard window?.isVisible == true else { return }
         if !optionsPopover.isShown {
+            optionsPopover.animates = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             optionsPopover.show(relativeTo: recentToolButton.convert(recentToolButton.bounds, to: toolsHoverView), of: toolsHoverView, preferredEdge: .minY)
         }
     }
@@ -542,7 +613,7 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
         suppressHoverUntilExit = false
         setToolPickerExpanded(false, animated: false)
         animateLayout(animated: false)
-        setExpanded(false)
+        setExpanded(false, animated: false)
     }
     private func screenCenter(of view: NSView) -> CGPoint? {
         guard let window else { return nil }
@@ -676,6 +747,99 @@ final class SharedAnnotationToolbar: InstantTooltipToolbarView {
     private static func colorsMatch(_ lhs: NSColor, _ rhs: NSColor) -> Bool {
         guard let a = lhs.usingColorSpace(.deviceRGB), let b = rhs.usingColorSpace(.deviceRGB) else { return lhs == rhs }
         return abs(a.redComponent - b.redComponent) < 0.01 && abs(a.greenComponent - b.greenComponent) < 0.01 && abs(a.blueComponent - b.blueComponent) < 0.01 && abs(a.alphaComponent - b.alphaComponent) < 0.01
+    }
+}
+
+@MainActor
+private final class AnnotationToolPickerRow: NSView {
+    let tool: ToolButton
+    var isCurrent = false { didSet { updateAppearance() } }
+    var isPinned = false { didSet { updateAppearance() } }
+
+    private let icon = NSImageView()
+    private let label: NSTextField
+    private let pin: NSButton
+    private var hoverArea: NSTrackingArea?
+    private var isHovered = false
+
+    init(tool: ToolButton, pin: NSButton) {
+        self.tool = tool
+        self.pin = pin
+        label = NSTextField(labelWithString: tool.title)
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        translatesAutoresizingMaskIntoConstraints = false
+
+        icon.image = tool.image
+        icon.imageScaling = .scaleProportionallyDown
+        icon.symbolConfiguration = .init(pointSize: 15, weight: .medium)
+        label.lineBreakMode = .byTruncatingTail
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        tool.isBordered = false
+        tool.usesPickerStyle = true
+        tool.layer?.backgroundColor = NSColor.clear.cgColor
+        pin.wantsLayer = true
+        pin.layer?.cornerRadius = 6
+
+        for view in [icon, label, tool, pin] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 184),
+            heightAnchor.constraint(equalToConstant: 34),
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 17),
+            icon.heightAnchor.constraint(equalToConstant: 17),
+            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 9),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: tool.trailingAnchor, constant: -4),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            tool.leadingAnchor.constraint(equalTo: leadingAnchor),
+            tool.centerYAnchor.constraint(equalTo: centerYAnchor),
+            pin.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
+            pin.centerYAnchor.constraint(equalTo: centerYAnchor),
+            pin.widthAnchor.constraint(equalToConstant: 26),
+            pin.heightAnchor.constraint(equalToConstant: 26)
+        ])
+        updateAppearance()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited], owner: self)
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateAppearance()
+    }
+
+    override func mouseEntered(with event: NSEvent) { setHovered(true) }
+    override func mouseExited(with event: NSEvent) { setHovered(false) }
+
+    func setHovered(_ hovered: Bool) {
+        isHovered = hovered
+        updateAppearance()
+    }
+
+    private func updateAppearance() {
+        let accent = NSColor.controlAccentColor
+        if isHovered {
+            layer?.backgroundColor = accent.withAlphaComponent(0.18).cgColor
+        } else {
+            layer?.backgroundColor = isCurrent ? NSColor.labelColor.withAlphaComponent(0.08).cgColor : NSColor.clear.cgColor
+        }
+        icon.contentTintColor = isCurrent ? accent : .secondaryLabelColor
+        label.font = .systemFont(ofSize: 13, weight: isCurrent ? .semibold : .medium)
+        label.textColor = .labelColor
+        pin.layer?.backgroundColor = isPinned ? accent.withAlphaComponent(0.13).cgColor : NSColor.clear.cgColor
     }
 }
 

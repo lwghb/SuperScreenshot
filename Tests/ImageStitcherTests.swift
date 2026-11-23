@@ -146,6 +146,34 @@ struct ImageStitcherTests {
         #expect(abs(motion.shift - 80) <= 1)
     }
 
+    @Test func recoversClampedAutomaticStepAndStitchesFinalRows() throws {
+        let document = try #require(makeDirectionalDocument())
+        let first = try #require(document.cropping(to: CGRect(x: 0, y: 0, width: 160, height: 400)))
+        let last = try #require(document.cropping(to: CGRect(x: 0, y: 160, width: 160, height: 400)))
+        let firstWithOverlay = try #require(addFixedOverlay(to: first))
+        let lastWithOverlay = try #require(addFixedOverlay(to: last))
+
+        let motion = try #require(ImageStitcher.detectClampedAutomaticMotion(
+            previous: firstWithOverlay, next: lastWithOverlay, expectedShift: 336
+        ))
+        #expect(motion.shift == 160)
+        let result = try #require(ImageStitcher.stitch([first, last], motions: [motion]))
+        let preview = try #require(ImageStitcher.preview([first, last], motions: [motion], maximumWidth: 160))
+        #expect(pixelsEqual(result, document))
+        #expect(pixelsEqual(preview, document))
+    }
+
+    @Test func clampedAutomaticMatchingRejectsRepeatingAndStationaryFrames() throws {
+        let first = try #require(makeStripedImage(offset: 0))
+        let shifted = try #require(makeStripedImage(offset: -13))
+        #expect(ImageStitcher.detectClampedAutomaticMotion(
+            previous: first, next: shifted, expectedShift: 336
+        ) == nil)
+        #expect(ImageStitcher.detectClampedAutomaticMotion(
+            previous: first, next: first, expectedShift: 336
+        ) == nil)
+    }
+
     @Test func rejectsWrongOrExcessiveAutomaticScrollMotion() {
         #expect(LongCaptureEngine.isPlausibleAutomaticMotion(
             EdgeMotion(direction: .contentMovesUp, shift: 40, score: 0),
@@ -253,6 +281,58 @@ struct ImageStitcherTests {
         #expect(pixelsEqual(result, document))
         let preview = try #require(ImageStitcher.preview(frames, motions: motions, maximumWidth: 160))
         #expect(pixelsEqual(preview, document))
+    }
+
+    @Test func removesVerifiedFixedMarginFromPreviewAndExport() throws {
+        let width = 480
+        let height = 200
+        let shift = 120
+        let documentHeight = height + 2 * shift
+        let documentContext = try #require(CGContext(
+            data: nil, width: width, height: documentHeight, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        documentContext.setFillColor(CGColor(gray: 1, alpha: 1))
+        documentContext.fill(CGRect(x: 0, y: 0, width: width, height: documentHeight))
+        for y in stride(from: 0, to: documentHeight, by: 29) {
+            documentContext.setFillColor(CGColor(gray: 0.35, alpha: 1))
+            documentContext.fill(CGRect(x: 30, y: y, width: 300, height: 4))
+            // Scrolling content reaches the far edge in columns beside the toolbar.
+            documentContext.fill(CGRect(x: 477, y: y, width: 3, height: 4))
+        }
+        let document = try #require(documentContext.makeImage())
+
+        func withToolbar(_ image: CGImage, atTopOffset offset: Int) throws -> CGImage {
+            let context = try #require(CGContext(
+                data: nil, width: width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: image.height))
+            context.setFillColor(CGColor(red: 0.2, green: 0.5, blue: 0.8, alpha: 1))
+            context.fill(CGRect(x: 463, y: image.height - offset - 18, width: 13, height: 18))
+            return try #require(context.makeImage())
+        }
+
+        let frames = try (0..<3).map { index in
+            let viewport = try #require(document.cropping(to: CGRect(
+                x: 0, y: index * shift, width: width, height: height
+            )))
+            return try withToolbar(viewport, atTopOffset: 145)
+        }
+        let motion = EdgeMotion(direction: .contentMovesUp, shift: shift, score: 0)
+        let motions = [motion, motion]
+        let expected = try withToolbar(document, atTopOffset: 145)
+        let result = try #require(ImageStitcher.stitch(frames, motions: motions))
+        let preview = try #require(ImageStitcher.preview(frames, motions: motions, maximumWidth: width))
+        #expect(pixelsEqual(result, expected))
+        #expect(pixelsEqual(preview, expected))
+
+        let twoFrameResult = try #require(ImageStitcher.stitch(Array(frames.prefix(2)), motions: [motion]))
+        let duplicate = try #require(twoFrameResult.cropping(to: CGRect(
+            x: 463, y: shift + 145, width: 13, height: 18
+        )))
+        let original = try #require(frames[0].cropping(to: CGRect(x: 463, y: 145, width: 13, height: 18)))
+        #expect(pixelsEqual(duplicate, original))
     }
 
     private func pixelsEqual(_ a: CGImage, _ b: CGImage) -> Bool {

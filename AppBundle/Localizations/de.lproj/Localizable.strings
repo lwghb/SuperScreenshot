@@ -84,3 +84,5 @@
 "标注工具" = "Anmerkungswerkzeuge";
 
 "预估 %.1f MB" = "Geschätzt %.1f MB";
+"设为默认工具" = "Als Standardwerkzeug festlegen";
+"默认工具" = "Standardwerkzeug";

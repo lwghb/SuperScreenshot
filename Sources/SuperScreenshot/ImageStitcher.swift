@@ -21,6 +21,27 @@ struct EdgeMotion: Equatable {
 enum ImageStitcher {
     private static let edgeBandHeight = 10
 
+    private struct Slice {
+        let image: CGImage
+        let patches: [FixedEdgeCleanup.Patch]
+
+        var height: Int { image.height }
+
+        func draw(in context: CGContext, y: Int, width: Int, height: Int) {
+            context.draw(image, in: CGRect(x: 0, y: y, width: width, height: height))
+            let scale = CGFloat(width) / CGFloat(image.width)
+            context.saveGState()
+            context.interpolationQuality = .none
+            for patch in patches {
+                context.draw(patch.image, in: CGRect(
+                    x: CGFloat(patch.x) * scale, y: CGFloat(y),
+                    width: CGFloat(patch.image.width) * scale, height: CGFloat(height)
+                ))
+            }
+            context.restoreGState()
+        }
+    }
+
     static func isNearlyIdentical(_ a: CGImage, _ b: CGImage) -> Bool {
         guard let x = sample(a), let y = sample(b), x.count == y.count else { return false }
         var totalDifference = 0
@@ -100,7 +121,7 @@ enum ImageStitcher {
         var y = totalHeight
         for slice in slices {
             y -= slice.height
-            ctx.draw(slice, in: CGRect(x: 0, y: y, width: width, height: slice.height))
+            slice.draw(in: ctx, y: y, width: width, height: slice.height)
         }
         return ctx.makeImage()
     }
@@ -129,14 +150,15 @@ enum ImageStitcher {
         var y = totalHeight
         for (slice, height) in zip(slices, heights) {
             y -= height
-            context.draw(slice, in: CGRect(x: 0, y: y, width: width, height: height))
+            slice.draw(in: context, y: y, width: width, height: height)
         }
         return context.makeImage()
     }
 
-    private static func slices(from frames: [CGImage], motions: [EdgeMotion]) -> [CGImage] {
+    private static func slices(from frames: [CGImage], motions: [EdgeMotion]) -> [Slice] {
         guard let first = frames.first else { return [] }
-        var slices: [CGImage] = [first]
+        let cleanup = FixedEdgeCleanup(frames: frames, motions: motions)
+        var slices = [Slice(image: first, patches: [])]
         // Document coordinates are relative to the initial viewport. A reverse
         // scroll changes the viewport position, not the captured document's end.
         var viewportTop = 0
@@ -155,12 +177,12 @@ enum ImageStitcher {
             let newBottomRows = min(next.height, max(0, viewportBottom - coveredBottom))
             if newTopRows > 0,
                let slice = next.cropping(to: CGRect(x: 0, y: 0, width: next.width, height: newTopRows)) {
-                slices.insert(slice, at: 0)
+                slices.insert(Slice(image: slice, patches: cleanup?.patches(for: next) ?? []), at: 0)
                 coveredTop = viewportTop
             }
             if newBottomRows > 0,
                let slice = next.cropping(to: CGRect(x: 0, y: next.height - newBottomRows, width: next.width, height: newBottomRows)) {
-                slices.append(slice)
+                slices.append(Slice(image: slice, patches: cleanup?.patches(for: next) ?? []))
                 coveredBottom = viewportBottom
             }
         }
@@ -287,7 +309,10 @@ enum ImageStitcher {
             // a realistic 25% deviation before treating the changed frame as
             // unusable.
             let tolerance = max(80, expectedShift / 4)
-            candidateShifts = max(8, expectedShift - tolerance)...min(maximumShift, expectedShift + tolerance)
+            let lowerBound = max(8, expectedShift - tolerance)
+            let upperBound = min(maximumShift, expectedShift + tolerance)
+            guard lowerBound <= upperBound else { return nil }
+            candidateShifts = lowerBound...upperBound
         } else {
             candidateShifts = 8...min(160, maximumShift)
         }
@@ -331,6 +356,64 @@ enum ImageStitcher {
             return nil
         }
         return EdgeMotion(direction: .contentMovesUp, shift: bestShift, score: bestScore)
+    }
+
+    /// At the end of a scrollable area the wheel event can move the document
+    /// much less than requested. Match multiple parts of the actual overlap,
+    /// requiring each matching band to have moved relative to the viewport.
+    static func detectClampedAutomaticMotion(
+        previous: CGImage,
+        next: CGImage,
+        expectedShift: Int
+    ) -> EdgeMotion? {
+        let height = min(previous.height, next.height)
+        let width = min(96, min(previous.width, next.width))
+        let leastOverlap = 64
+        let maximumShift = min(expectedShift, height - leastOverlap)
+        guard maximumShift >= 1,
+              let previousPixels = verticalSample(previous, width: width, height: height),
+              let nextPixels = verticalSample(next, width: width, height: height) else { return nil }
+
+        let bandCount = 8
+        var matches: [EdgeMotion] = []
+        for shift in 1...maximumShift {
+            let overlap = height - shift
+            let bandHeight = min(24, overlap / bandCount)
+            var scores: [Double] = []
+            for index in 0..<bandCount {
+                let start = (2 * index + 1) * overlap / (2 * bandCount) - bandHeight / 2
+                let aligned = anchorScore(
+                    anchorImage: previousPixels, candidateImage: nextPixels, width: width,
+                    anchorStartRow: start + shift, candidateStartRow: start, anchorHeight: bandHeight
+                )
+                guard aligned <= 4 else { continue }
+                let unshifted = anchorScore(
+                    anchorImage: previousPixels, candidateImage: nextPixels, width: width,
+                    anchorStartRow: start + shift, candidateStartRow: start + shift, anchorHeight: bandHeight
+                )
+                guard unshifted - aligned >= 5 else { continue }
+                // Two unrelated whitespace bands can look identical after a
+                // shift. Require vertical detail inside the aligned band.
+                let texture = anchorScore(
+                    anchorImage: previousPixels, candidateImage: previousPixels, width: width,
+                    anchorStartRow: start + shift, candidateStartRow: start + shift + 3,
+                    anchorHeight: bandHeight - 3
+                )
+                if texture >= 1.25 { scores.append(aligned) }
+            }
+            guard scores.count >= 2 else { continue }
+            let strongest = scores.sorted().prefix(2)
+            matches.append(EdgeMotion(
+                direction: .contentMovesUp, shift: shift, score: strongest.reduce(0, +) / 2
+            ))
+        }
+
+        guard let best = matches.min(by: { $0.score < $1.score }),
+              !matches.contains(where: { alternative in
+                  let distance = abs(alternative.shift - best.shift)
+                  return distance > 0 && alternative.score - best.score < (distance <= 2 ? 0.04 : 0.35)
+              }) else { return nil }
+        return best
     }
 
     static func bestMatch(previous: CGImage, next: CGImage) -> OverlapMatch {

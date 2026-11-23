@@ -10,6 +10,16 @@ enum ScreenshotAnnotationMode: Int, CaseIterable {
     case brush = 5
 }
 
+struct AnnotationToolPreference {
+    private static let key = "annotation.defaultTool"
+    var defaults: UserDefaults = .standard
+
+    var mode: ScreenshotAnnotationMode {
+        get { ScreenshotAnnotationMode(rawValue: defaults.integer(forKey: Self.key)) ?? .arrow }
+        nonmutating set { defaults.set(newValue.rawValue, forKey: Self.key) }
+    }
+}
+
 private enum ColorTarget {
     case stroke
     case text

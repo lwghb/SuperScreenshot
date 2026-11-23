@@ -141,6 +141,7 @@ struct RecordingToolbarInteractionTests {
         let text = try #require(descendants(choices).compactMap { $0 as? ToolButton }.first { $0.tag == ScreenshotAnnotationMode.text.rawValue })
         let event = try #require(NSEvent.mouseEvent(with: .mouseMoved, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
         #expect(!toolbar.isExpanded && !toolbar.isToolPickerExpanded)
+        #expect(!recent.isBordered && recent.layer?.borderWidth == 0)
         hover.mouseEntered(with: event)
         try await Task.sleep(nanoseconds: 150_000_000)
         #expect(!toolbar.isExpanded)
@@ -158,10 +159,10 @@ struct RecordingToolbarInteractionTests {
         let panel = try #require(toolbar.toolPickerContentView.window)
         try await Task.sleep(nanoseconds: 80_000_000)
         if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            #expect(panel.frame.height > 1 && panel.frame.height < 238)
+            #expect(panel.frame.height > 1 && panel.frame.height < SharedAnnotationToolbar.toolPickerSize.height)
         }
         try await Task.sleep(nanoseconds: 200_000_000)
-        #expect(panel.frame.height == 238 && panel.frame.minY >= originalFrame.maxY)
+        #expect(panel.frame.size == SharedAnnotationToolbar.toolPickerSize && panel.frame.minY >= originalFrame.maxY)
         #expect(window.frame == originalFrame && !recent.isHidden)
         #expect(!choices.isHidden)
         let choiceButtons = descendants(choices).compactMap { $0 as? ToolButton }
@@ -175,6 +176,10 @@ struct RecordingToolbarInteractionTests {
             #expect(abs(pair.0.midX - pair.1.midX) < 1)
         }
         try capture(toolbar.toolPickerContentView, to: "/tmp/SuperScreenshot-upward-tool-picker.png")
+        let hoveredRow = try #require(text.superview)
+        hoveredRow.mouseEntered(with: event)
+        try capture(toolbar.toolPickerContentView, to: "/tmp/SuperScreenshot-upward-tool-picker-hover.png")
+        hoveredRow.mouseExited(with: event)
         hover.mouseExited(with: event)
         toolbar.toolPickerContentView.mouseEntered(with: event)
         try await Task.sleep(nanoseconds: 250_000_000)
@@ -189,7 +194,7 @@ struct RecordingToolbarInteractionTests {
         #expect(!toolbar.isExpanded)
         try await Task.sleep(nanoseconds: 80_000_000)
         if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            #expect(panel.frame.height > 1 && panel.frame.height < 238)
+            #expect(panel.frame.height > 1 && panel.frame.height < SharedAnnotationToolbar.toolPickerSize.height)
         }
         for _ in 0..<24 {
             try await Task.sleep(nanoseconds: 16_000_000)
@@ -226,6 +231,82 @@ struct RecordingToolbarInteractionTests {
         toolbar.closeTransientUI()
         try await Task.sleep(nanoseconds: 350_000_000)
         #expect(!toolbar.isExpanded)
+    }
+
+    @Test func pressingCurrentToolImmediatelyClosesPreviouslyShownParameters() async throws {
+        let toolbar = SharedAnnotationToolbar(frame: CGRect(x: 0, y: 0, width: 348, height: 48), showsCaptureActions: true, showsFinish: true)
+        let screen = try #require(NSScreen.main)
+        let window = NSWindow(
+            contentRect: CGRect(x: screen.visibleFrame.midX - 174, y: screen.visibleFrame.midY - 120, width: 348, height: 48),
+            styleMask: [.borderless], backing: .buffered, defer: false
+        )
+        window.contentView = toolbar
+        defer { toolbar.closeTransientUI(); window.orderOut(nil) }
+        toolbar.update(canvas: nil, mode: .brush, colorTarget: .stroke, hasAnnotations: false)
+        toolbar.layoutSubtreeIfNeeded()
+
+        let hover = try #require(descendants(toolbar).first { $0.identifier?.rawValue == "annotation.hover" })
+        let recent = try #require(descendants(toolbar).compactMap { $0 as? ToolButton }.first { $0.identifier?.rawValue == "annotation.recent" })
+        let event = try #require(NSEvent.mouseEvent(with: .mouseMoved, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
+        hover.mouseEntered(with: event)
+        try await Task.sleep(nanoseconds: 550_000_000)
+        #expect(toolbar.isExpanded)
+        recent.onPressChanged?(true)
+        #expect(!toolbar.isExpanded)
+        hover.mouseExited(with: event)
+        hover.mouseEntered(with: event)
+        try await Task.sleep(nanoseconds: 350_000_000)
+        #expect(!toolbar.isExpanded)
+        recent.performClick(nil)
+        recent.onPressChanged?(false)
+        #expect(toolbar.isToolPickerExpanded)
+        try await Task.sleep(nanoseconds: 350_000_000)
+        #expect(!toolbar.isExpanded)
+    }
+
+    @Test func pinningPersistsAndActivatesTheDefaultTool() throws {
+        let suite = "SuperScreenshotTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preference = AnnotationToolPreference(defaults: defaults)
+        let toolbar = SharedAnnotationToolbar(
+            frame: CGRect(x: 0, y: 0, width: 348, height: 48), showsCaptureActions: true,
+            showsFinish: true, toolPreference: preference
+        )
+        let window = NSWindow(contentRect: toolbar.bounds, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = toolbar
+        defer { toolbar.closeTransientUI(); window.orderOut(nil) }
+        toolbar.update(canvas: nil, mode: .arrow, colorTarget: .stroke, hasAnnotations: false)
+        var selectedMode: ScreenshotAnnotationMode?
+        toolbar.onMode = { [weak toolbar] mode in
+            selectedMode = mode
+            toolbar?.update(canvas: nil, mode: mode, colorTarget: .stroke, hasAnnotations: false)
+        }
+        let recent = try #require(descendants(toolbar).compactMap { $0 as? ToolButton }.first { $0.identifier?.rawValue == "annotation.recent" })
+        toolbar.setToolPickerExpanded(true, animated: false)
+        let picker = toolbar.toolPickerContentView
+        let pins = descendants(picker).compactMap { $0 as? NSButton }.filter { $0.identifier?.rawValue == "annotation.pin" }
+        #expect(pins.count == ScreenshotAnnotationMode.allCases.count)
+        let brushPin = try #require(pins.first { $0.tag == ScreenshotAnnotationMode.brush.rawValue })
+        let arrowPin = try #require(pins.first { $0.tag == ScreenshotAnnotationMode.arrow.rawValue })
+        let row = try #require(brushPin.superview)
+        let event = try #require(NSEvent.mouseEvent(with: .mouseMoved, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 0, pressure: 0))
+        #expect(arrowPin.state == .on && brushPin.state == .off)
+        let idleBackground = row.layer?.backgroundColor
+        row.mouseEntered(with: event)
+        #expect(row.layer?.backgroundColor != idleBackground)
+        row.mouseExited(with: event)
+        #expect(row.layer?.backgroundColor == idleBackground)
+        brushPin.performClick(nil)
+        #expect(AnnotationToolPreference(defaults: defaults).mode == .brush)
+        #expect(arrowPin.state == .off && brushPin.state == .on)
+        #expect(selectedMode == .brush && recent.tag == ScreenshotAnnotationMode.brush.rawValue)
+        #expect(!toolbar.isToolPickerExpanded && !toolbar.isExpanded)
+        toolbar.setToolPickerExpanded(true, animated: false)
+        let text = try #require(descendants(picker).compactMap { $0 as? ToolButton }.first { $0.tag == ScreenshotAnnotationMode.text.rawValue })
+        text.performClick(nil)
+        #expect(selectedMode == .text)
+        #expect(preference.mode == .brush)
     }
 
     private func capture(_ toolbar: NSView, to path: String) throws {

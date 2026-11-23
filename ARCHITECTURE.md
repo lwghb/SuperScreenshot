@@ -20,6 +20,10 @@
 
 `CaptureCoordinator.startLongCapture()` → `LongCaptureEngine` → `ImageStitcher` → 长截图状态与预览 → `ScreenshotEditorController`
 
+`ImageStitcher` 的预览和导出共用切片及绘制逻辑。`FixedEdgeCleanup` 在三个不同的视口位置按像素核对两侧边缘，要求背景色占多数、整列图案在屏幕坐标上固定，并在按正文位移对齐后确实发生变化。符合条件的列只在后续切片仍吻合时才用实测背景色绘制。
+
+自动滚动优先按请求步长附近的重叠区匹配。常规匹配失效时，`ImageStitcher.detectClampedAutomaticMotion` 在滚动方向上扩大范围，要求至少两段内容随页面移动且匹配位移无歧义。`LongCaptureEngine` 在连续两次采样确认位移及新增边缘稳定后才追加尾段。
+
 ### 录屏
 
 `DirectAnnotationController`（齿轮预设/一键开始） → `RecordingToolbarController` → `ScreenRecorder` → `RecordingEditorController` → 保存或剪贴板
@@ -60,9 +64,11 @@
 - 自由画笔在 `ScreenshotEditorView` 中记录输出像素坐标、颜色和笔宽；输入按视图缩放换算笔宽，预览与导出共用渲染分支。画笔模式优先新增笔画，其他形状工具可命中笔画并整体移动；自由笔画不提供缩放手柄。
 - `SharedAnnotationToolbar` 提供画笔与粗细控件；独立长截图编辑器同步提供入口。笔宽默认 4 pt，范围 1–24 pt，仅保存在当前编辑会话。
 
-- `AnnotationToolsHoverView` 负责当前工具、工具面板及参数区域的悬停。当前工具移入后启动可取消的 300 ms 参数显示任务，提前退出取消；点击或右击打开工具选择，展开时统一关闭参数气泡。离开全部区域后延迟 180 ms 收起，选择后保持参数关闭，重新移入当前工具才计时显示。
+- `AnnotationToolsHoverView` 负责当前工具、工具面板及参数区域的悬停。当前工具移入后启动可取消的 300 ms 参数显示任务，提前退出取消；当前工具按钮按下时，`SharedAnnotationToolbar` 立即取消悬停计时并无动画关闭参数气泡；按钮按住、工具选择和面板动画期间禁止重新显示，右击及键盘打开也统一关闭参数。离开全部区域后延迟 180 ms 收起，选择后保持参数关闭，重新移入当前工具才计时显示。
 - 参数使用 `NSPopover`；竖排工具选择使用当前工具上方的独立非激活子 `NSPanel`，`pickerAnimationTask` 用 220 ms smoothstep 插值面板高度及透明度，支持快速反向及减少动态效果。收回动画期间保留 `pickerPanel` 作为参数显示屏障，忽略窗口尺寸变化触发的进入/退出事件；动画结束按真实鼠标位置恢复悬停状态，鼠标仍位于当前工具时须移出再移入。主工具栏不移动，面板位置限制在屏幕可见范围。`toolPickerContentView` 提供交互测试入口。
-- 主条高度 48 pt、初始宽 348 pt，有标注时向左增加 94 pt（86 × 48 pt 操作胶囊 + 8 pt 间距）；工具面板为 160 × 238 pt，每行 144 pt 宽，显示图标和本地化名称，不增加主条宽度。录屏与长截图与底板融合，完成按钮为深绿色，工具选中使用浅蓝背景，无外发光。
+- 主条高度 48 pt、初始宽 348 pt，有标注时向左增加 94 pt（86 × 48 pt 操作胶囊 + 8 pt 间距）；工具面板为 204 × 239 pt，使用半透明材质。
+- `AnnotationToolPickerRow` 将工具图标、名称和图钉分列布局，并单独绘制当前、悬停与默认状态。工具按钮和图钉使用独立点击区域，面板不增加主条宽度。录屏与长截图与底板融合，完成按钮为深绿色，当前工具按钮以浅蓝背景标记选中状态，关闭按钮的系统边框。
+- `AnnotationToolPreference` 使用 `UserDefaults` 的 `annotation.defaultTool` 保存默认图钉，实时截图、长截图编辑器和录屏标注初始化时读取同一偏好。图钉保存后调用与点选工具相同的 `activateTool`，切换当前工具并收起面板。
 - `closeTransientUI()` 在完成、录屏、长截图、关闭或隐藏编辑器时取消悬停任务并立即关闭工具面板与参数气泡，避免临时 UI 泄漏进下一状态。
 - `RecordingToolbarController` 在录制中按时间与视频/音频码率计算累计 MB 估算；与设置中的每分钟大小估算分开显示，不代表文件实测大小。
 

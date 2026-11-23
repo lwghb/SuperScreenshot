@@ -56,7 +56,9 @@ final class DirectAnnotationController: NSObject {
             imagePadding: 0
         )
         canvasView.autoresizingMask = [.width, .height]
-        canvasView.mode = .arrow
+        mode = AnnotationToolPreference().mode
+        colorTarget = mode == .text ? .textBackground : .stroke
+        canvasView.mode = mode
         canvasView.showsImageBorder = false
         canvasView.strokeColor = loadColor("annotation.strokeColor", fallback: .systemRed)
         canvasView.textColor = loadColor("annotation.textColor", fallback: .white)
@@ -1127,7 +1129,20 @@ private enum DirectColorTarget {
 
 final class ToolButton: NSButton {
     var usesCompactStyle = false
+    var usesPickerStyle = false
+    var onPressChanged: ((Bool) -> Void)?
     var onRightClick: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        guard isEnabled, let onPressChanged else {
+            super.mouseDown(with: event)
+            return
+        }
+        onPressChanged(true)
+        defer { onPressChanged(false) }
+        super.mouseDown(with: event)
+    }
+
     override func rightMouseDown(with event: NSEvent) {
         if let onRightClick { onRightClick() } else { super.rightMouseDown(with: event) }
     }
@@ -1135,6 +1150,7 @@ final class ToolButton: NSButton {
     private var bottomColor: NSColor?
 
     func configure(top: NSColor?, bottom: NSColor?, selected: Bool) {
+        guard !usesPickerStyle else { return }
         topColor = top
         bottomColor = bottom
         wantsLayer = true
@@ -1174,6 +1190,7 @@ final class ToolButton: NSButton {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        guard !usesPickerStyle else { return }
         super.draw(dirtyRect)
         guard !usesCompactStyle else { return }
         drawBar(color: topColor, y: bounds.minY + 4)

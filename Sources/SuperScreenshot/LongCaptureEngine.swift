@@ -52,6 +52,7 @@ final class LongCaptureEngine: @unchecked Sendable {
         // before the first one had produced a recognisable frame, so the page
         // kept moving while the preview stopped growing.
         var automaticWaitSamples = 0
+        var clampedCandidate: (image: CGImage, shift: Int)?
 
         while true {
             let status = await control.status
@@ -79,6 +80,7 @@ final class LongCaptureEngine: @unchecked Sendable {
             } else {
                 waitingForAutomaticFrame = false
                 automaticWaitSamples = 0
+                clampedCandidate = nil
             }
 
             // The wheel pulse animation completes before this point.  Do not
@@ -88,6 +90,7 @@ final class LongCaptureEngine: @unchecked Sendable {
             try await Task.sleep(nanoseconds: captureDelay)
             let current = try await session.capture()
             if ImageStitcher.isNearlyIdentical(frames.last!, current) {
+                clampedCandidate = nil
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 if status.isAutoScrolling, waitingForAutomaticFrame {
                     automaticWaitSamples += 1
@@ -97,13 +100,33 @@ final class LongCaptureEngine: @unchecked Sendable {
                 }
                 continue
             }
-            let detectedMotion = status.isAutoScrolling
-                ? ImageStitcher.detectAutomaticMotion(
-                    previous: frames.last!,
-                    next: current,
-                    expectedShift: automaticExpectedShift
-                )
-                : ImageStitcher.detectEdgeMotion(previous: frames.last!, next: current)
+            let previous = frames.last!
+            var detectedMotion: EdgeMotion?
+            if status.isAutoScrolling {
+                if let regular = ImageStitcher.detectAutomaticMotion(
+                    previous: previous, next: current, expectedShift: automaticExpectedShift
+                ), Self.isPlausibleAutomaticMotion(
+                    regular, expectedShift: automaticExpectedShift, maximumShift: previous.height - 64
+                ) {
+                    detectedMotion = regular
+                    clampedCandidate = nil
+                } else if let clamped = ImageStitcher.detectClampedAutomaticMotion(
+                    previous: previous, next: current, expectedShift: automaticExpectedShift
+                ) {
+                    if let pending = clampedCandidate, pending.shift == clamped.shift,
+                       ImageStitcher.relevantEdgeIsStable(pending.image, current, direction: .contentMovesUp) {
+                        detectedMotion = clamped
+                        clampedCandidate = nil
+                        CaptureDiagnostics.longCapture("automatic confirmed clamped step shift=\(clamped.shift)")
+                    } else {
+                        clampedCandidate = (current, clamped.shift)
+                    }
+                } else {
+                    clampedCandidate = nil
+                }
+            } else {
+                detectedMotion = ImageStitcher.detectEdgeMotion(previous: previous, next: current)
+            }
             guard let motion = detectedMotion else {
                 if status.isAutoScrolling, waitingForAutomaticFrame {
                     automaticWaitSamples += 1
@@ -114,21 +137,6 @@ final class LongCaptureEngine: @unchecked Sendable {
                 if candidate != nil {
                     CaptureDiagnostics.longCapture("discard pending frame: no reliable motion")
                 }
-                candidate = nil; candidateMotion = nil; candidateStableSamples = 0
-                continue
-            }
-            // Automatic scrolling always moves the page content upward. Reject
-            // ambiguous reverse matches and implausibly large jumps instead of
-            // inserting them at the beginning of the stitched document.
-            if status.isAutoScrolling,
-               !Self.isPlausibleAutomaticMotion(
-                    motion,
-                    expectedShift: automaticExpectedShift,
-                    maximumShift: frames.last!.height - 20
-               ) {
-                CaptureDiagnostics.longCapture(
-                    "reject automatic motion direction=\(motion.direction) shift=\(motion.shift) score=\(motion.score)"
-                )
                 candidate = nil; candidateMotion = nil; candidateStableSamples = 0
                 continue
             }

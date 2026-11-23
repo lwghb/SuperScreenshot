@@ -454,8 +454,10 @@ final class RecordingEditorController: NSObject, NSWindowDelegate {
     @objc private func beginAnnotationEditing() {
         setAnnotationEditorExpanded(true)
         setAnnotationToolbarVisible(true)
-        annotationOverlayView?.mode = .arrow
-        colorTarget = .stroke
+        let mode = AnnotationToolPreference().mode
+        annotationOverlayView?.mode = mode
+        colorTarget = mode == .text ? .textBackground : .stroke
+        if mode == .mosaic { refreshMosaicSource() }
         updateTextControls()
     }
 

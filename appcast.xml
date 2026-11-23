@@ -6,6 +6,21 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>SuperScreenshot</title>
         <item>
+            <title>2.0.96</title>
+            <pubDate>Mon, 23 Nov 2026 16:42:51 +0800</pubDate>
+            <link>https://github.com/lwghb/SuperScreenshot</link>
+            <sparkle:version>303</sparkle:version>
+            <sparkle:shortVersionString>2.0.96</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[优化上拉标注工具列表。图标、工具名称和图钉分列对齐，悬停时高亮整行；点击图钉会立即选中该工具，并设为下次标注的默认工具。
+
+修复打开工具列表时色卡偶尔闪现的问题，并去掉主工具栏当前工具图标周围的浅色描边。
+
+修复自动长截图滚到页底时最后一段漏拼的问题，并减少纯色侧边留白上的固定工具栏重复。
+]]></description>
+            <enclosure url="https://github.com/lwghb/SuperScreenshot/releases/download/v2.0.96/SuperScreenshot-v2.0.96-Universal.zip" length="3167803" type="application/octet-stream" sparkle:edSignature="bz2KrwT4UAQnDUAI2gnkceLj9y+2r9SESdeZCCNcOsSSAH0GLDd1go0lkN1jzDDDm4Equ4C2cuDA6xyjA0ECAQ=="/>
+        </item>
+        <item>
             <title>2.0.95</title>
             <pubDate>Thu, 29 Oct 2026 17:44:42 +0800</pubDate>
             <link>https://github.com/lwghb/SuperScreenshot</link>
@@ -47,6 +62,6 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: Jwii6j4MfzxAKeTzNJkUzbIpDFSwaVzBrhJ7M0VQ/bBVKinRpZ/C+M8+Oj0Ko1LrNEcot9PhmA1zbZo4KY0bCw==
-length: 3787
+edSignature: oG/Cd5m63MFfQW4ZHBKq9vFsdA5qGuxDTI7X+zHBDj7n2DjMPRx+V6bSzEfOyMBKWDDH/FcQjXyYN+eXr2xFAw==
+length: 4988
 -->
